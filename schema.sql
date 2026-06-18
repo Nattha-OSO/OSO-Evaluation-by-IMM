@@ -85,3 +85,14 @@ create unique index if not exists staff_name_norm_uidx
   on public.staff  (lower(regexp_replace(btrim(name), '\s+', ' ', 'g')));
 create unique index if not exists shifts_name_norm_uidx
   on public.shifts (lower(regexp_replace(btrim(name), '\s+', ' ', 'g')));
+
+-- ============================================================
+--  เปิด Realtime — ให้แดชบอร์ด/สรุป/รายงาน อัปเดตสดทันทีที่มีการประเมินหรือนำเข้า
+--  (รันได้ซ้ำ ไม่ error ถ้าเปิดไว้แล้ว)
+-- ============================================================
+do $$
+begin
+  begin alter publication supabase_realtime add table public.evaluations; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.staff;       exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.shifts;      exception when duplicate_object then null; end;
+end $$;

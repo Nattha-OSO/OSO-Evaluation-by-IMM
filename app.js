@@ -50,7 +50,7 @@ let sb = null;
 function hideAll(){['public','login','resetpw'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
 function gotoLogin(){showLogin();}
-function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();}
+function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();startRealtime();}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
 
 window.onload = async function(){
@@ -209,6 +209,21 @@ async function refresh(){
   try{data=await loadData();hydrateUser();render();}
   catch(e){toast((e&&e.message)||'โหลดข้อมูลไม่สำเร็จ',true);$('content').innerHTML='<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>';}
 }
+// โหลดข้อมูลล่าสุดเงียบ ๆ (ใช้ก่อนสร้างรายงาน เพื่อให้เป็นปัจจุบันเสมอ)
+async function ensureFresh(){try{data=await loadData();}catch(e){}}
+// Realtime: อัปเดตแดชบอร์ด/สรุปทันทีเมื่อมีการประเมินใหม่ หรือมีการเพิ่ม/ลบรายชื่อ
+let realtimeOn=false,liveT;
+function startRealtime(){
+  if(!sb||realtimeOn)return;realtimeOn=true;
+  try{
+    sb.channel('oso-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'evaluations'},liveRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'staff'},liveRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'shifts'},liveRefresh)
+      .subscribe();
+  }catch(e){}
+}
+function liveRefresh(){clearTimeout(liveT);liveT=setTimeout(async()=>{try{data=await loadData();if(['dashboard','evaluations','people','insights'].indexOf(view)>=0)render();toast('อัปเดตข้อมูลล่าสุดแล้ว');}catch(e){}},800);}
 function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();}
 function showView(v,btn){if(v==='users'&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();}
 function toggleSide(){$('side').classList.toggle('open');}
@@ -447,7 +462,8 @@ async function saveEval(){
 async function deleteEval(id){if(!confirm('ลบผลประเมินรายการนี้?'))return;const {error}=await sb.from('evaluations').delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');refresh();}
 
 // ---------- ส่งออก CSV ----------
-function exportCSV(){
+async function exportCSV(){
+  await ensureFresh();
   const head=['เวลา','ผลัด/ผู้ประเมิน','เจ้าหน้าที่'].concat(criteria.map(c=>c.shortTitle),['คะแนนเฉลี่ย','ข้อเสนอแนะ']);
   const rows=data.records.map(r=>[r.timestamp,r.evaluator,r.staff].concat(criteria.map(c=>r.scores[c.key].value||''),[fmt(r.avg),r.comment||'']));
   const csv=[head].concat(rows).map(row=>row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
@@ -498,6 +514,7 @@ async function exportDOCX(){
   if(typeof JSZip==='undefined')return toast('โหลด JSZip ไม่สำเร็จ',true);
   const now=new Date(),def=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const ym=prompt('รายงานประจำเดือน (YYYY-MM)',def);if(ym===null)return;
+  await ensureFresh();
   const period=reportPeriod(ym||def);
   const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=period.start&&d<period.end;});
   const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
@@ -545,8 +562,13 @@ async function exportDOCX(){
 /* ============================================================
    รายงานรายเจ้าหน้าที่ (PDF ผ่านการพิมพ์ของเบราว์เซอร์)
    ============================================================ */
-function downloadPdf(name){
-  const p=data.people.find(x=>x.name===name);if(!p)return toast('ไม่พบเจ้าหน้าที่',true);
+async function downloadPdf(name){
+  const w=window.open('','_blank');
+  if(!w)return toast('เบราว์เซอร์บล็อก popup — อนุญาตก่อนแล้วลองใหม่',true);
+  try{w.document.write('<!DOCTYPE html><meta charset="UTF-8"><body style="font-family:Tahoma,sans-serif;padding:24px;color:#334">กำลังเตรียมรายงานฉบับล่าสุด...</body>');}catch(_){}
+  await ensureFresh();
+  const p=data.people.find(x=>x.name===name);
+  if(!p){try{w.close();}catch(_){}return toast('ไม่พบเจ้าหน้าที่',true);}
   const comments=data.records.filter(r=>r.staff===name&&r.comment).slice(0,5);
   const rowsHtml=criteria.map(c=>'<tr><td>'+esc(c.shortTitle)+'</td><td style="text-align:center">'+fmt(p.criteria[c.key])+'</td><td style="text-align:center">'+esc(scoreBand(p.criteria[c.key]))+'</td></tr>').join('');
   const cHtml=comments.length?comments.map(r=>'<li>'+esc(r.timestamp)+' — '+esc(r.comment)+'</li>').join(''):'<li style="color:#888">ยังไม่มีข้อเสนอแนะ</li>';
@@ -558,6 +580,5 @@ function downloadPdf(name){
     '<h2>ข้อเสนอแนะล่าสุด</h2><ul>'+cHtml+'</ul>'+
     '<p style="color:#888;font-size:12px;margin-top:24px">จัดทำเมื่อ '+new Date().toLocaleString('th-TH')+' — กด Ctrl+P เพื่อบันทึกเป็น PDF</p>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>';
-  const w=window.open('','_blank');if(!w)return toast('เบราว์เซอร์บล็อก popup — อนุญาตก่อนแล้วลองใหม่',true);
-  w.document.write(html);w.document.close();
+  w.document.open();w.document.write(html);w.document.close();
 }
