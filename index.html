@@ -46,6 +46,10 @@
   .btn:hover{background:var(--panel2);border-color:var(--primary);color:var(--primary-d)}
   .btn.primary{background:linear-gradient(135deg,var(--primary),var(--primary-d));color:#fff;border-color:transparent;box-shadow:0 8px 20px rgba(37,99,235,.26)}
   .btn.primary:hover{filter:brightness(1.06);color:#fff;border-color:transparent}
+  .btn.ok{background:linear-gradient(135deg,#16a34a,#15803d)!important;color:#fff;border-color:transparent;box-shadow:0 8px 20px rgba(22,163,74,.3)}
+  .btn-spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:7px}
+  @keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+  .shake{animation:shake .4s}
   .btn.danger{color:#c0264a;border-color:#f3c9d4;background:#fff5f7}.btn.danger:hover{background:#fee2e8;border-color:#e88aa0;color:#a01437}
   .btn.icon{width:38px;padding:0}.btn:disabled{opacity:.55;cursor:not-allowed}.mobile{display:none}
   .grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}.dash{grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr)}
@@ -246,9 +250,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=8"></script>
+<script src="config.js?v=9"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

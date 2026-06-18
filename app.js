@@ -134,19 +134,25 @@ function loginErrorText(error){const m=String(error&&error.message||'').toLowerC
   if(m.indexOf('failed to fetch')>=0||m.indexOf('networkerror')>=0||m.indexOf('load failed')>=0)return 'เชื่อมต่อเซิร์ฟเวอร์ Supabase ไม่ได้ — ตรวจอินเทอร์เน็ต/VPN หรือค่าใน config.js';
   return 'เข้าสู่ระบบไม่สำเร็จ: '+(error&&error.message||'ไม่ทราบสาเหตุ');
 }
+function setLoginBtn(state){
+  const b=$('loginBtn');if(!b)return;
+  if(state==='loading'){b.disabled=true;b.classList.remove('ok');b.innerHTML='<span class="btn-spin"></span>กำลังเข้าสู่ระบบ...';}
+  else if(state==='ok'){b.disabled=true;b.classList.add('ok');b.innerHTML='&#10003; เข้าสู่ระบบสำเร็จ';}
+  else{b.disabled=false;b.classList.remove('ok');b.textContent='เข้าสู่ระบบ';}
+}
+function shakeLogin(){const c=document.querySelector('#login .login-card');if(c){c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake');}}
 async function doLogin(e){
   e.preventDefault();
   const eb=$('loginError');if(eb){eb.classList.add('hidden');eb.textContent='';}
-  if(!sb)return showLoginError('ยังไม่ได้ตั้งค่า Supabase ใน config.js');
+  if(!sb){showLoginError('ยังไม่ได้ตั้งค่า Supabase ใน config.js');shakeLogin();return;}
   const email=($('loginUser').value||'').trim(),pass=$('loginPass').value||'';
-  if(!email||!pass)return showLoginError('กรุณากรอกอีเมลและรหัสผ่านให้ครบ');
-  $('loginBtn').disabled=true;$('loginBtn').textContent='กำลังเข้าสู่ระบบ...';
+  if(!email||!pass){showLoginError('กรุณากรอกอีเมลและรหัสผ่านให้ครบ');shakeLogin();return;}
+  setLoginBtn('loading');
   try{
     const {data:d,error}=await sb.auth.signInWithPassword({email,password:pass});
-    if(error){console.error('login error',error);showLoginError(loginErrorText(error));return;}
-    setUser(d.user);boot();
-  }catch(ex){console.error('login exception',ex);showLoginError(loginErrorText(ex));}
-  finally{$('loginBtn').disabled=false;$('loginBtn').textContent='เข้าสู่ระบบ';}
+    if(error){console.error('login error',error);setLoginBtn('idle');showLoginError(loginErrorText(error));shakeLogin();return;}
+    setUser(d.user);setLoginBtn('ok');toast('เข้าสู่ระบบสำเร็จ');setTimeout(()=>{boot();setLoginBtn('idle');},650);
+  }catch(ex){console.error('login exception',ex);setLoginBtn('idle');showLoginError(loginErrorText(ex));shakeLogin();}
 }
 async function doLogout(){if(sb)await sb.auth.signOut();showPublic();}
 
