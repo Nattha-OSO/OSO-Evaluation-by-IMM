@@ -245,15 +245,20 @@ function parseImportDate(s){
 }
 function importPanel(){return '<div class="panel" style="margin-top:16px"><div class="panel-title">นำเข้าข้อมูลเก่า (CSV จาก Google Sheets)</div><p class="mini" style="margin:6px 0 12px;line-height:1.6">ส่งออกชีตเดิมเป็น CSV แล้วอัปโหลดที่นี่ — ลำดับคอลัมน์: <b>เวลา, ผลัด/ผู้ประเมิน, เจ้าหน้าที่, 5 คะแนน, ข้อเสนอแนะ</b> (คะแนนเป็นตัวเลข 1-5 หรือคำว่า ดีเยี่ยม/ดี/พอใช้/ต้องปรับปรุง/ไม่ผ่าน ก็ได้ มีแถวหัวตารางได้)</p><div class="dir-add"><input type="file" id="csvFile" accept=".csv" class="input" style="padding-top:8px"><button class="btn primary" onclick="importCSV()">นำเข้า</button></div></div>';}
 function parseCSV(text){const rows=[];let i=0,f='',row=[],q=false;text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');while(i<text.length){const ch=text[i];if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}if(ch==='"'){q=true;i++;continue;}if(ch===','){row.push(f);f='';i++;continue;}if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}f+=ch;i++;}if(f.length||row.length){row.push(f);rows.push(row);}return rows;}
-// เพิ่มชื่อ staff/shifts ใหม่ลงตาราง (ข้ามชื่อซ้ำ) — ใช้ได้เมื่อล็อกอินแล้ว
-async function syncDirectories(staffList,shiftList){
-  try{
-    const sN=Array.from(new Set((staffList||[]).map(s=>String(s||'').trim()).filter(Boolean)));
-    const eN=Array.from(new Set((shiftList||[]).map(s=>String(s||'').trim()).filter(Boolean)));
-    if(sN.length)await sb.from('staff').upsert(sN.map(name=>({name})),{onConflict:'name',ignoreDuplicates:true});
-    if(eN.length)await sb.from('shifts').upsert(eN.map(name=>({name})),{onConflict:'name',ignoreDuplicates:true});
-  }catch(e){}
+// เทียบชื่อแบบ normalize: ตัดช่องว่างหัวท้าย, ยุบช่องว่างซ้ำ, ไม่สนตัวพิมพ์
+function normName(s){return String(s==null?'':s).trim().replace(/\s+/g,' ');}
+function nkey(s){return normName(s).toLowerCase();}
+// เพิ่มชื่อใหม่ลงตาราง โดยข้ามชื่อที่ซ้ำกัน (เทียบแบบ normalize) — ใช้ได้เมื่อล็อกอินแล้ว
+async function syncTable(table,list){
+  const cand=[],seen=new Set();
+  (list||[]).forEach(s=>{const n=normName(s);if(!n)return;const k=n.toLowerCase();if(!seen.has(k)){seen.add(k);cand.push(n);}});
+  if(!cand.length)return;
+  const {data:ex}=await sb.from(table).select('name');
+  const existing=new Set((ex||[]).map(x=>nkey(x.name)));
+  const toInsert=cand.filter(n=>!existing.has(n.toLowerCase())).map(name=>({name}));
+  if(toInsert.length)await sb.from(table).insert(toInsert);
 }
+async function syncDirectories(staffList,shiftList){try{await syncTable('staff',staffList);await syncTable('shifts',shiftList);}catch(e){}}
 async function importCSV(){
   const file=$('csvFile').files[0];if(!file)return toast('เลือกไฟล์ CSV ก่อน',true);
   const text=await file.text();let rows=parseCSV(text).filter(r=>r.length>1&&r.join('').trim()!=='');
@@ -268,7 +273,7 @@ async function importCSV(){
   toast('นำเข้าสำเร็จ '+ok+' รายการ + อัปเดตรายชื่อแล้ว'+(skipped?(' (ข้าม '+skipped+')'):''));refresh();
 }
 function dirPanel(title,type,items){return '<div class="panel"><div class="panel-head"><div><div class="panel-title">'+esc(title)+'</div><div class="mini">'+items.length+' รายชื่อ</div></div></div><div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div><div class="dir-list">'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn icon danger" title="ลบ" onclick="delDir(\''+type+'\','+it.id+')">x</button></div>').join('')||'<div class="empty">ยังไม่มีรายชื่อ</div>')+'</div></div>';}
-async function addDir(type){const el=$('add_'+type),name=el.value.trim();if(!name)return toast('กรุณากรอกชื่อ',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';toast('เพิ่มแล้ว');renderDirectory();}
+async function addDir(type){const el=$('add_'+type),name=normName(el.value);if(!name)return toast('กรุณากรอกชื่อ',true);const {data:ex}=await sb.from(type).select('name');if((ex||[]).some(x=>nkey(x.name)===nkey(name)))return toast('มีรายชื่อ "'+name+'" อยู่แล้ว (ถือว่าซ้ำ)',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';toast('เพิ่มแล้ว');renderDirectory();}
 async function delDir(type,id){if(!confirm('ลบรายชื่อนี้?'))return;const {error}=await sb.from(type).delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');renderDirectory();}
 async function addStaff(){const name=prompt('ชื่อเจ้าหน้าที่ Onsite Support');if(!name)return;const {error}=await sb.from('staff').insert({name:name.trim()});if(error)return toast('เพิ่มไม่สำเร็จ',true);toast('เพิ่มแล้ว');refresh();}
 
