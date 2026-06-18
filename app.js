@@ -262,14 +262,23 @@ async function dedupNames(){
 }
 
 // ---------- จัดการผู้ใช้ระบบ (เฉพาะ admin, ผ่าน Edge Function) ----------
+// เรียก Edge Function แล้วดึงข้อความ error จริงจาก response body
+async function adminFn(body){
+  try{
+    const {data,error}=await sb.functions.invoke('admin-users',{body});
+    if(error){let msg=error.message||'error';try{if(error.context&&typeof error.context.json==='function'){const j=await error.context.json();if(j&&j.error)msg=j.error;}}catch(_){}return {error:msg};}
+    if(data&&data.error)return {error:data.error};
+    return {data:data||{}};
+  }catch(ex){return {error:String((ex&&ex.message)||ex)};}
+}
 async function renderUsers(){
   if(!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin)',true);view='dashboard';return render();}
   $('content').innerHTML=LOADING;
-  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'list'}});
-  if(error||!data||data.error){
-    $('content').innerHTML='<div class="panel"><div class="panel-title">จัดการผู้ใช้ระบบ</div><div class="empty" style="text-align:left;line-height:1.7">เรียกใช้ Edge Function ไม่สำเร็จ<br><b>'+esc((error&&error.message)||(data&&data.error)||'')+'</b><br><br>ตรวจว่า:<br>1) deploy ฟังก์ชัน <code>admin-users</code> แล้ว (<code>supabase functions deploy admin-users</code>)<br>2) ตั้งความลับ <code>supabase secrets set ADMIN_EMAILS="'+esc(user.email)+'"</code><br>ดูรายละเอียดในไฟล์ USER-MANAGEMENT.md</div></div>';return;
+  const r=await adminFn({action:'list'});
+  if(r.error){
+    $('content').innerHTML='<div class="panel"><div class="panel-title">จัดการผู้ใช้ระบบ</div><div class="empty" style="text-align:left;line-height:1.7">เรียกใช้ Edge Function ไม่สำเร็จ<br><b>'+esc(r.error)+'</b><br><br>ตรวจว่า:<br>1) deploy ฟังก์ชัน <code>admin-users</code> แล้ว<br>2) ตั้งความลับ <code>ADMIN_EMAILS="'+esc(user.email)+'"</code><br>ดูรายละเอียดในไฟล์ USER-MANAGEMENT.md</div></div>';return;
   }
-  const users=data.users||[];
+  const users=(r.data&&r.data.users)||[];
   const roleSel=(id,r)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===r?' selected':'')+'>'+x+'</option>').join('')+'</select>';
   $('content').innerHTML=
     '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชีล็อกอิน + กำหนดสิทธิ์ (admin มีสิทธิ์จัดการผู้ใช้ / senior, manager ไม่มี)</div></div></div>'+
@@ -282,19 +291,19 @@ async function renderUsers(){
 async function addUser(){
   const email=($('nuEmail').value||'').trim(),pass=$('nuPass').value||'',role=$('nuRole').value;
   if(!email||pass.length<6)return toast('กรอกอีเมล + รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
-  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'create',email,password:pass,role}});
-  if(error||(data&&data.error))return toast('เพิ่มไม่สำเร็จ: '+((error&&error.message)||data.error),true);
+  const r=await adminFn({action:'create',email,password:pass,role});
+  if(r.error)return toast('เพิ่มไม่สำเร็จ: '+r.error,true);
   toast('เพิ่มผู้ใช้ '+email+' ('+role+') แล้ว');renderUsers();
 }
 async function setUserRole(id,role){
-  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'updateRole',id,role}});
-  if(error||(data&&data.error))return toast('เปลี่ยนสิทธิ์ไม่สำเร็จ: '+((error&&error.message)||data.error),true);
+  const r=await adminFn({action:'updateRole',id,role});
+  if(r.error)return toast('เปลี่ยนสิทธิ์ไม่สำเร็จ: '+r.error,true);
   toast('อัปเดตสิทธิ์เป็น '+role+' แล้ว');
 }
 async function deleteUser(id,email){
   if(!confirm('ลบบัญชีผู้ใช้ '+email+'?'))return;
-  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'delete',id}});
-  if(error||(data&&data.error))return toast('ลบไม่สำเร็จ: '+((error&&error.message)||data.error),true);
+  const r=await adminFn({action:'delete',id});
+  if(r.error)return toast('ลบไม่สำเร็จ: '+r.error,true);
   toast('ลบผู้ใช้แล้ว');renderUsers();
 }
 const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
