@@ -1,25 +1,104 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+<base target="_top">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>แบบประเมินเจ้าหน้าที่ Onsite Support (GitHub + Supabase)</title>
+<title>ระบบประเมินเจ้าหน้าที่ Onsite Support สำหรับ ตม.</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  *{box-sizing:border-box}html,body{margin:0;height:100%}
-  :root{--bg:radial-gradient(1200px 600px at 100% -10%,#d6e6ff 0%,rgba(214,230,255,0) 55%),#eef3fb;--panel:#fff;--panel2:#f2f7ff;--text:#15273f;--muted:#6a7d9b;--line:#e7edf7;--line2:#d4deee;--navy:#0b2f6b;--navy2:#16438f;--primary:#2563eb;--primary-d:#1749c4;--cyan:#0ea5e9;--mint:#10b9a7;--amber:#f59e0b;--rose:#f43f5e;--radius:16px;--shadow:0 18px 46px rgba(15,50,110,.13);--shadow-sm:0 2px 12px rgba(15,50,110,.07)}
-  body{font-family:'Sarabun',"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
-  button,input,select,textarea{font:inherit}.hidden{display:none!important}
-  .label{font-size:13px;font-weight:600;color:#42577a;margin-bottom:6px;display:block}
-  .input,textarea{width:100%;min-height:46px;border:1px solid var(--line2);background:#fff;border-radius:12px;padding:10px 13px;outline:0;transition:.15s}
-  textarea{min-height:92px;resize:vertical}
-  .input:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
-  .btn{min-height:44px;border-radius:12px;border:1px solid var(--line2);background:#fff;color:var(--navy);display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;cursor:pointer;font-weight:600;transition:.15s;box-shadow:var(--shadow-sm)}
-  .btn:hover{border-color:var(--primary);color:var(--primary-d)}
+  *{box-sizing:border-box}html,body{height:100%;margin:0}
+  body{font-family:'Sarabun',Inter,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit}button{border:0}
+  ::selection{background:rgba(37,99,235,.20)}
+  :root{--bg:radial-gradient(1200px 600px at 100% -10%,#d6e6ff 0%,rgba(214,230,255,0) 55%),radial-gradient(1000px 560px at -8% 112%,#e4f1ff 0%,rgba(228,241,255,0) 52%),#eef3fb;--panel:#ffffff;--panel2:#f2f7ff;--text:#15273f;--muted:#6a7d9b;--line:#e7edf7;--line2:#d4deee;--navy:#0b2f6b;--navy2:#16438f;--navy-dark:#071d49;--primary:#2563eb;--primary-d:#1749c4;--accent:#d2a850;--accent2:#eed492;--cyan:#0ea5e9;--mint:#10b9a7;--violet:#6366f1;--amber:#f59e0b;--rose:#f43f5e;--lime:#22c55e;--radius:16px;--shadow:0 18px 46px rgba(15,50,110,.13);--shadow-sm:0 2px 12px rgba(15,50,110,.07)}
+  .login{min-height:100vh;display:grid;place-items:center;padding:22px;position:relative;overflow:hidden;background:linear-gradient(135deg,#0d2f63 0%,#143d82 46%,#1657c8 100%)}
+  .login-card{position:relative;width:420px;max-width:100%;background:rgba(255,255,255,.97);border-radius:18px;box-shadow:0 30px 70px rgba(4,16,40,.45);padding:34px 30px}
+  .mark{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--navy),var(--primary));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;margin-bottom:18px}
+  .login h1{font-size:23px;margin:0 0 6px;color:var(--navy);font-weight:800}
+  .muted{color:var(--muted)}.mini{font-size:12px;color:var(--muted)}
+  .field{margin-bottom:14px}.label{font-size:12px;font-weight:600;color:#42577a;margin-bottom:6px;display:block}
+  .input,select,textarea{width:100%;min-height:42px;border:1px solid var(--line2);background:#fff;color:var(--text);border-radius:10px;outline:0;padding:10px 13px;transition:.15s}
+  textarea{min-height:96px;resize:vertical;line-height:1.6}
+  .input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+  .hidden{display:none!important}.search{flex:1 1 240px;min-width:200px;width:auto}
+  .app{height:100vh;display:none;overflow:hidden}.app.ready{display:flex}
+  .side{width:268px;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-dark) 100%);display:flex;flex-direction:column;color:#dce7fa}
+  .brand{height:78px;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.10)}
+  .brand .mark{width:42px;height:42px;margin:0;border-radius:11px;font-size:14px}.brand h2{font-size:16px;margin:0;color:#fff;font-weight:700}
+  .side .mini,.side-foot .mini{color:#9fb6db}
+  .nav{padding:14px 12px;flex:1;overflow:auto}
+  .nav-title{font-size:10px;color:#7e97c4;text-transform:uppercase;letter-spacing:.12em;padding:14px 10px 8px;font-weight:700}
+  .nav button{width:100%;height:42px;border-radius:10px;background:transparent;color:#b8c9e6;display:flex;align-items:center;gap:10px;padding:0 13px;text-align:left;cursor:pointer;margin-bottom:4px;font-size:13.5px;font-weight:500;transition:.15s;position:relative}
+  .nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+  .nav button.active{background:rgba(37,99,235,.30);color:#fff;font-weight:600}
+  .nav button.active::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--accent)}
+  .side-foot{padding:14px;border-top:1px solid rgba(255,255,255,.10)}
+  .side-foot #userName{color:#fff;font-weight:600;font-size:13.5px}
+  .userbox{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px}
+  .avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--cyan));color:#fff;display:grid;place-items:center;font-weight:800}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+  .top{height:66px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.85);position:sticky;top:0;z-index:5}
+  .top h1{font-size:18px;margin:0;color:var(--navy);font-weight:750}
+  .actions,.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.toolbar{margin-bottom:16px}
+  .content{flex:1;overflow:auto;padding:22px}
+  .btn{min-height:40px;border-radius:10px;border:1px solid var(--line2);background:#fff;color:var(--navy);display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;cursor:pointer;white-space:nowrap;font-weight:600;font-size:13px;transition:.15s;box-shadow:var(--shadow-sm)}
+  .btn:hover{background:var(--panel2);border-color:var(--primary);color:var(--primary-d)}
   .btn.primary{background:linear-gradient(135deg,var(--primary),var(--primary-d));color:#fff;border-color:transparent;box-shadow:0 8px 20px rgba(37,99,235,.26)}
-  .btn.primary:hover{filter:brightness(1.06);color:#fff}
-  .btn:disabled{opacity:.55;cursor:not-allowed}
-  /* hero */
+  .btn.primary:hover{filter:brightness(1.06);color:#fff;border-color:transparent}
+  .btn.danger{color:#c0264a;border-color:#f3c9d4;background:#fff5f7}.btn.danger:hover{background:#fee2e8;border-color:#e88aa0;color:#a01437}
+  .btn.icon{width:38px;padding:0}.btn:disabled{opacity:.55;cursor:not-allowed}.mobile{display:none}
+  .grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}.dash{grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr)}
+  .stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+  .stat{padding:17px 18px;min-height:114px;position:relative;overflow:hidden;transition:.16s}
+  .stat:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+  .stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--primary),var(--cyan))}
+  .stat-label{font-size:12px;color:var(--muted);font-weight:600}.stat-num{font-size:30px;line-height:1;font-weight:800;margin:10px 0 6px;color:var(--navy)}
+  .panel{padding:18px}.panel-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;align-items:flex-start}.panel-title{font-weight:750;font-size:15px;color:var(--navy)}
+  .exec{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:14px;margin-bottom:16px}
+  .exec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .exec-item{border:1px solid var(--line);background:linear-gradient(160deg,#ffffff,var(--panel2));border-radius:14px;padding:15px;min-height:88px;transition:.16s}.exec-item:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm)}.exec-item b{display:block;margin-bottom:8px;color:var(--navy);font-size:13px}
+  .criteria-list{display:grid;gap:11px}.criteria-row{display:grid;grid-template-columns:30px 1fr 56px;gap:10px;align-items:center}.criteria-row>b{color:var(--navy);text-align:center}
+  .next-steps{display:grid;gap:9px}
+  .step{display:grid;grid-template-columns:28px 1fr;gap:11px;align-items:start;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:11px 12px;line-height:1.55}
+  .step-num{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--navy),var(--primary));color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px}
+  .bar{height:8px;border-radius:999px;background:#e9eef6;overflow:hidden}.fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cyan),var(--mint))}
+  .rank{display:grid;gap:11px}.rank-row{display:grid;grid-template-columns:1fr 64px;gap:12px;align-items:center}.rank-name{font-weight:650}.rank-meta{font-size:12px;color:var(--muted);margin-top:2px}.score{text-align:right;font-weight:800;color:var(--navy)}
+  .tag{display:inline-flex;align-items:center;border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:700}
+  .excellent{background:#dcfce7;color:#15803d}.good{background:#ccfbf1;color:#0f766e}.fair{background:#fef3c7;color:#b45309}.weak{background:#ffe7d3;color:#c2410c}.critical{background:#fee2e2;color:#b91c1c}.neutral{background:#eef2f8;color:#3f5170}
+  .insight{display:grid;gap:10px}.insight-card{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:13px;line-height:1.6}.insight-card b{display:block;margin-bottom:5px;color:var(--navy)}
+  .heat{display:grid;grid-template-columns:210px repeat(5,minmax(90px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:auto}
+  .heat div{background:#fff;padding:11px;font-size:12px;min-height:40px}.heat .head{background:#e8f0fc;color:var(--navy);font-weight:700}.heat .cell{text-align:center;font-weight:800}.heat b{color:var(--text)}
+  table{width:100%;border-collapse:collapse;min-width:900px}
+  .table-wrap{border:1px solid var(--line);border-radius:var(--radius);overflow:auto;background:var(--panel);box-shadow:var(--shadow-sm)}
+  thead{position:sticky;top:0;background:#e8f0fc;z-index:2}
+  th,td{padding:11px 13px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--navy);white-space:nowrap;font-weight:700}
+  tbody tr:hover td{background:#f3f7fd}
+  .comment{max-width:420px;color:#3a4a63;line-height:1.55}.nowrap{white-space:nowrap}
+  .empty,.loading{text-align:center;color:var(--muted);padding:54px 18px}
+  .spinner{width:30px;height:30px;border:3px solid #dbe4f1;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}@keyframes spin{to{transform:rotate(360deg)}}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(8,20,44,.55);z-index:30;align-items:center;justify-content:center;padding:18px}.overlay.open{display:flex}
+  .modal{width:860px;max-width:96vw;max-height:92vh;background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(4,16,40,.4);display:flex;flex-direction:column;overflow:hidden}
+  .modal-head,.modal-foot{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.modal-head{background:var(--panel2)}
+  .modal-foot{border-bottom:0;border-top:1px solid var(--line);justify-content:flex-end;background:var(--panel2)}
+  .modal-title{font-weight:800;font-size:16px;color:var(--navy)}.modal-body{padding:20px;overflow:auto}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.criteria-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:4px}
+  .criterion{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:14px}.criterion-title{font-weight:700;color:var(--navy)}
+  .points{margin:8px 0 12px;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.6}
+  .seg{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .seg button{border:1px solid var(--line2);background:#fff;color:#5a6c87;border-radius:9px;min-height:38px;cursor:pointer;font-size:12px;font-weight:600;transition:.12s}
+  .seg button:hover{border-color:var(--primary);color:var(--primary)}
+  .seg button.active{background:var(--tone,#e8fbff);color:#1f2937;border-color:rgba(0,0,0,.08);font-weight:800;box-shadow:var(--shadow-sm)}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);z-index:80;background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;box-shadow:0 18px 40px rgba(4,16,40,.4);opacity:0;pointer-events:none;transition:.2s;font-weight:600;font-size:13px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:#9f1239}
+  .radar-wrap{display:grid;place-items:center;min-height:280px}.radar-label{font-size:11px;fill:var(--navy);font-weight:600}
+  .radar-grid{fill:none;stroke:rgba(13,47,99,.14);stroke-width:1}.radar-poly{fill:rgba(37,99,235,.18);stroke:var(--primary);stroke-width:2}
+  .kpi-line{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.kpi-line span{color:var(--muted)}.kpi-line b{color:var(--navy)}
+  .dir-add{display:flex;gap:8px;margin-bottom:14px}.dir-add .input{flex:1}.dir-list{display:grid;gap:8px}
+  .dir-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:10px 13px;font-weight:600}
+  /* public */
+  .public{min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
   .pub-top{position:relative;overflow:hidden;padding:38px 20px 42px;background:linear-gradient(150deg,var(--navy) 0%,var(--navy2) 48%,var(--primary) 100%);color:#fff;box-shadow:0 12px 34px rgba(11,47,107,.28)}
   .pub-top::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(520px 300px at 12% -10%,rgba(255,255,255,.16),transparent 60%),radial-gradient(560px 340px at 100% 120%,rgba(14,165,233,.32),transparent 60%)}
   .pub-hero{position:relative;max-width:760px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px}
@@ -27,68 +106,40 @@
   .pub-logo-card{background:#fff;border-radius:18px;padding:12px 16px;height:88px;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 30px rgba(4,16,40,.32)}
   .pub-logo{height:64px;width:auto;display:block}
   .pub-top h1{margin:0;font-size:30px;font-weight:800;line-height:1.3;max-width:640px;text-shadow:0 2px 12px rgba(0,0,0,.2)}
-  .pub-login-top{position:absolute;top:16px;right:16px;z-index:2;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px;backdrop-filter:blur(6px)}
+  .pub-login-top{position:absolute;top:16px;right:16px;z-index:2;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px}
   .pub-login-top:hover{background:rgba(255,255,255,.3)}
-  .wrap{max-width:820px;margin:0 auto;padding:24px 16px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:26px}
-  .card h2{margin:0 0 4px;color:var(--navy);font-size:22px}
-  .hint{color:var(--muted);margin:0 0 18px;font-size:13.5px}
-  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .pub-crit{border:1px solid var(--line);border-left:5px solid var(--c,#2563eb);border-radius:14px;padding:16px;background:#fff;box-shadow:var(--shadow-sm);margin-top:14px;scroll-margin-top:20px;transition:.15s}
-  .pub-crit.invalid{border-color:var(--rose);border-left-color:var(--rose);box-shadow:0 0 0 3px rgba(244,63,94,.16)}
-  .pub-crit-head{display:flex;align-items:center;gap:11px;margin-bottom:6px}
-  .pub-no{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;background:var(--c,#2563eb);flex:none}
-  .pub-crit-title{font-size:16.5px;font-weight:700;color:var(--navy)}
-  .pub-crit-title .req{color:var(--rose);font-weight:800;margin-left:3px}
-  .pub-crit-title small{display:block;font-size:12.5px;font-weight:400;color:var(--muted);margin-top:3px}
-  .points{margin:4px 0 14px;padding-left:20px;font-size:13px;color:#5a6b85;line-height:1.65}
-  .pub-seg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-  .pub-seg button{border:1.5px solid var(--line2);background:#fbfcfe;color:#46597a;border-radius:12px;min-height:54px;cursor:pointer;font-size:13px;font-weight:700;transition:.12s}
-  .pub-seg button:hover{border-color:var(--primary);color:var(--primary)}
-  .pub-seg button.active{color:#0f2238;border-color:transparent;background:var(--tone,#dbeafe);box-shadow:0 6px 16px rgba(13,47,99,.18)}
+  .pub-wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:24px 16px}
+  .pub-card{width:780px;max-width:100%;height:max-content;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:28px}
+  .pub-card h2{margin:0 0 4px;color:var(--navy);font-size:22px}
+  .pub-hint{color:var(--muted);margin:0 0 18px;font-size:13.5px;line-height:1.6}
   .pub-thanks{text-align:center;padding:46px 20px}
   .pub-thanks .big{width:74px;height:74px;border-radius:50%;margin:0 auto 16px;background:#dcfce7;color:#15803d;font-size:40px;display:grid;place-items:center;font-weight:800}
-  /* login */
-  .login{min-height:100vh;display:grid;place-items:center;padding:22px;background:linear-gradient(135deg,#0b2f6b,#16438f 46%,#2563eb)}
-  .login-card{width:400px;max-width:100%;background:#fff;border-radius:18px;box-shadow:0 30px 70px rgba(4,16,40,.45);padding:32px 28px}
-  .login-card h1{font-size:22px;margin:0 0 6px;color:var(--navy)}
-  /* app */
-  .top{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-  .top h1{font-size:18px;margin:0;color:var(--navy)}
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
-  .stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:17px 18px;position:relative;overflow:hidden}
-  .stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--primary),var(--cyan))}
-  .stat-label{font-size:12px;color:var(--muted);font-weight:600}.stat-num{font-size:28px;font-weight:800;color:var(--navy);margin:8px 0 4px}
-  .panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px;margin-bottom:16px}
-  .panel-title{font-weight:750;color:var(--navy);margin-bottom:12px}
-  .crit-row{display:grid;grid-template-columns:160px 1fr 50px;gap:10px;align-items:center;margin-bottom:9px}
-  .bar{height:8px;border-radius:999px;background:#e9eef6;overflow:hidden}.fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cyan),var(--mint))}
-  table{width:100%;border-collapse:collapse;min-width:760px}
-  .table-wrap{border:1px solid var(--line);border-radius:var(--radius);overflow:auto;background:#fff}
-  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}
-  thead{background:#e8f0fc}th{color:var(--navy);font-weight:700;white-space:nowrap}
-  .tag{display:inline-flex;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700}
-  .excellent{background:#dcfce7;color:#15803d}.good{background:#ccfbf1;color:#0f766e}.fair{background:#fef3c7;color:#b45309}.weak{background:#ffe7d3;color:#c2410c}.critical{background:#fee2e2;color:#b91c1c}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);z-index:80;background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;box-shadow:0 18px 40px rgba(4,16,40,.4);opacity:0;pointer-events:none;transition:.2s;font-weight:600}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:#9f1239}
-  .banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:12px 14px;margin:16px;font-size:13px}
-  .navtabs{display:flex;gap:6px;align-items:center}
-  .tab{background:transparent;border:0;color:var(--muted);font-weight:700;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:15px}
-  .tab.active{background:#e8f1fd;color:var(--primary-d)}
-  .dir-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px 13px;margin-bottom:7px;font-weight:600}
-  .dir-add{display:flex;gap:8px;margin-bottom:12px}
-  .btn.sm{min-height:32px;padding:4px 12px;font-size:12px}
-  .btn.danger{color:#c0264a;border-color:#f3c9d4;background:#fff5f7}.btn.danger:hover{background:#fee2e8;border-color:#e88aa0;color:#a01437}
-  @media(max-width:760px){.pub-top h1{font-size:24px}.pub-logo{height:50px}.pub-logo-card{height:72px}.form-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.pub-seg{grid-template-columns:repeat(2,1fr)}}
+  .public .label{font-size:13px;color:#42577a;font-weight:600}
+  .public .input,.public textarea{font-size:16px;min-height:48px;border-radius:12px}
+  #pubCriteria{display:grid;grid-template-columns:1fr;gap:14px}
+  .pub-crit{border:1px solid var(--line);border-left:5px solid var(--c,#2563eb);border-radius:14px;padding:16px 16px 18px;background:#fff;box-shadow:var(--shadow-sm);scroll-margin-top:80px;transition:.15s}
+  .pub-crit.invalid{border-color:var(--rose);border-left-color:var(--rose);box-shadow:0 0 0 3px rgba(244,63,94,.16)}
+  .pub-crit.invalid .pub-crit-title{color:var(--rose)}
+  .pub-req{color:var(--rose);font-weight:800;margin-left:3px}
+  .pub-crit-head{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+  .pub-no{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;flex:none;background:var(--c,#2563eb)}
+  .pub-crit-title{font-size:16.5px;font-weight:700;color:var(--navy);line-height:1.25}
+  .pub-crit-title small{display:block;font-size:12.5px;font-weight:400;color:var(--muted);margin-top:3px}
+  .pub-crit .points{margin:4px 0 14px;padding-left:20px;font-size:13px;color:#5a6b85;line-height:1.65}
+  .pub-seg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .pub-seg button{border:1.5px solid var(--line2);background:#fbfcfe;color:#46597a;border-radius:12px;min-height:58px;cursor:pointer;font-size:13px;font-weight:700;transition:.12s;line-height:1.15;text-align:center}
+  .pub-seg button:hover{border-color:var(--primary);color:var(--primary)}
+  .pub-seg button.active{color:#0f2238;border-color:transparent;background:var(--tone,#dbeafe);box-shadow:0 6px 16px rgba(13,47,99,.18);transform:translateY(-1px)}
+  @media(max-width:620px){.pub-seg{grid-template-columns:repeat(2,1fr)}.pub-card h2{font-size:20px}}
+  @media(max-width:760px){.pub-top{padding:30px 16px 32px}.pub-top h1{font-size:24px;max-width:360px}.pub-logo{height:50px}.pub-logo-card{height:72px}.pub-card{padding:20px}.side{position:fixed;inset:0 auto 0 0;z-index:25;transform:translateX(-100%);transition:.2s;width:84vw}.side.open{transform:none}.mobile{display:inline-flex}.content{padding:16px}.stats,.exec-grid,.form-grid{grid-template-columns:1fr}}
+  @media(max-width:1100px){.stats{grid-template-columns:repeat(2,1fr)}.dash,.exec{grid-template-columns:1fr}.criteria-grid{grid-template-columns:1fr}.heat{grid-template-columns:180px repeat(5,100px)}}
 </style>
 </head>
 <body>
-<div id="cfgBanner" class="banner hidden"></div>
-
 <!-- ===== หน้าสาธารณะ (แบบประเมิน) ===== -->
-<section id="public" class="hidden">
+<section id="public" class="public hidden">
   <header class="pub-top">
-    <button class="pub-login-top" onclick="showLogin()">เข้าสู่ระบบ</button>
+    <button class="pub-login-top" onclick="gotoLogin()">เข้าสู่ระบบ (Senior / ผู้บริหาร)</button>
     <div class="pub-hero">
       <div class="pub-logos">
         <div class="pub-logo-card"><img class="pub-logo" src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></div>
@@ -97,24 +148,26 @@
       <h1>แบบประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</h1>
     </div>
   </header>
-  <main class="wrap">
-    <div class="card" id="pubForm">
-      <h2>แบบประเมินการให้บริการ</h2>
-      <p class="hint">กรุณาให้คะแนนให้ครบทั้ง 5 หัวข้อ (ข้อเสนอแนะไม่บังคับ) — ไม่ต้องเข้าสู่ระบบ</p>
-      <div class="form-grid">
-        <div><label class="label">ผลัด/ชื่อเจ้าหน้าที่ ตม. (ผู้ประเมิน)</label><input class="input" id="pEvaluator" list="shiftList" placeholder="เช่น ผลัด A"></div>
-        <div><label class="label">เจ้าหน้าที่ Onsite Support</label><input class="input" id="pStaff" list="staffList" placeholder="เลือกหรือพิมพ์ชื่อ"></div>
+  <main class="pub-wrap">
+    <div class="pub-card">
+      <div id="pubForm">
+        <h2>แบบประเมินการให้บริการ</h2>
+        <p class="pub-hint">กรุณาให้คะแนนให้ครบทั้ง 5 หัวข้อ (ข้อเสนอแนะไม่บังคับ) — ไม่ต้องเข้าสู่ระบบ</p>
+        <div class="form-grid">
+          <div class="field"><label class="label">ผลัด/ชื่อเจ้าหน้าที่ ตม. (ผู้ประเมิน)</label><input class="input" id="pubEvaluator" list="pubEvaluatorList" placeholder="เช่น ผลัด A"></div>
+          <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support ที่รับการประเมิน</label><input class="input" id="pubStaff" list="pubStaffList" placeholder="เลือกหรือพิมพ์ชื่อ"></div>
+        </div>
+        <datalist id="pubStaffList"></datalist><datalist id="pubEvaluatorList"></datalist>
+        <div class="criteria-grid" id="pubCriteria" style="margin-top:16px"></div>
+        <div class="field" style="margin-top:16px"><label class="label">ข้อเสนอแนะเพิ่มเติม</label><textarea id="pubComment" placeholder="จุดเด่น ข้อเสนอแนะ หรือรายละเอียดเพิ่มเติม"></textarea></div>
+        <button class="btn primary" id="pubSubmit" style="width:100%;margin-top:18px;min-height:48px" onclick="submitPublic()">ส่งแบบประเมิน</button>
       </div>
-      <datalist id="shiftList"></datalist><datalist id="staffList"></datalist>
-      <div id="pCriteria"></div>
-      <div style="margin-top:16px"><label class="label">ข้อเสนอแนะเพิ่มเติม</label><textarea id="pComment" placeholder="จุดเด่น ข้อเสนอแนะ หรือรายละเอียดเพิ่มเติม"></textarea></div>
-      <button class="btn primary" id="pSubmit" style="width:100%;margin-top:18px" onclick="submitPublic()">ส่งแบบประเมิน</button>
-    </div>
-    <div class="card pub-thanks hidden" id="pubThanks">
-      <div class="big">&#10003;</div>
-      <h2>บันทึกผลประเมินเรียบร้อย</h2>
-      <p class="hint">ขอบคุณสำหรับการประเมิน ข้อมูลถูกบันทึกแล้ว</p>
-      <button class="btn primary" onclick="resetPublic()">ประเมินรายการถัดไป</button>
+      <div id="pubThanks" class="pub-thanks hidden">
+        <div class="big">&#10003;</div>
+        <h2>บันทึกผลประเมินเรียบร้อย</h2>
+        <p class="pub-hint">ขอบคุณสำหรับการประเมิน ข้อมูลของท่านถูกบันทึกแล้ว</p>
+        <button class="btn primary" onclick="resetPublic()" style="min-height:46px">ประเมินรายการถัดไป</button>
+      </div>
     </div>
   </main>
 </section>
@@ -122,298 +175,65 @@
 <!-- ===== หน้าเข้าสู่ระบบ ===== -->
 <section id="login" class="login hidden">
   <form class="login-card" onsubmit="doLogin(event)">
-    <h1>เข้าสู่ระบบ</h1>
-    <p class="hint">สำหรับ Senior / ผู้บริหาร (Supabase Auth)</p>
-    <div style="margin-bottom:14px"><label class="label">Email</label><input class="input" id="liEmail" type="email" autocomplete="username"></div>
-    <div style="margin-bottom:14px"><label class="label">Password</label><input class="input" id="liPass" type="password" autocomplete="current-password"></div>
-    <button class="btn primary" id="liBtn" style="width:100%" type="submit">เข้าสู่ระบบ</button>
-    <button type="button" class="btn" style="width:100%;margin-top:10px" onclick="showPublic()">&larr; กลับไปหน้าแบบประเมิน</button>
+    <div class="mark">ตม.</div>
+    <h1>ระบบประเมินเจ้าหน้าที่ Onsite Support</h1>
+    <p class="muted">สำหรับ Senior / ผู้บริหาร (Supabase Auth)</p>
+    <div class="field"><label class="label">Email</label><input class="input" id="loginUser" type="email" autocomplete="username"></div>
+    <div class="field"><label class="label">Password</label><input class="input" id="loginPass" type="password" autocomplete="current-password"></div>
+    <button class="btn primary" id="loginBtn" style="width:100%" type="submit">เข้าสู่ระบบ</button>
+    <button type="button" class="btn" style="width:100%;margin-top:10px" onclick="showPublic()">&larr; กลับไปหน้าแบบประเมิน (เจ้าหน้าที่)</button>
   </form>
 </section>
 
-<!-- ===== แดชบอร์ด (หลังล็อกอิน) ===== -->
-<section id="app" class="hidden">
-  <header class="top">
-    <div class="navtabs">
-      <button class="tab active" id="tabDash" onclick="goView('dash')">แดชบอร์ด</button>
-      <button class="tab" id="tabDir" onclick="goView('dir')">จัดการรายชื่อ</button>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn" onclick="exportDOCX()">รายงาน DOCX</button>
-      <button class="btn" onclick="exportCSV()">ส่งออก CSV</button>
-      <button class="btn" onclick="doLogout()">ออกจากระบบ</button>
-    </div>
-  </header>
-  <main class="wrap" id="appContent"><p class="hint">กำลังโหลด...</p></main>
+<!-- ===== แอป (หลังล็อกอิน) ===== -->
+<section id="app" class="app">
+  <aside class="side" id="side">
+    <div class="brand"><div class="mark">ตม.</div><div><h2>Onsite Evaluation</h2><span class="mini">Immigration Office</span></div></div>
+    <nav class="nav">
+      <div class="nav-title">ติดตามผล</div>
+      <button class="active" data-view="dashboard" onclick="showView('dashboard',this)">1. แดชบอร์ด</button>
+      <button data-view="evaluations" onclick="showView('evaluations',this)">2. รายการประเมิน</button>
+      <button data-view="people" onclick="showView('people',this)">3. สรุปรายเจ้าหน้าที่</button>
+      <button data-view="insights" onclick="showView('insights',this)">4. วิเคราะห์ภาพรวม</button>
+      <div class="nav-title">จัดการข้อมูล</div>
+      <button data-view="directory" onclick="showView('directory',this)">จัดการรายชื่อ (ผลัด / Onsite)</button>
+      <div class="nav-title">Tools</div>
+      <button onclick="exportDOCX()">ส่งออกรายงาน DOCX</button>
+      <button onclick="exportCSV()">ส่งออก CSV</button>
+      <button onclick="refresh()">รีเฟรช</button>
+    </nav>
+    <div class="side-foot"><div class="userbox"><div class="avatar" id="avatar">U</div><div><div id="userName">-</div><div class="mini" id="userRole">-</div></div></div></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div style="display:flex;align-items:center;gap:10px"><button class="btn icon mobile" onclick="toggleSide()">=</button><h1 id="pageTitle">แดชบอร์ด</h1></div>
+      <div class="actions"><button class="btn" onclick="exportDOCX()">รายงาน DOCX</button><button class="btn" onclick="doLogout()">ออกจากระบบ</button></div>
+    </header>
+    <section class="content" id="content"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></section>
+  </main>
 </section>
 
+<!-- ===== Modal แก้ไขผลประเมิน ===== -->
+<div class="overlay" id="evalModal" onclick="if(event.target===this)closeEval()">
+  <div class="modal">
+    <div class="modal-head"><div><div class="modal-title" id="evalTitle">แก้ไขผลประเมิน</div><div class="mini">บันทึกลงฐานข้อมูล Supabase</div></div><button class="btn icon" onclick="closeEval()">x</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label class="label">ผลัดของเจ้าหน้าที่ตม.</label><input class="input" id="fEvaluator" list="evaluatorList"></div>
+        <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support</label><input class="input" id="fStaff" list="staffList" placeholder="เลือกหรือพิมพ์ชื่อ"></div>
+      </div>
+      <datalist id="staffList"></datalist><datalist id="evaluatorList"></datalist>
+      <div class="criteria-grid" id="criteriaForm"></div>
+      <div class="field" style="margin-top:14px"><label class="label">ข้อเสนอแนะเพิ่มเติม</label><textarea id="fComment" placeholder="จุดเด่น ข้อเสนอแนะ หรือรายละเอียดเพิ่มเติม"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeEval()">ยกเลิก</button><button class="btn primary" id="saveEvalBtn" onclick="saveEval()">บันทึก</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script>
-const CRITERIA=[
- {key:'speed',no:1,short:'ความรวดเร็ว',title:'ความรวดเร็วในการให้บริการ',color:'#0ea5e9',points:['ตอบรับและเข้าช่วยเหลือได้รวดเร็ว','ลดเวลารอคอยของเจ้าหน้าที่ ตม.','จัดลำดับความเร่งด่วนได้เหมาะสม']},
- {key:'problem_solving',no:2,short:'แก้ไขปัญหา',title:'ความสามารถในการแก้ไขปัญหา',color:'#2563eb',points:['วิเคราะห์สาเหตุของปัญหาได้ตรงจุด','เลือกวิธีแก้ไขเหมาะสมกับสถานการณ์','แก้ไขแล้วใช้งานได้จริง']},
- {key:'communication',no:3,short:'สื่อสารและเข้าใจ',title:'การสื่อสารและความเข้าใจ',color:'#06b6d4',points:['อธิบายด้วยภาษาที่เข้าใจง่าย','รับฟังปัญหาอย่างครบถ้วน','แจ้งสถานะและข้อจำกัดชัดเจน']},
- {key:'service_mind',no:4,short:'มารยาทบริการ',title:'มารยาทและการให้บริการ',color:'#14b8a6',points:['สุภาพ เป็นมิตร ให้เกียรติผู้ใช้งาน','แสดงความตั้งใจช่วยเหลือ','อดทนต่อสถานการณ์กดดัน']},
- {key:'satisfaction',no:5,short:'พึงพอใจโดยรวม',title:'ความพึงพอใจโดยรวม',color:'#60a5fa',points:['ผลลัพธ์ตรงกับความต้องการ','มั่นใจในการใช้งานต่อ','ภาพรวมน่าพึงพอใจ']}
-];
-const SCORE_OPTIONS=[{label:'ดีเยี่ยม',value:5},{label:'ดี',value:4},{label:'พอใช้',value:3},{label:'ต้องปรับปรุง',value:2},{label:'ไม่ผ่าน',value:1}];
-const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=x=>Number(x||0).toFixed(2);
-const tone=v=>v>=4.6?'excellent':v>=3.8?'good':v>=3?'fair':v>=2?'weak':'critical';
-const scoreColor=v=>v>=5?'#bef264':v>=4?'#99f6e4':v>=3?'#fcd34d':v>=2?'#fecdd3':'#fca5a5';
-let tt;function toast(m,err){const e=$('toast');e.textContent=m;e.className='toast show'+(err?' err':'');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2800);}
-
-// ---- ตรวจ config + สร้าง client ----
-let sb=null;
-const cfg=window.APP_CONFIG||{};
-if(!cfg.SUPABASE_URL||cfg.SUPABASE_URL.startsWith('PASTE')){
-  $('cfgBanner').classList.remove('hidden');
-  $('cfgBanner').innerHTML='&#9888; ยังไม่ได้ตั้งค่า Supabase — เปิดไฟล์ <b>config.js</b> แล้วใส่ SUPABASE_URL และ SUPABASE_ANON_KEY ก่อนใช้งาน';
-}else{
-  sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
-}
-
-// ---- สลับหน้าจอ ----
-function hideAll(){['public','login','app'].forEach(id=>$(id).classList.add('hidden'));}
-function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');loadDirectories();}
-function showLogin(){hideAll();$('login').classList.remove('hidden');}
-function showApp(){hideAll();$('app').classList.remove('hidden');goView('dash');}
-function goView(v){$('tabDash').classList.toggle('active',v==='dash');$('tabDir').classList.toggle('active',v==='dir');if(v==='dir')loadDirectory();else loadDashboard();}
-
-// ---- เริ่มทำงาน ----
-(async function init(){
-  renderCriteria();
-  if(!sb){showPublic();return;}
-  const {data}=await sb.auth.getSession();
-  if(data&&data.session){showApp();}else{showPublic();}
-})();
-
-// ---- ฟอร์มสาธารณะ ----
-function renderCriteria(){
-  $('pCriteria').innerHTML=CRITERIA.map(c=>
-    '<div class="pub-crit" data-card="'+c.key+'" style="--c:'+c.color+'">'+
-    '<div class="pub-crit-head"><span class="pub-no">'+c.no+'</span>'+
-    '<div class="pub-crit-title">'+esc(c.short)+'<span class="req">*</span><small>'+esc(c.title)+'</small></div></div>'+
-    '<ul class="points">'+c.points.map(p=>'<li>'+esc(p)+'</li>').join('')+'</ul>'+
-    '<div class="pub-seg">'+SCORE_OPTIONS.map(o=>'<button type="button" style="--tone:'+scoreColor(o.value)+'" data-k="'+c.key+'" data-v="'+o.value+'" onclick="pick(this)">'+esc(o.label)+'</button>').join('')+'</div></div>'
-  ).join('');
-}
-function pick(btn){const k=btn.dataset.k;document.querySelectorAll('button[data-k="'+k+'"]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');const card=btn.closest('.pub-crit');if(card)card.classList.remove('invalid');}
-async function loadDirectories(){
-  if(!sb)return;
-  try{
-    const [s,sh]=await Promise.all([sb.from('staff').select('name').order('name'),sb.from('shifts').select('name').order('name')]);
-    $('staffList').innerHTML=(s.data||[]).map(x=>'<option value="'+esc(x.name)+'">').join('');
-    $('shiftList').innerHTML=(sh.data||[]).map(x=>'<option value="'+esc(x.name)+'">').join('');
-  }catch(e){}
-}
-async function submitPublic(){
-  if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
-  const evaluator=$('pEvaluator').value.trim(),staff=$('pStaff').value.trim();
-  if(!evaluator)return toast('กรุณาระบุผลัด/ชื่อเจ้าหน้าที่ ตม.',true);
-  if(!staff)return toast('กรุณาระบุชื่อเจ้าหน้าที่ Onsite Support',true);
-  document.querySelectorAll('.pub-crit.invalid').forEach(el=>el.classList.remove('invalid'));
-  const row={evaluator,staff,comment:$('pComment').value.trim()||null};let firstMissing=null;
-  CRITERIA.forEach(c=>{const b=document.querySelector('button[data-k="'+c.key+'"].active');row[c.key]=b?Number(b.dataset.v):null;
-    if(!b){const card=document.querySelector('[data-card="'+c.key+'"]');if(card){card.classList.add('invalid');if(!firstMissing)firstMissing=card;}}});
-  if(firstMissing){toast('กรุณาให้คะแนนให้ครบทั้ง 5 หัวข้อก่อนส่งแบบประเมิน',true);firstMissing.scrollIntoView({behavior:'smooth',block:'center'});return;}
-  $('pSubmit').disabled=true;
-  const {error}=await sb.from('evaluations').insert(row);
-  $('pSubmit').disabled=false;
-  if(error)return toast('ส่งไม่สำเร็จ: '+error.message,true);
-  $('pStaff').value&&sb.from('staff').insert({name:staff}).then(()=>{},()=>{}); // เพิ่มชื่อใหม่ (ถ้าซ้ำจะถูกข้าม)
-  $('pubForm').classList.add('hidden');$('pubThanks').classList.remove('hidden');window.scrollTo(0,0);
-}
-function resetPublic(){$('pEvaluator').value='';$('pStaff').value='';$('pComment').value='';document.querySelectorAll('.pub-seg button.active').forEach(b=>b.classList.remove('active'));$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');window.scrollTo(0,0);}
-
-// ---- ล็อกอิน ----
-async function doLogin(e){e.preventDefault();if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
-  $('liBtn').disabled=true;
-  const {error}=await sb.auth.signInWithPassword({email:$('liEmail').value,password:$('liPass').value});
-  $('liBtn').disabled=false;
-  if(error)return toast('เข้าสู่ระบบไม่สำเร็จ: '+error.message,true);
-  showApp();
-}
-async function doLogout(){if(sb)await sb.auth.signOut();showPublic();}
-
-// ---- แดชบอร์ด ----
-let records=[];
-async function loadDashboard(){
-  $('appContent').innerHTML='<p class="hint">กำลังโหลด...</p>';
-  const {data,error}=await sb.from('evaluations').select('*').order('created_at',{ascending:false});
-  if(error){$('appContent').innerHTML='<div class="card">โหลดข้อมูลไม่สำเร็จ: '+esc(error.message)+'</div>';return;}
-  records=data||[];renderDashboard();
-}
-function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;}
-function renderDashboard(){
-  const total=records.length;
-  const staffSet=new Set(records.map(r=>r.staff));
-  const allScores=[];records.forEach(r=>CRITERIA.forEach(c=>allScores.push(r[c.key])));
-  const overall=avg(allScores);
-  const critAvg={};CRITERIA.forEach(c=>critAvg[c.key]=avg(records.map(r=>r[c.key])));
-  const stat=(l,n,col)=>'<div class="stat"><div class="stat-label">'+l+'</div><div class="stat-num" style="color:'+col+'">'+n+'</div></div>';
-  let html='<div class="stats">'+
-    stat('จำนวนผลประเมิน',total,'var(--cyan)')+
-    stat('เจ้าหน้าที่ที่ถูกประเมิน',staffSet.size,'var(--mint)')+
-    stat('คะแนนเฉลี่ยรวม',fmt(overall),'var(--amber)')+
-    stat('หัวข้อต่ำสุด',(()=>{const k=CRITERIA.slice().sort((a,b)=>critAvg[a.key]-critAvg[b.key])[0];return total?esc(k.short):'-';})(),'var(--rose)')+
-    '</div>';
-  html+='<div class="panel"><div class="panel-title">คะแนนเฉลี่ยรายหัวข้อ</div>'+
-    CRITERIA.map(c=>{const v=critAvg[c.key];return '<div class="crit-row"><div>'+c.no+'. '+esc(c.short)+'</div><div class="bar"><div class="fill" style="width:'+(v/5*100)+'%;background:linear-gradient(90deg,'+c.color+',var(--mint))"></div></div><span class="tag '+tone(v)+'">'+fmt(v)+'</span></div>';}).join('')+
-    '</div>';
-  html+='<div class="panel"><div class="panel-title">รายการประเมินล่าสุด ('+total+' รายการ)</div>'+
-    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>เจ้าหน้าที่</th><th>ผลัด</th><th>เฉลี่ย</th>'+CRITERIA.map(c=>'<th>'+c.no+'</th>').join('')+'<th>ข้อเสนอแนะ</th><th></th></tr></thead><tbody>'+
-    (records.map(r=>{const a=avg(CRITERIA.map(c=>r[c.key]));return '<tr><td>'+esc(new Date(r.created_at).toLocaleString('th-TH'))+'</td><td><b>'+esc(r.staff)+'</b></td><td>'+esc(r.evaluator)+'</td><td><span class="tag '+tone(a)+'">'+fmt(a)+'</span></td>'+CRITERIA.map(c=>'<td><span class="tag '+tone(r[c.key])+'">'+r[c.key]+'</span></td>').join('')+'<td>'+esc(r.comment||'-')+'</td><td><button class="btn danger sm" onclick="delEval('+r.id+')">ลบ</button></td></tr>';}).join('')||'<tr><td colspan="11" style="text-align:center;color:#888;padding:40px">ยังไม่มีข้อมูล</td></tr>')+
-    '</tbody></table></div></div>';
-  $('appContent').innerHTML=html;
-}
-function exportCSV(){
-  const head=['created_at','evaluator','staff'].concat(CRITERIA.map(c=>c.key),['comment']);
-  const rows=records.map(r=>head.map(h=>'"'+String(r[h]??'').replace(/"/g,'""')+'"').join(','));
-  const csv=head.join(',')+'\n'+rows.join('\n');
-  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download='evaluations_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
-  toast('ส่งออกแล้ว');
-}
-
-// ---- ลบรายการประเมิน ----
-async function delEval(id){
-  if(!confirm('ลบรายการประเมินนี้?'))return;
-  const {error}=await sb.from('evaluations').delete().eq('id',id);
-  if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);
-  toast('ลบแล้ว');loadDashboard();
-}
-
-// ---- หน้าจัดการรายชื่อ (staff / shifts) + นำเข้า CSV ----
-async function loadDirectory(){
-  $('appContent').innerHTML='<p class="hint">กำลังโหลด...</p>';
-  const [s,sh]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name')]);
-  if(s.error||sh.error){$('appContent').innerHTML='<div class="card">โหลดรายชื่อไม่สำเร็จ</div>';return;}
-  $('appContent').innerHTML=
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="dirGrid">'+
-    dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+
-    dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+
-    '</div>'+importPanel()+userNote();
-  if(window.matchMedia('(max-width:760px)').matches)$('dirGrid').style.gridTemplateColumns='1fr';
-}
-function dirPanel(title,type,items){
-  return '<div class="panel"><div class="panel-title">'+esc(title)+' ('+items.length+')</div>'+
-    '<div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div>'+
-    '<div>'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn danger sm" onclick="delDir(\''+type+'\','+it.id+')">ลบ</button></div>').join('')||'<p class="hint">ยังไม่มีรายชื่อ</p>')+'</div></div>';
-}
-async function addDir(type){
-  const el=$('add_'+type),name=el.value.trim();if(!name)return toast('กรอกชื่อก่อน',true);
-  const {error}=await sb.from(type).insert({name});
-  if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);
-  el.value='';toast('เพิ่มแล้ว');loadDirectory();
-}
-async function delDir(type,id){
-  if(!confirm('ลบรายชื่อนี้?'))return;
-  const {error}=await sb.from(type).delete().eq('id',id);
-  if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);
-  toast('ลบแล้ว');loadDirectory();
-}
-function userNote(){
-  return '<div class="panel"><div class="panel-title">จัดการผู้ใช้ระบบ (บัญชีล็อกอิน)</div>'+
-    '<p class="hint">เพื่อความปลอดภัย การเพิ่ม/ลบบัญชีผู้ล็อกอิน (Senior/ผู้บริหาร) ทำที่ <b>Supabase Dashboard → Authentication → Users</b> (ต้องใช้สิทธิ์ admin จึงไม่เปิดให้ทำผ่านหน้าเว็บที่ใช้ anon key)</p></div>';
-}
-
-// ---- นำเข้าข้อมูลเก่าจาก CSV (Google Sheets) ----
-const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
-function importPanel(){
-  return '<div class="panel"><div class="panel-title">นำเข้าข้อมูลเก่า (CSV จาก Google Sheets)</div>'+
-    '<p class="hint">ส่งออกชีตเดิมเป็น CSV แล้วอัปโหลดที่นี่ — ลำดับคอลัมน์: <b>เวลา, ผลัด/ผู้ประเมิน, เจ้าหน้าที่, 5 คะแนน, ข้อเสนอแนะ</b> (คะแนนเป็นตัวเลข 1-5 หรือคำว่า ดีเยี่ยม/ดี/พอใช้/ต้องปรับปรุง/ไม่ผ่าน ก็ได้ มีแถวหัวตารางได้)</p>'+
-    '<div class="dir-add"><input type="file" id="csvFile" accept=".csv" class="input" style="padding-top:8px"><button class="btn primary" onclick="importCSV()">นำเข้า</button></div></div>';
-}
-function parseCSV(text){
-  const rows=[];let i=0,f='',row=[],q=false;text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  while(i<text.length){const ch=text[i];
-    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}
-    if(ch==='"'){q=true;i++;continue;}
-    if(ch===','){row.push(f);f='';i++;continue;}
-    if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}
-    f+=ch;i++;
-  }
-  if(f.length||row.length){row.push(f);rows.push(row);}
-  return rows;
-}
-async function importCSV(){
-  const file=$('csvFile').files[0];if(!file)return toast('เลือกไฟล์ CSV ก่อน',true);
-  const text=await file.text();
-  let rows=parseCSV(text).filter(r=>r.length>1&&r.join('').trim()!=='');
-  if(!rows.length)return toast('ไฟล์ว่าง',true);
-  const toScore=v=>{v=String(v||'').trim();if(LABEL2NUM[v]!=null)return LABEL2NUM[v];const n=parseInt(v,10);return (n>=1&&n<=5)?n:null;};
-  if(toScore(rows[0][3])==null)rows=rows.slice(1); // ข้ามแถวหัวตาราง
-  const recs=[];let skipped=0;
-  for(const r of rows){
-    const ev=(r[1]||'').trim(),st=(r[2]||'').trim();
-    const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];
-    if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}
-    const rec={evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};
-    const d=new Date(r[0]);if(r[0]&&!isNaN(d.getTime()))rec.created_at=d.toISOString();
-    recs.push(rec);
-  }
-  if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
-  let ok=0;
-  for(let j=0;j<recs.length;j+=200){
-    const {error}=await sb.from('evaluations').insert(recs.slice(j,j+200));
-    if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}
-    ok+=Math.min(200,recs.length-j);
-  }
-  toast('นำเข้าสำเร็จ '+ok+' รายการ'+(skipped?(' (ข้าม '+skipped+')'):''));
-  goView('dash');
-}
-
-// ---- รายงาน DOCX (สร้างในเบราว์เซอร์ด้วย JSZip) ----
-function dEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
-function dRun(text,color,sz,bold){
-  var rpr='<w:rPr><w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>'+(bold?'<w:b/><w:bCs/>':'')+'<w:color w:val="'+color+'"/><w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/></w:rPr>';
-  var lines=String(text==null?'':text).split('\n'),out='';
-  for(var i=0;i<lines.length;i++){if(i>0)out+='<w:r>'+rpr+'<w:br/></w:r>';out+='<w:r>'+rpr+'<w:t xml:space="preserve">'+dEsc(lines[i])+'</w:t></w:r>';}
-  return out;
-}
-function dPara(runs,before,after,fill){
-  var extra=fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'';
-  return '<w:p><w:pPr><w:spacing w:before="'+before+'" w:after="'+after+'" w:line="276" w:lineRule="auto"/>'+extra+'</w:pPr>'+runs+'</w:p>';
-}
-async function exportDOCX(){
-  if(!records.length)return toast('ยังไม่มีข้อมูลให้สร้างรายงาน',true);
-  if(typeof JSZip==='undefined')return toast('โหลด JSZip ไม่สำเร็จ',true);
-  var critAvg=function(k){return avg(records.map(function(r){return r[k];}));};
-  var allScores=[];records.forEach(function(r){CRITERIA.forEach(function(c){allScores.push(r[c.key]);});});
-  var staffSet={};records.forEach(function(r){staffSet[r.staff]=1;});
-  var body='';
-  body+=dPara(dRun('รายงานผลประเมินเจ้าหน้าที่ Onsite Support','1749c4',40,true),0,40,'');
-  body+=dPara(dRun('สำนักงานตรวจคนเข้าเมือง','0b2f6b',24,true),0,30,'');
-  body+=dPara(dRun('สร้างเมื่อ: '+new Date().toLocaleString('th-TH'),'888888',18,false),0,160,'');
-  body+=dPara(dRun('สรุปภาพรวม','1749c4',28,true),120,60,'');
-  body+=dPara(dRun('จำนวนผลประเมิน: '+records.length+' รายการ','1f2937',22,false),0,40,'E8F1FD');
-  body+=dPara(dRun('เจ้าหน้าที่ที่ถูกประเมิน: '+Object.keys(staffSet).length+' คน','1f2937',22,false),0,40,'E8F1FD');
-  body+=dPara(dRun('คะแนนเฉลี่ยรวม: '+fmt(avg(allScores))+' / 5','1f2937',22,false),0,120,'E8F1FD');
-  body+=dPara(dRun('คะแนนเฉลี่ยรายหัวข้อ','1749c4',28,true),120,60,'');
-  CRITERIA.forEach(function(c){body+=dPara(dRun(c.no+'. '+c.short+'   —   '+fmt(critAvg(c.key))+' / 5','1f2937',22,false),0,40,'F4F6F9');});
-  body+=dPara(dRun('สรุปรายเจ้าหน้าที่','1749c4',28,true),140,60,'');
-  var byStaff={};records.forEach(function(r){(byStaff[r.staff]=byStaff[r.staff]||[]).push(r);});
-  Object.keys(byStaff).sort().forEach(function(name){
-    var rs=byStaff[name],sc=[];rs.forEach(function(r){CRITERIA.forEach(function(c){sc.push(r[c.key]);});});
-    body+=dPara(dRun(name,'0b2f6b',24,true)+dRun('     '+rs.length+' รายการ · เฉลี่ย '+fmt(avg(sc)),'888888',20,false),120,40,'F4F6F9');
-  });
-  var doc='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+body+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>';
-  var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
-  var rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
-  var zip=new JSZip();
-  zip.file('[Content_Types].xml',ct);
-  zip.folder('_rels').file('.rels',rels);
-  zip.folder('word').file('document.xml',doc);
-  var blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='OSO_Evaluation_Report_'+new Date().toISOString().slice(0,10)+'.docx';a.click();
-  toast('สร้างรายงาน DOCX แล้ว');
-}
-</script>
+<script src="app.js"></script>
 </body>
 </html>

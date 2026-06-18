@@ -1,0 +1,344 @@
+/* ============================================================
+   app.js - OSO Evaluation (GitHub Pages + Supabase)
+   พอร์ตจากเวอร์ชัน Apps Script ให้ครบทุกฟีเจอร์ + รายงาน
+   ============================================================ */
+
+// ---------- ค่าคงที่ (ตรงกับ Code.gs) ----------
+const CRITERIA = [
+  {key:'speed',           no:1, shortTitle:'ความรวดเร็ว',   title:'ความรวดเร็วในการให้บริการ', color:'#0ea5e9', points:['ตอบรับและเข้าช่วยเหลือได้รวดเร็ว','ลดเวลารอคอยของเจ้าหน้าที่ ตม.','จัดลำดับความเร่งด่วนได้เหมาะสม','ติดตามงานจนเสร็จในเวลาที่เหมาะสม']},
+  {key:'problem_solving', no:2, shortTitle:'แก้ไขปัญหา',     title:'ความสามารถในการแก้ไขปัญหา', color:'#2563eb', points:['วิเคราะห์สาเหตุของปัญหาได้ตรงจุด','เลือกวิธีแก้ไขเหมาะสมกับสถานการณ์','แก้ไขแล้วระบบหรืออุปกรณ์ใช้งานได้จริง','ประสานงานต่อเมื่อปัญหาเกินขอบเขต']},
+  {key:'communication',   no:3, shortTitle:'สื่อสารและเข้าใจ', title:'การสื่อสารและความเข้าใจ', color:'#06b6d4', points:['อธิบายขั้นตอนด้วยภาษาที่เข้าใจง่าย','รับฟังปัญหาของเจ้าหน้าที่ ตม. อย่างครบถ้วน','แจ้งสถานะและข้อจำกัดชัดเจน','สื่อสารสุภาพ ไม่กำกวม']},
+  {key:'service_mind',    no:4, shortTitle:'มารยาทบริการ',   title:'มารยาทและการให้บริการ', color:'#14b8a6', points:['สุภาพ เป็นมิตร และให้เกียรติผู้ใช้งาน','แสดงความตั้งใจช่วยเหลือ','อดทนต่อสถานการณ์กดดัน','สร้างประสบการณ์ที่ดีในการรับบริการ']},
+  {key:'satisfaction',    no:5, shortTitle:'พึงพอใจโดยรวม',  title:'ความพึงพอใจโดยรวม', color:'#60a5fa', points:['ผลลัพธ์ตรงกับความต้องการ','เจ้าหน้าที่ ตม. มั่นใจในการใช้งานต่อ','บริการมีความสม่ำเสมอ','ภาพรวมการสนับสนุนเป็นที่น่าพึงพอใจ']}
+];
+const SCORE_OPTIONS = [
+  {label:'ดีเยี่ยม',value:5},{label:'ดี',value:4},{label:'พอใช้',value:3},{label:'ต้องปรับปรุง',value:2},{label:'ไม่ผ่าน',value:1}
+];
+const SCORE_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.label]=x.value,m),{});
+const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
+const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+// ---------- globals ----------
+let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
+let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
+let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
+const LOADING = '<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const num = x => Number(x||0);
+const pct = x => Math.max(0,Math.min(100,Math.round(num(x)/5*100)));
+const fmt = x => num(x)?num(x).toFixed(2):'0.00';
+const tone = v => v>=4.6?'excellent':v>=3.8?'good':v>=3?'fair':v>=2?'weak':'critical';
+const scoreColor = v => v>=5?'#bef264':v>=4?'#99f6e4':v>=3?'#fcd34d':v>=2?'#fecdd3':'#fca5a5';
+function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]/g,' ');}
+function scoreBand(score){if(!score)return 'ยังไม่มีข้อมูล';if(score>=4.6)return 'ดีเยี่ยม';if(score>=3.8)return 'ดี';if(score>=3.0)return 'พอใช้';if(score>=2.0)return 'ต้องปรับปรุง';return 'ไม่ผ่าน';}
+function fmtDateTime(v){if(!v)return '';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});}catch(e){return String(v);}}
+let tt;function toast(m,err){const e=$('toast');e.textContent=m;e.className='toast show'+(err?' err':'');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2800);}
+
+// ---------- Supabase client ----------
+let sb = null;
+(function(){
+  const cfg = window.APP_CONFIG||{};
+  if(cfg.SUPABASE_URL && !String(cfg.SUPABASE_URL).startsWith('PASTE')){
+    sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  }
+})();
+
+// ---------- สลับหน้าจอ ----------
+function hideAll(){['public','login'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
+function showLogin(){hideAll();$('login').classList.remove('hidden');}
+function gotoLogin(){showLogin();}
+function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();}
+function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
+
+window.onload = async function(){
+  renderPublicForm();
+  if(!sb){showPublic();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
+  try{const {data:s}=await sb.auth.getSession();if(s&&s.session){setUser(s.session.user);boot();}else showPublic();}
+  catch(e){showPublic();}
+};
+function setUser(u){user={email:u.email,role:'admin',displayName:u.email,username:u.email};}
+
+// ---------- หน้าสาธารณะ ----------
+function renderPublicForm(){
+  $('pubCriteria').innerHTML = criteria.map(c=>'<div class="pub-crit" data-card="'+c.key+'" style="--c:'+c.color+'"><div class="pub-crit-head"><span class="pub-no">'+c.no+'</span><div class="pub-crit-title">'+esc(c.shortTitle)+'<span class="pub-req" title="จำเป็นต้องให้คะแนน">*</span><small>'+esc(c.title)+'</small></div></div><ul class="points">'+c.points.map(p=>'<li>'+esc(p)+'</li>').join('')+'</ul><div class="pub-seg">'+scoreOptions.map(o=>'<button type="button" style="--tone:'+scoreColor(o.value)+'" data-pub="'+c.key+'" data-value="'+o.value+'" onclick="pickPub(this)">'+esc(o.label)+'</button>').join('')+'</div></div>').join('');
+}
+function pickPub(btn){const k=btn.dataset.pub;document.querySelectorAll('button[data-pub="'+k+'"]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');const card=btn.closest('.pub-crit');if(card)card.classList.remove('invalid');}
+async function loadPublicDirectories(){
+  if(!sb)return;
+  try{
+    const [s,sh]=await Promise.all([sb.from('staff').select('name').order('name'),sb.from('shifts').select('name').order('name')]);
+    $('pubStaffList').innerHTML=(s.data||[]).map(x=>'<option value="'+esc(x.name)+'">').join('');
+    $('pubEvaluatorList').innerHTML=(sh.data||[]).map(x=>'<option value="'+esc(x.name)+'">').join('');
+  }catch(e){}
+}
+async function submitPublic(){
+  if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
+  const evaluator=$('pubEvaluator').value.trim(),staff=$('pubStaff').value.trim();
+  if(!evaluator)return toast('กรุณาระบุผลัด/ชื่อเจ้าหน้าที่ ตม.',true);
+  if(!staff)return toast('กรุณาระบุชื่อเจ้าหน้าที่ Onsite Support',true);
+  document.querySelectorAll('.pub-crit.invalid').forEach(el=>el.classList.remove('invalid'));
+  const row={evaluator,staff,comment:$('pubComment').value.trim()||null};let firstMissing=null;
+  criteria.forEach(c=>{const b=document.querySelector('button[data-pub="'+c.key+'"].active');row[c.key]=b?Number(b.dataset.value):null;if(!b){const card=document.querySelector('[data-card="'+c.key+'"]');if(card){card.classList.add('invalid');if(!firstMissing)firstMissing=card;}}});
+  if(firstMissing){toast('กรุณาให้คะแนนให้ครบทั้ง 5 หัวข้อก่อนส่งแบบประเมิน',true);firstMissing.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  $('pubSubmit').disabled=true;
+  const {error}=await sb.from('evaluations').insert(row);
+  $('pubSubmit').disabled=false;
+  if(error)return toast('ส่งไม่สำเร็จ: '+error.message,true);
+  sb.from('staff').insert({name:staff}).then(()=>{},()=>{});
+  $('pubForm').classList.add('hidden');$('pubThanks').classList.remove('hidden');window.scrollTo(0,0);
+}
+function resetPublic(){$('pubEvaluator').value='';$('pubStaff').value='';$('pubComment').value='';document.querySelectorAll('#pubCriteria button.active').forEach(b=>b.classList.remove('active'));$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');window.scrollTo(0,0);}
+
+// ---------- ล็อกอิน ----------
+async function doLogin(e){
+  e.preventDefault();if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
+  $('loginBtn').disabled=true;
+  const {data:d,error}=await sb.auth.signInWithPassword({email:$('loginUser').value,password:$('loginPass').value});
+  $('loginBtn').disabled=false;
+  if(error)return toast('เข้าสู่ระบบไม่สำเร็จ: '+error.message,true);
+  setUser(d.user);boot();
+}
+async function doLogout(){if(sb)await sb.auth.signOut();showPublic();}
+
+// ---------- ชั้นข้อมูล (แทน google.script.run) ----------
+function rowToRecord(r){
+  const scores={};criteria.forEach(c=>{const v=Number(r[c.key]||0);scores[c.key]={value:v,label:LABEL_MAP[v]||''};});
+  const vals=criteria.map(c=>scores[c.key].value).filter(Number);
+  const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+  return {rowNumber:r.id,id:r.id,timestampRaw:r.created_at,timestamp:fmtDateTime(r.created_at),evaluator:r.evaluator||'',staff:r.staff||'',scores,avg,band:scoreBand(avg),comment:r.comment||''};
+}
+function avgArr(a){return a.length?a.reduce((x,y)=>x+Number(y||0),0)/a.length:0;}
+function uniqueSort(arr){return Array.from(new Set(arr.map(s=>String(s||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'th'));}
+function summarizePerson(name,records){
+  const rows=records.filter(r=>r.staff===name);
+  if(!rows.length)return {name,count:0,avg:0,band:'ยังไม่มีข้อมูล',criteria:{},latest:'',trend:0,lastComment:''};
+  const crit={};criteria.forEach(c=>{const v=rows.map(r=>r.scores[c.key].value).filter(Number);crit[c.key]=v.length?avgArr(v):0;});
+  const avg=avgArr(rows.map(r=>r.avg).filter(Number));
+  const chrono=rows.slice().sort((a,b)=>new Date(a.timestampRaw)-new Date(b.timestampRaw));
+  const first=chrono[0]?chrono[0].avg:avg,last=chrono[chrono.length-1]?chrono[chrono.length-1].avg:avg,latestRow=chrono[chrono.length-1];
+  return {name,count:rows.length,avg,band:scoreBand(avg),criteria:crit,latest:latestRow?latestRow.timestamp:'',trend:last-first,lastComment:latestRow?latestRow.comment:''};
+}
+function summarizeOverall(records,people){
+  const total=records.length,evaluated=people.filter(p=>p.count).length,avgScore=total?avgArr(records.map(r=>r.avg)):0,criteriaAvg={};
+  criteria.forEach(c=>criteriaAvg[c.key]=avgArr(records.map(r=>r.scores[c.key].value).filter(Number))||0);
+  const lowest=criteria.slice().sort((a,b)=>(criteriaAvg[a.key]||0)-(criteriaAvg[b.key]||0))[0];
+  const top=people.filter(p=>p.count).slice(0,5);
+  const risks=people.filter(p=>p.count&&p.avg<3.5).sort((a,b)=>a.avg-b.avg).slice(0,5);
+  const evaluators={};records.forEach(r=>evaluators[r.evaluator]=(evaluators[r.evaluator]||0)+1);
+  return {total,evaluated,avgScore,band:scoreBand(avgScore),criteriaAvg,lowestKey:lowest?lowest.key:'',top,risks,evaluators};
+}
+async function loadData(){
+  const [ev,st,sh]=await Promise.all([
+    sb.from('evaluations').select('*').order('created_at',{ascending:false}),
+    sb.from('staff').select('name').order('name'),
+    sb.from('shifts').select('name').order('name')
+  ]);
+  if(ev.error)throw ev.error;
+  const records=(ev.data||[]).map(rowToRecord);
+  const staffNames=uniqueSort(records.map(r=>r.staff).concat((st.data||[]).map(x=>x.name)));
+  const people=staffNames.map(n=>summarizePerson(n,records)).filter(Boolean).sort((a,b)=>b.avg-a.avg||a.name.localeCompare(b.name,'th'));
+  const summary=summarizeOverall(records,people);
+  const shiftNames=uniqueSort(records.map(r=>r.evaluator).concat((sh.data||[]).map(x=>x.name)));
+  return {records,people,staffNames,shiftNames,summary};
+}
+async function refresh(){
+  $('content').innerHTML=LOADING;
+  try{data=await loadData();hydrateUser();render();}
+  catch(e){toast((e&&e.message)||'โหลดข้อมูลไม่สำเร็จ',true);$('content').innerHTML='<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>';}
+}
+function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();}
+function showView(v,btn){view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();}
+function toggleSide(){$('side').classList.toggle('open');}
+function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory}[view]||renderDashboard)();}
+function stat(a,b,c,color){return '<div class="stat"><div class="stat-label">'+a+'</div><div class="stat-num" style="color:'+color+'">'+b+'</div><div class="mini">'+(c||'')+'</div></div>';}
+
+// ---------- แดชบอร์ด ----------
+function renderDashboard(){
+  const s=data.summary||{},weak=criteria.find(c=>c.key===s.lowestKey),risk=(s.risks||[])[0],coverage=data.staffNames.length?Math.round((s.evaluated||0)/data.staffNames.length*100):0;
+  $('content').innerHTML='<div class="exec"><div class="panel"><div class="panel-head"><div><div class="panel-title">สรุปภาพรวม</div><div class="mini">ภาพรวมผลประเมินสำหรับหน่วยงานตรวจคนเข้าเมือง</div></div></div><div class="exec-grid"><div class="exec-item"><b>ภาพรวมคะแนน</b><span class="tag '+tone(s.avgScore)+'">'+fmt(s.avgScore)+' / 5</span><div class="mini" style="margin-top:8px">'+esc(s.band||'-')+'</div></div><div class="exec-item"><b>จำนวนเจ้าหน้าที่ที่มีข้อมูล</b><span class="tag neutral">'+(s.evaluated||0)+' / '+(data.staffNames.length||s.evaluated||0)+' คน</span><div class="bar" style="margin-top:10px"><div class="fill" style="width:'+coverage+'%"></div></div></div><div class="exec-item"><b>หัวข้อที่ควรติดตาม</b><span class="tag weak">'+(weak?esc(weak.shortTitle):'-')+'</span><div class="mini" style="margin-top:8px">คะแนนเฉลี่ยต่ำสุด</div></div></div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">ข้อเสนอแนะถัดไป</div><div class="mini">แนวทางติดตามสำหรับแต่ละผลัด</div></div></div><div class="next-steps">'+nextSteps(s,weak,risk)+'</div></div></div><div class="stats grid">'+stat('จำนวนผลประเมิน',s.total||0,'รายการ','var(--cyan)')+stat('เจ้าหน้าที่ที่ถูกประเมิน',s.evaluated||0,'คน','var(--mint)')+stat('คะแนนเฉลี่ย',fmt(s.avgScore),'เต็ม 5','var(--amber)')+stat('หัวข้อโฟกัส',weak?esc(weak.shortTitle):'-',s.band||'-','var(--rose)')+'</div><div class="dash grid"><div class="panel"><div class="panel-head"><div><div class="panel-title">ผลงานเด่น</div><div class="mini">ใช้เป็นตัวอย่างมาตรฐานบริการ</div></div><button class="btn" onclick="view=\'people\';render()">ดูทั้งหมด</button></div><div class="rank">'+((s.top||[]).map((p,i)=>rankRow(p,i+1,false)).join('')||'<div class="empty">ไม่มีข้อมูล</div>')+'</div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">คะแนนรายหัวข้อ</div><div class="mini">ค่าเฉลี่ยตามหัวข้อแบบประเมิน</div></div></div><div class="criteria-list">'+criteriaRows(s.criteriaAvg||{})+'</div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">รายการที่ควรติดตาม</div><div class="mini">กลุ่มที่ควรได้รับการติดตาม</div></div></div><div class="rank">'+((s.risks||[]).map((p,i)=>rankRow(p,i+1,true)).join('')||'<div class="empty">ไม่มีรายการติดตาม</div>')+'</div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">จำนวนรายการตามผลัด</div><div class="mini">จำนวนรายการประเมินของแต่ละผลัด</div></div></div>'+evaluatorBars(s.evaluators||{})+'</div></div>';
+}
+function nextSteps(s,weak,risk){const steps=[];steps.push('บันทึกผลประเมินให้ครบ โดยเฉพาะเจ้าหน้าที่ที่ยังไม่มีข้อมูลล่าสุด');if(weak)steps.push('ติดตามหัวข้อ '+esc(weak.shortTitle)+' เนื่องจากเป็นหัวข้อที่มีคะแนนต่ำสุด');steps.push(risk?'ติดตามผลกับ '+esc(risk.name)+' และทบทวนข้อเสนอแนะก่อนรอบถัดไป':'ใช้เจ้าหน้าที่ที่มีคะแนนดีเป็นตัวอย่างมาตรฐานบริการ');return steps.map((x,i)=>'<div class="step"><div class="step-num">'+(i+1)+'</div><div>'+x+'</div></div>').join('');}
+function criteriaRows(vals){return criteria.map(c=>{const v=num(vals[c.key]);return '<div class="criteria-row"><b>'+c.no+'</b><div><div>'+esc(c.shortTitle)+'</div><div class="bar" style="margin-top:7px"><div class="fill" style="width:'+pct(v)+'%;background:linear-gradient(90deg,'+c.color+',var(--mint))"></div></div></div><span class="tag '+tone(v)+'">'+fmt(v)+'</span></div>';}).join('')||'<div class="empty">ไม่มีข้อมูล</div>';}
+function rankRow(p,i,risk){return '<div class="rank-row"><div><div class="rank-name">'+i+'. '+esc(p.name)+'</div><div class="rank-meta">'+p.count+' รายการ | '+esc(p.band)+' | แนวโน้ม '+(p.trend>=0?'+':'')+p.trend.toFixed(2)+'</div><div class="bar" style="margin-top:8px"><div class="fill" style="width:'+pct(p.avg)+'%;background:'+(risk?'linear-gradient(90deg,var(--rose),var(--amber))':'linear-gradient(90deg,var(--cyan),var(--mint))')+'"></div></div></div><div class="score">'+fmt(p.avg)+'</div></div>';}
+function evaluatorBars(obj){const rows=Object.entries(obj).sort((a,b)=>b[1]-a[1]),max=Math.max(1,...rows.map(x=>x[1]));return rows.map(([k,v])=>'<div class="kpi-line"><span>'+esc(k||'-')+'</span><b>'+v+'</b></div><div class="bar" style="margin-bottom:8px"><div class="fill" style="width:'+Math.round(v/max*100)+'%;background:linear-gradient(90deg,var(--violet),var(--cyan))"></div></div>').join('')||'<div class="empty">ไม่มีข้อมูล</div>';}
+function radar(vals){const cx=150,cy=128,r=86,levels=[.25,.5,.75,1];let rings='',axes='',pts=[];levels.forEach(l=>{rings+='<polygon class="radar-grid" points="'+criteria.map((c,i)=>{const a=-Math.PI/2+i*2*Math.PI/criteria.length;return (cx+Math.cos(a)*r*l)+','+(cy+Math.sin(a)*r*l);}).join(' ')+'"/>';});criteria.forEach((c,i)=>{const a=-Math.PI/2+i*2*Math.PI/criteria.length,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r,lx=cx+Math.cos(a)*(r+34),ly=cy+Math.sin(a)*(r+24);axes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+x+'" y2="'+y+'" class="radar-grid"/><text x="'+lx+'" y="'+ly+'" text-anchor="middle" class="radar-label">'+esc(c.no)+'</text>';pts.push((cx+Math.cos(a)*r*(num(vals[c.key])/5))+','+(cy+Math.sin(a)*r*(num(vals[c.key])/5)));});return '<svg viewBox="0 0 300 260" width="100%" height="280">'+rings+axes+'<polygon class="radar-poly" points="'+pts.join(' ')+'"/><circle cx="'+cx+'" cy="'+cy+'" r="3" fill="#fff"/></svg><div class="mini">'+criteria.map(c=>c.no+'. '+esc(c.shortTitle)).join(' | ')+'</div>';}
+
+// ---------- รายการประเมิน ----------
+function toolbar(){return '<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาชื่อเจ้าหน้าที่ ผลัด หรือข้อเสนอแนะ"><span class="mini">'+data.records.length+' รายการ</span></div>';}
+function renderEvaluations(){const rows=data.records.filter(r=>!filter||(r.staff+' '+r.evaluator+' '+r.comment).toLowerCase().includes(filter.toLowerCase()));$('content').innerHTML=toolbar()+'<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>เจ้าหน้าที่</th><th>ผลัด</th><th>เฉลี่ย</th>'+criteria.map(c=>'<th>'+c.no+'</th>').join('')+'<th>ข้อเสนอแนะ</th><th></th></tr></thead><tbody>'+(rows.map(evalRow).join('')||'<tr><td colspan="11" class="empty">ไม่มีข้อมูล</td></tr>')+'</tbody></table></div>';}
+function evalRow(r){return '<tr><td class="nowrap">'+esc(r.timestamp)+'</td><td><b>'+esc(r.staff)+'</b><div class="mini">'+esc(r.band)+'</div></td><td>'+esc(r.evaluator)+'</td><td><span class="tag '+tone(r.avg)+'">'+fmt(r.avg)+'</span></td>'+criteria.map(c=>'<td><span class="tag '+tone(r.scores[c.key].value)+'">'+esc(r.scores[c.key].label||'-')+'</span></td>').join('')+'<td class="comment">'+esc(r.comment||'-')+'</td><td class="nowrap"><button class="btn icon" onclick="openEval('+r.rowNumber+')">แก้ไข</button> <button class="btn icon danger" onclick="deleteEval('+r.rowNumber+')">x</button></td></tr>';}
+
+// ---------- สรุปรายเจ้าหน้าที่ ----------
+function renderPeople(){const rows=data.people.filter(p=>!filter||p.name.toLowerCase().includes(filter.toLowerCase()));$('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาชื่อเจ้าหน้าที่"><span class="mini">'+data.people.length+' คน</span></div><div class="heat"><div class="head">เจ้าหน้าที่</div>'+criteria.map(c=>'<div class="head">'+c.no+'. '+esc(c.shortTitle)+'</div>').join('')+rows.map(p=>'<div><b>'+esc(p.name)+'</b><div class="mini">'+p.count+' รายการ | avg '+fmt(p.avg)+'</div></div>'+criteria.map(c=>heatCell(p.criteria[c.key])).join('')).join('')+'</div><div class="dash grid" style="margin-top:16px"><div class="panel"><div class="panel-head"><div><div class="panel-title">อันดับคะแนนรายเจ้าหน้าที่</div><div class="mini">เลือกเจ้าหน้าที่เพื่อดูรายละเอียด</div></div></div><div class="rank">'+(rows.map((p,i)=>'<button class="btn" style="justify-content:space-between" onclick="selectedStaff=\''+js(p.name)+'\';renderProfile()"><span>'+(i+1)+'. '+esc(p.name)+'</span><b>'+fmt(p.avg)+'</b></button>').join('')||'<div class="empty">ไม่มีข้อมูล</div>')+'</div></div><div class="panel" id="profilePanel"><div class="empty">เลือกเจ้าหน้าที่เพื่อดูรายละเอียด</div></div></div>';if(selectedStaff)renderProfile();}
+function heatCell(v){const color=v>=4.6?'#84cc16':v>=3.8?'#2dd4bf':v>=3?'#f59e0b':v>=2?'#fb7185':'#ef4444';return '<div class="cell" style="color:'+color+'">'+(v?fmt(v):'-')+'</div>';}
+function renderProfile(){const p=data.people.find(x=>x.name===selectedStaff);if(!p||!$('profilePanel'))return;$('profilePanel').innerHTML='<div class="panel-head"><div><div class="panel-title">'+esc(p.name)+'</div><div class="mini">'+p.count+' รายการ | '+esc(p.band)+' | ล่าสุด '+esc(p.latest||'-')+'</div></div><button class="btn" onclick="downloadPdf(\''+js(p.name)+'\')">PDF</button></div>'+radar(p.criteria)+'<div class="kpi-line"><span>คะแนนเฉลี่ย</span><b>'+fmt(p.avg)+'</b></div><div class="kpi-line"><span>แนวโน้ม</span><b>'+(p.trend>=0?'+':'')+p.trend.toFixed(2)+'</b></div><div style="margin-top:12px;color:#334155;line-height:1.6">'+esc(p.lastComment||'ยังไม่มีข้อเสนอแนะ')+'</div>';}
+
+// ---------- วิเคราะห์ภาพรวม ----------
+function renderInsights(){const s=data.summary||{},weak=criteria.find(c=>c.key===s.lowestKey),risks=s.risks||[],best=s.top&&s.top[0],keywords=keywordInsight(data.records.map(r=>r.comment).filter(Boolean).join(' '));$('content').innerHTML='<div class="dash grid"><div class="panel"><div class="panel-head"><div><div class="panel-title">วิเคราะห์ภาพรวม</div><div class="mini">สรุปจากคะแนนและข้อเสนอแนะ</div></div></div><div class="insight"><div class="insight-card"><b>ภาพรวมทีม</b>คะแนนเฉลี่ยอยู่ที่ '+fmt(s.avgScore)+' / 5 ('+esc(s.band||'-')+') จาก '+(s.total||0)+' รายการ</div><div class="insight-card"><b>หัวข้อที่ควรติดตาม</b>'+(weak?esc(weak.shortTitle):'-')+' มีคะแนนเฉลี่ยต่ำสุด ควรใช้เป็นหัวข้อติดตามรอบถัดไป</div><div class="insight-card"><b>กลุ่มติดตาม</b>'+(risks.length?risks.map(p=>esc(p.name)+' ('+fmt(p.avg)+')').join(', '):'ไม่พบกลุ่มเสี่ยงจากคะแนน')+'</div><div class="insight-card"><b>เจ้าหน้าที่ต้นแบบ</b>'+(best?esc(best.name)+' มีคะแนนนำที่ '+fmt(best.avg)+' สามารถใช้เป็นตัวอย่างมาตรฐานบริการ':'ยังไม่มีข้อมูลเพียงพอ')+'</div></div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">คำสำคัญจากข้อเสนอแนะ</div><div class="mini">คำที่พบในข้อเสนอแนะ</div></div></div>'+(keywords.map(k=>'<div class="kpi-line"><span>'+esc(k.word)+'</span><b>'+k.count+'</b></div><div class="bar" style="margin-bottom:8px"><div class="fill" style="width:'+Math.min(100,k.count*18)+'%;background:linear-gradient(90deg,var(--amber),var(--rose))"></div></div>').join('')||'<div class="empty">ยังไม่มีข้อเสนอแนะ</div>')+'</div></div>';}
+function keywordInsight(text){return ['รวดเร็ว','ช้า','ดี','ดีเยี่ยม','สุภาพ','สื่อสาร','เข้าใจ','แก้ไข','ช่วยเหลือ','พึงพอใจ','บริการ','ติดตาม','ปัญหา'].map(w=>({word:w,count:(text.match(new RegExp(w,'g'))||[]).length})).filter(x=>x.count).sort((a,b)=>b.count-a.count).slice(0,10);}
+
+// ---------- จัดการรายชื่อ ----------
+async function renderDirectory(){
+  $('content').innerHTML=LOADING;
+  const [s,sh]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name')]);
+  if(s.error||sh.error){$('content').innerHTML='<div class="empty">โหลดรายชื่อไม่สำเร็จ</div>';return;}
+  $('content').innerHTML='<div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+importPanel();
+}
+const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
+function importPanel(){return '<div class="panel" style="margin-top:16px"><div class="panel-title">นำเข้าข้อมูลเก่า (CSV จาก Google Sheets)</div><p class="mini" style="margin:6px 0 12px;line-height:1.6">ส่งออกชีตเดิมเป็น CSV แล้วอัปโหลดที่นี่ — ลำดับคอลัมน์: <b>เวลา, ผลัด/ผู้ประเมิน, เจ้าหน้าที่, 5 คะแนน, ข้อเสนอแนะ</b> (คะแนนเป็นตัวเลข 1-5 หรือคำว่า ดีเยี่ยม/ดี/พอใช้/ต้องปรับปรุง/ไม่ผ่าน ก็ได้ มีแถวหัวตารางได้)</p><div class="dir-add"><input type="file" id="csvFile" accept=".csv" class="input" style="padding-top:8px"><button class="btn primary" onclick="importCSV()">นำเข้า</button></div></div>';}
+function parseCSV(text){const rows=[];let i=0,f='',row=[],q=false;text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');while(i<text.length){const ch=text[i];if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}if(ch==='"'){q=true;i++;continue;}if(ch===','){row.push(f);f='';i++;continue;}if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}f+=ch;i++;}if(f.length||row.length){row.push(f);rows.push(row);}return rows;}
+async function importCSV(){
+  const file=$('csvFile').files[0];if(!file)return toast('เลือกไฟล์ CSV ก่อน',true);
+  const text=await file.text();let rows=parseCSV(text).filter(r=>r.length>1&&r.join('').trim()!=='');
+  if(!rows.length)return toast('ไฟล์ว่าง',true);
+  const toScore=v=>{v=String(v||'').trim();if(LABEL2NUM[v]!=null)return LABEL2NUM[v];const n=parseInt(v,10);return (n>=1&&n<=5)?n:null;};
+  if(toScore(rows[0][3])==null)rows=rows.slice(1);
+  const recs=[];let skipped=0;
+  for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}const rec={evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};const d=new Date(r[0]);if(r[0]&&!isNaN(d.getTime()))rec.created_at=d.toISOString();recs.push(rec);}
+  if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
+  let ok=0;for(let j=0;j<recs.length;j+=200){const {error}=await sb.from('evaluations').insert(recs.slice(j,j+200));if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}ok+=Math.min(200,recs.length-j);}
+  toast('นำเข้าสำเร็จ '+ok+' รายการ'+(skipped?(' (ข้าม '+skipped+')'):''));refresh();
+}
+function dirPanel(title,type,items){return '<div class="panel"><div class="panel-head"><div><div class="panel-title">'+esc(title)+'</div><div class="mini">'+items.length+' รายชื่อ</div></div></div><div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div><div class="dir-list">'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn icon danger" title="ลบ" onclick="delDir(\''+type+'\','+it.id+')">x</button></div>').join('')||'<div class="empty">ยังไม่มีรายชื่อ</div>')+'</div></div>';}
+async function addDir(type){const el=$('add_'+type),name=el.value.trim();if(!name)return toast('กรุณากรอกชื่อ',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';toast('เพิ่มแล้ว');renderDirectory();}
+async function delDir(type,id){if(!confirm('ลบรายชื่อนี้?'))return;const {error}=await sb.from(type).delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');renderDirectory();}
+async function addStaff(){const name=prompt('ชื่อเจ้าหน้าที่ Onsite Support');if(!name)return;const {error}=await sb.from('staff').insert({name:name.trim()});if(error)return toast('เพิ่มไม่สำเร็จ',true);toast('เพิ่มแล้ว');refresh();}
+
+// ---------- Modal แก้ไขผลประเมิน ----------
+function openEval(row){editRow=Number(row||0);const rec=editRow?data.records.find(r=>r.rowNumber===editRow):null;$('evalTitle').textContent=rec?'แก้ไขผลประเมิน':'บันทึกผลประเมิน';$('fEvaluator').value=rec?rec.evaluator:'';$('fStaff').value=rec?rec.staff:(selectedStaff||'');$('fComment').value=rec?rec.comment:'';$('staffList').innerHTML=data.staffNames.map(x=>'<option value="'+esc(x)+'">').join('');$('evaluatorList').innerHTML=(data.shiftNames||[]).map(x=>'<option value="'+esc(x)+'">').join('');$('criteriaForm').innerHTML=criteria.map(c=>criterionHtml(c,rec)).join('');$('evalModal').classList.add('open');}
+function criterionHtml(c,rec){const value=rec?rec.scores[c.key].label:'';return '<div class="criterion"><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="criterion-title">'+c.no+'. '+esc(c.shortTitle)+'</div><div class="mini">'+esc(c.title)+'</div></div><span class="tag neutral" id="pill-'+c.key+'">'+(value||'-')+'</span></div><ul class="points">'+c.points.map(p=>'<li>'+esc(p)+'</li>').join('')+'</ul><div class="seg">'+scoreOptions.map(o=>'<button type="button" style="--tone:'+scoreColor(o.value)+'" class="'+(o.label===value?'active':'')+'" data-key="'+c.key+'" data-value="'+o.label+'" onclick="pickScore(this)">'+esc(o.label)+'</button>').join('')+'</div></div>';}
+function pickScore(btn){const key=btn.dataset.key;document.querySelectorAll('button[data-key="'+key+'"]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');$('pill-'+key).textContent=btn.dataset.value;}
+function closeEval(){$('evalModal').classList.remove('open');editRow=0;}
+async function saveEval(){
+  const row={evaluator:$('fEvaluator').value.trim(),staff:$('fStaff').value.trim(),comment:$('fComment').value.trim()||null};
+  if(!row.staff)return toast('กรุณาระบุชื่อเจ้าหน้าที่ Onsite Support',true);
+  let missing=false;criteria.forEach(c=>{const b=document.querySelector('button[data-key="'+c.key+'"].active');const v=b?SCORE_MAP[b.dataset.value]:0;row[c.key]=v||null;if(!v)missing=true;});
+  if(missing)return toast('กรุณาให้คะแนนให้ครบทุกหัวข้อ',true);
+  $('saveEvalBtn').disabled=true;
+  let error;
+  if(editRow){({error}=await sb.from('evaluations').update(row).eq('id',editRow));}
+  else{({error}=await sb.from('evaluations').insert(row));}
+  $('saveEvalBtn').disabled=false;
+  if(error)return toast('บันทึกไม่สำเร็จ: '+error.message,true);
+  toast('บันทึกแล้ว');closeEval();refresh();
+}
+async function deleteEval(id){if(!confirm('ลบผลประเมินรายการนี้?'))return;const {error}=await sb.from('evaluations').delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');refresh();}
+
+// ---------- ส่งออก CSV ----------
+function exportCSV(){
+  const head=['เวลา','ผลัด/ผู้ประเมิน','เจ้าหน้าที่'].concat(criteria.map(c=>c.shortTitle),['คะแนนเฉลี่ย','ข้อเสนอแนะ']);
+  const rows=data.records.map(r=>[r.timestamp,r.evaluator,r.staff].concat(criteria.map(c=>r.scores[c.key].value||''),[fmt(r.avg),r.comment||'']));
+  const csv=[head].concat(rows).map(row=>row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='OSO_Evaluation_'+new Date().toISOString().slice(0,10)+'.csv';a.click();toast('ส่งออกแล้ว');
+}
+
+/* ============================================================
+   รายงาน DOCX รายเดือน (สร้างในเบราว์เซอร์ด้วย JSZip)
+   ============================================================ */
+function dEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
+function dRun(text,o){o=o||{};const rpr='<w:rPr><w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>'+(o.bold?'<w:b/><w:bCs/>':'')+'<w:color w:val="'+(o.color||'1f2937')+'"/><w:sz w:val="'+(o.sz||22)+'"/><w:szCs w:val="'+(o.sz||22)+'"/></w:rPr>';const lines=String(text==null?'':text).split('\n');let out='';for(let i=0;i<lines.length;i++){if(i>0)out+='<w:r>'+rpr+'<w:br/></w:r>';out+='<w:r>'+rpr+'<w:t xml:space="preserve">'+dEsc(lines[i])+'</w:t></w:r>';}return out;}
+function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
+function dHeading(text){return dPar(text,{sz:26,bold:true,color:'1749c4',before:200,after:80});}
+function dCellPar(text,o){o=o||{};const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="20" w:after="20"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
+function dTable(rows,widths,headerFill){
+  const grid='<w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
+  const borders='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideV w:val="single" w:sz="4" w:color="D0D7E5"/></w:tblBorders>';
+  const trs=rows.map((cells,ri)=>{const isH=ri===0;return '<w:tr>'+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/>'+(fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'')+'<w:vAlign w:val="center"/></w:tcPr>'+dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937'})+'</w:tc>';}).join('')+'</w:tr>';}).join('');
+  return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>'+borders+'</w:tblPr>'+grid+trs+'</w:tbl>'+dPar('',{after:60});
+}
+function dKpiCards(cards){
+  // แถวเดียว 4 ช่อง
+  const w=Math.floor(9000/cards.length);
+  const rows=[cards.map(c=>c[0]),cards.map(c=>c[1]),cards.map(c=>c[2])];
+  // ทำเป็นตาราง 3 แถว (label / value / sub)
+  const grid='<w:tblGrid>'+cards.map(()=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
+  const mk=(arr,o)=>'<w:tr>'+arr.map(t=>'<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/></w:tcPr>'+dCellPar(t,o)+'</w:tc>').join('')+'</w:tr>';
+  return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DCE5F2"/><w:left w:val="single" w:sz="4" w:color="DCE5F2"/><w:bottom w:val="single" w:sz="4" w:color="DCE5F2"/><w:right w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideH w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideV w:val="single" w:sz="4" w:color="DCE5F2"/></w:tblBorders></w:tblPr>'+grid+mk(rows[0],{sz:18,color:'6a7d9b',align:'center'})+mk(rows[1],{sz:34,bold:true,color:'0b2f6b',align:'center'})+mk(rows[2],{sz:18,color:'6a7d9b',align:'center'})+'</w:tbl>'+dPar('',{after:80});
+}
+function chartPng(criteriaAvg){
+  const cv=document.createElement('canvas');cv.width=620;cv.height=300;const g=cv.getContext('2d');
+  g.fillStyle='#ffffff';g.fillRect(0,0,cv.width,cv.height);
+  const pad=44,baseY=250,h=190,bw=70,gap=(cv.width-pad*2-bw*criteria.length)/(criteria.length-1);
+  g.strokeStyle='#e2e8f0';g.fillStyle='#94a3b8';g.font='11px Tahoma';
+  for(let i=0;i<=5;i++){const y=baseY-h*i/5;g.beginPath();g.moveTo(pad,y);g.lineTo(cv.width-pad,y);g.stroke();g.fillText(String(i),pad-18,y+4);}
+  criteria.forEach((c,i)=>{const v=num(criteriaAvg[c.key]);const x=pad+i*(bw+gap);const bh=h*v/5;
+    g.fillStyle=c.color;g.fillRect(x,baseY-bh,bw,bh);
+    g.fillStyle='#0b2f6b';g.font='bold 13px Tahoma';g.textAlign='center';g.fillText(v.toFixed(2),x+bw/2,baseY-bh-6);
+    g.fillStyle='#475569';g.font='12px Tahoma';g.fillText(String(c.no),x+bw/2,baseY+18);g.textAlign='left';});
+  const b64=cv.toDataURL('image/png').split(',')[1];const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr;
+}
+function dImage(){const cx=620*9525,cy=300*9525;return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="1" name="chart"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="chart.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';}
+
+function reportPeriod(ym){const now=new Date();const m=String(ym||'').match(/^(\d{4})-(\d{1,2})$/);const year=m?Number(m[1]):now.getFullYear();const month=m?Number(m[2])-1:now.getMonth();const start=new Date(year,month,1),end=new Date(year,month+1,1);return {start,end,label:THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543),fileKey:year+'-'+String(month+1).padStart(2,'0')};}
+
+async function exportDOCX(){
+  if(typeof JSZip==='undefined')return toast('โหลด JSZip ไม่สำเร็จ',true);
+  const now=new Date(),def=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const ym=prompt('รายงานประจำเดือน (YYYY-MM)',def);if(ym===null)return;
+  const period=reportPeriod(ym||def);
+  const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=period.start&&d<period.end;});
+  const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
+  const s=summarizeOverall(records,people),weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
+  toast('กำลังสร้าง DOCX...');
+  let body='';
+  body+=dPar('รายงานประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง ประจำเดือน '+period.label,{sz:34,bold:true,color:'111827',align:'center',after:60});
+  body+=dPar('รายงานผลการประเมินเจ้าหน้าที่ Onsite Support โดยเจ้าหน้าที่ตรวจคนเข้าเมือง',{sz:20,color:'374151',align:'center',after:200});
+  body+=dTable([['รอบรายงาน',period.label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO Evaluation (Supabase)']],[2600,6400],'F2F7FF');
+  body+=dHeading('Dashboard Summary');
+  body+=dKpiCards([['จำนวนประเมิน',String(s.total),'รายการ'],['เจ้าหน้าที่',String(s.evaluated),'คน'],['คะแนนเฉลี่ย',s.avgScore.toFixed(2),s.band],['หัวข้อโฟกัส',weak?weak.shortTitle:'-',weak?(s.criteriaAvg[weak.key]||0).toFixed(2):'-']]);
+  body+=dHeading('กราฟคะแนนเฉลี่ยรายหัวข้อ');
+  body+=dImage();
+  body+=dHeading('คะแนนเฉลี่ยรายหัวข้อ');
+  body+=dTable([['ลำดับ','หัวข้อประเมิน','คะแนนเฉลี่ย','ระดับ']].concat(criteria.map(c=>{const a=s.criteriaAvg[c.key]||0;return [String(c.no),c.shortTitle,a.toFixed(2),scoreBand(a)];})),[900,4500,1800,1800]);
+  body+=dHeading('ประเด็นที่ควรติดตาม');
+  const fr=(s.risks||[]).map((p,i)=>[String(i+1),p.name,p.avg.toFixed(2),p.band]);
+  body+=fr.length?dTable([['ลำดับ','ชื่อเจ้าหน้าที่','คะแนนเฉลี่ย','ระดับ']].concat(fr),[900,4600,1800,1700]):dPar('ไม่พบเจ้าหน้าที่ที่มีคะแนนเฉลี่ยต่ำกว่าเกณฑ์ติดตามในรอบรายงานนี้',{color:'6a7d9b'});
+  body+=dHeading('จำนวนรายการประเมินตามผลัด');
+  const er=Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[String(i+1),x[0]||'-',String(x[1])]);
+  body+=er.length?dTable([['ลำดับ','ผลัดของเจ้าหน้าที่ตม.','จำนวนรายการ']].concat(er),[900,6000,2100]):dPar('ไม่มีข้อมูลผลัดในรอบรายงานนี้',{color:'6a7d9b'});
+  body+=dHeading('ข้อเสนอแนะเชิงบริหาร');
+  [records.length?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ',weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม',best?'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':'คัดเลือกเจ้าหน้าที่ต้นแบบหลังมีข้อมูลประเมินเพียงพอ',risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ'].forEach((t,i)=>{body+=dPar((i+1)+'. '+t,{fill:'F4F6F9',after:40});});
+  body+=dHeading('รายละเอียดสรุปรายบุคคล');
+  const pr=people.filter(p=>p.count).map((p,i)=>[String(i+1),p.name,String(p.count),p.avg.toFixed(2),p.band]);
+  body+=pr.length?dTable([['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ระดับ']].concat(pr),[800,3600,1400,1500,1700]):dPar('ไม่มีข้อมูลรายบุคคลในรอบรายงานนี้',{color:'6a7d9b'});
+  body+=dHeading('ข้อเสนอแนะทั้งหมดในรอบรายงาน');
+  const cm=records.filter(r=>r.comment);
+  if(cm.length)cm.forEach(r=>{body+=dPar(r.staff+' ('+r.evaluator+') — '+r.timestamp,{sz:18,bold:true,color:'0b2f6b',before:80,after:20});body+=dPar(r.comment,{fill:'F4F6F9'});});
+  else body+=dPar('ไม่มีข้อเสนอแนะในรอบรายงานนี้',{color:'6a7d9b'});
+
+  const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'+body+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="900" w:bottom="900" w:left="900"/></w:sectPr></w:body></w:document>';
+  const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+  const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+  const drels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/chart1.png"/></Relationships>';
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml',ct);
+  zip.folder('_rels').file('.rels',rels);
+  const word=zip.folder('word');word.file('document.xml',docXml);word.folder('_rels').file('document.xml.rels',drels);
+  word.folder('media').file('chart1.png',chartPng(s.criteriaAvg||{}));
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='OSO_Evaluation_Monthly_'+period.fileKey+'.docx';a.click();toast('สร้าง DOCX แล้ว');
+}
+
+/* ============================================================
+   รายงานรายเจ้าหน้าที่ (PDF ผ่านการพิมพ์ของเบราว์เซอร์)
+   ============================================================ */
+function downloadPdf(name){
+  const p=data.people.find(x=>x.name===name);if(!p)return toast('ไม่พบเจ้าหน้าที่',true);
+  const comments=data.records.filter(r=>r.staff===name&&r.comment).slice(0,5);
+  const rowsHtml=criteria.map(c=>'<tr><td>'+esc(c.shortTitle)+'</td><td style="text-align:center">'+fmt(p.criteria[c.key])+'</td><td style="text-align:center">'+esc(scoreBand(p.criteria[c.key]))+'</td></tr>').join('');
+  const cHtml=comments.length?comments.map(r=>'<li>'+esc(r.timestamp)+' — '+esc(r.comment)+'</li>').join(''):'<li style="color:#888">ยังไม่มีข้อเสนอแนะ</li>';
+  const html='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงาน '+esc(name)+'</title>'+
+    '<style>body{font-family:Tahoma,"Sarabun",sans-serif;color:#1f2937;margin:32px;line-height:1.55}h1{color:#1749c4;font-size:22px;margin:0 0 4px}.sub{color:#374151;margin:0 0 18px}.kpi{display:flex;gap:12px;margin:14px 0}.card{flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.card b{display:block;color:#0b2f6b;font-size:20px}.card span{color:#6a7d9b;font-size:12px}table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d0d7e5;padding:8px 10px;font-size:14px}th{background:#e8f0fc;color:#0b2f6b;text-align:left}h2{color:#0b2f6b;font-size:15px;margin:18px 0 6px}ul{margin:6px 0;padding-left:20px}@media print{body{margin:14mm}}</style></head><body>'+
+    '<h1>รายงานประเมินเจ้าหน้าที่ Onsite Support</h1><p class="sub">สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</p>'+
+    '<div class="kpi"><div class="card"><b>'+esc(name)+'</b><span>เจ้าหน้าที่ Onsite Support</span></div><div class="card"><b>'+fmt(p.avg)+' / 5</b><span>คะแนนเฉลี่ย ('+esc(p.band)+')</span></div><div class="card"><b>'+p.count+'</b><span>จำนวนครั้งที่ประเมิน</span></div></div>'+
+    '<h2>คะแนนเฉลี่ยรายหัวข้อ</h2><table><thead><tr><th>หัวข้อ</th><th style="text-align:center">คะแนนเฉลี่ย</th><th style="text-align:center">ระดับ</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
+    '<h2>ข้อเสนอแนะล่าสุด</h2><ul>'+cHtml+'</ul>'+
+    '<p style="color:#888;font-size:12px;margin-top:24px">จัดทำเมื่อ '+new Date().toLocaleString('th-TH')+' — กด Ctrl+P เพื่อบันทึกเป็น PDF</p>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>';
+  const w=window.open('','_blank');if(!w)return toast('เบราว์เซอร์บล็อก popup — อนุญาตก่อนแล้วลองใหม่',true);
+  w.document.write(html);w.document.close();
+}
