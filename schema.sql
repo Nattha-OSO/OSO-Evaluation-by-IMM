@@ -132,6 +132,11 @@ create policy "settings write admin" on public.app_settings for all to authentic
   using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
   with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
+-- เปิด Realtime ให้ app_settings → ผู้ใช้ที่ออนไลน์อยู่จะได้สิทธิ์ใหม่ทันทีเมื่อ admin บันทึก
+do $$ begin
+  begin alter publication supabase_realtime add table public.app_settings; exception when duplicate_object then null; end;
+end $$;
+
 -- ============================================================
 --  ตั้งให้บัญชี admin เริ่มต้นมี role=admin ใน app_metadata (ให้ RLS ด้านบนทำงาน)
 --  *** เปลี่ยนอีเมลให้ตรงกับ admin ของคุณ แล้วให้ admin ออก-เข้าระบบใหม่ 1 ครั้ง ***

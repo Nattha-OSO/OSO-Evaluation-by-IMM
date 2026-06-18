@@ -83,9 +83,13 @@ function can(cap){
   if(perms&&perms[r]&&perms[r][cap]!==undefined)return !!perms[r][cap];
   const c=CAPS.find(x=>x.key===cap);return c?!!c.def[r]:false;
 }
-async function loadPerms(){
+async function loadPerms(notify){
   try{const {data}=await sb.from('app_settings').select('value').eq('key','permissions').maybeSingle();perms=(data&&data.value)||{};}catch(e){perms={};}
-  applyRoleUI();if($('app').classList.contains('ready'))render();
+  applyRoleUI();
+  // ถ้าอยู่ในหน้าที่สิทธิ์ถูกถอนไป ให้เด้งกลับแดชบอร์ด
+  if(!user.isAdmin&&view==='directory'&&!can('manage_directory'))view='dashboard';
+  if($('app').classList.contains('ready'))render();
+  if(notify)toast('สิทธิ์การใช้งานได้รับการอัปเดต');
 }
 function applyRoleUI(){
   const show=(id,ok)=>{const n=$(id);if(n)n.classList.toggle('hidden',!ok);};
@@ -248,6 +252,7 @@ function startRealtime(){
       .on('postgres_changes',{event:'*',schema:'public',table:'evaluations'},liveRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'staff'},liveRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'shifts'},liveRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'app_settings'},()=>loadPerms(true))
       .subscribe();
   }catch(e){}
 }
