@@ -245,6 +245,15 @@ function parseImportDate(s){
 }
 function importPanel(){return '<div class="panel" style="margin-top:16px"><div class="panel-title">นำเข้าข้อมูลเก่า (CSV จาก Google Sheets)</div><p class="mini" style="margin:6px 0 12px;line-height:1.6">ส่งออกชีตเดิมเป็น CSV แล้วอัปโหลดที่นี่ — ลำดับคอลัมน์: <b>เวลา, ผลัด/ผู้ประเมิน, เจ้าหน้าที่, 5 คะแนน, ข้อเสนอแนะ</b> (คะแนนเป็นตัวเลข 1-5 หรือคำว่า ดีเยี่ยม/ดี/พอใช้/ต้องปรับปรุง/ไม่ผ่าน ก็ได้ มีแถวหัวตารางได้)</p><div class="dir-add"><input type="file" id="csvFile" accept=".csv" class="input" style="padding-top:8px"><button class="btn primary" onclick="importCSV()">นำเข้า</button></div></div>';}
 function parseCSV(text){const rows=[];let i=0,f='',row=[],q=false;text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');while(i<text.length){const ch=text[i];if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}if(ch==='"'){q=true;i++;continue;}if(ch===','){row.push(f);f='';i++;continue;}if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}f+=ch;i++;}if(f.length||row.length){row.push(f);rows.push(row);}return rows;}
+// เพิ่มชื่อ staff/shifts ใหม่ลงตาราง (ข้ามชื่อซ้ำ) — ใช้ได้เมื่อล็อกอินแล้ว
+async function syncDirectories(staffList,shiftList){
+  try{
+    const sN=Array.from(new Set((staffList||[]).map(s=>String(s||'').trim()).filter(Boolean)));
+    const eN=Array.from(new Set((shiftList||[]).map(s=>String(s||'').trim()).filter(Boolean)));
+    if(sN.length)await sb.from('staff').upsert(sN.map(name=>({name})),{onConflict:'name',ignoreDuplicates:true});
+    if(eN.length)await sb.from('shifts').upsert(eN.map(name=>({name})),{onConflict:'name',ignoreDuplicates:true});
+  }catch(e){}
+}
 async function importCSV(){
   const file=$('csvFile').files[0];if(!file)return toast('เลือกไฟล์ CSV ก่อน',true);
   const text=await file.text();let rows=parseCSV(text).filter(r=>r.length>1&&r.join('').trim()!=='');
@@ -255,7 +264,8 @@ async function importCSV(){
   for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}const dd=parseImportDate(r[0]);const rec={created_at:(dd||new Date()).toISOString(),evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};recs.push(rec);}
   if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
   let ok=0;for(let j=0;j<recs.length;j+=200){const {error}=await sb.from('evaluations').insert(recs.slice(j,j+200));if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}ok+=Math.min(200,recs.length-j);}
-  toast('นำเข้าสำเร็จ '+ok+' รายการ'+(skipped?(' (ข้าม '+skipped+')'):''));refresh();
+  await syncDirectories(recs.map(r=>r.staff),recs.map(r=>r.evaluator));
+  toast('นำเข้าสำเร็จ '+ok+' รายการ + อัปเดตรายชื่อแล้ว'+(skipped?(' (ข้าม '+skipped+')'):''));refresh();
 }
 function dirPanel(title,type,items){return '<div class="panel"><div class="panel-head"><div><div class="panel-title">'+esc(title)+'</div><div class="mini">'+items.length+' รายชื่อ</div></div></div><div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div><div class="dir-list">'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn icon danger" title="ลบ" onclick="delDir(\''+type+'\','+it.id+')">x</button></div>').join('')||'<div class="empty">ยังไม่มีรายชื่อ</div>')+'</div></div>';}
 async function addDir(type){const el=$('add_'+type),name=el.value.trim();if(!name)return toast('กรุณากรอกชื่อ',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';toast('เพิ่มแล้ว');renderDirectory();}
@@ -278,6 +288,7 @@ async function saveEval(){
   else{({error}=await sb.from('evaluations').insert(row));}
   $('saveEvalBtn').disabled=false;
   if(error)return toast('บันทึกไม่สำเร็จ: '+error.message,true);
+  await syncDirectories([row.staff],[row.evaluator]);
   toast('บันทึกแล้ว');closeEval();refresh();
 }
 async function deleteEval(id){if(!confirm('ลบผลประเมินรายการนี้?'))return;const {error}=await sb.from('evaluations').delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');refresh();}
