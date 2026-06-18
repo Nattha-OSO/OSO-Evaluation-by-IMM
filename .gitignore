@@ -6,6 +6,9 @@ Thumbs.db
 # Node (เผื่อใช้ npx serve / เครื่องมือ build ในอนาคต)
 node_modules/
 
+# Supabase CLI temp files
+supabase/.temp/
+
 # ไฟล์รหัสผ่าน/ความลับ - ห้าม commit เด็ดขาด
 OSOpassword@2026.txt
 *password*
