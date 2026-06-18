@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='26';
+const APP_VERSION='27';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -578,7 +578,7 @@ function dKpiCards(cards){
   const mk=(arr,o)=>'<w:tr>'+arr.map(t=>'<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/></w:tcPr>'+dCellPar(t,o)+'</w:tc>').join('')+'</w:tr>';
   return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DCE5F2"/><w:left w:val="single" w:sz="4" w:color="DCE5F2"/><w:bottom w:val="single" w:sz="4" w:color="DCE5F2"/><w:right w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideH w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideV w:val="single" w:sz="4" w:color="DCE5F2"/></w:tblBorders></w:tblPr>'+grid+mk(rows[0],{sz:18,color:'6a7d9b',align:'center'})+mk(rows[1],{sz:34,bold:true,color:'0b2f6b',align:'center'})+mk(rows[2],{sz:18,color:'6a7d9b',align:'center'})+'</w:tbl>'+dPar('',{after:80});
 }
-function chartPng(criteriaAvg){
+function chartCanvas(criteriaAvg){
   const cv=document.createElement('canvas');cv.width=620;cv.height=300;const g=cv.getContext('2d');
   g.fillStyle='#ffffff';g.fillRect(0,0,cv.width,cv.height);
   const pad=44,baseY=250,h=190,bw=70,gap=(cv.width-pad*2-bw*criteria.length)/(criteria.length-1);
@@ -588,8 +588,9 @@ function chartPng(criteriaAvg){
     g.fillStyle=c.color;g.fillRect(x,baseY-bh,bw,bh);
     g.fillStyle='#0b2f6b';g.font='bold 13px Tahoma';g.textAlign='center';g.fillText(v.toFixed(2),x+bw/2,baseY-bh-6);
     g.fillStyle='#475569';g.font='12px Tahoma';g.fillText(String(c.no),x+bw/2,baseY+18);g.textAlign='left';});
-  const b64=cv.toDataURL('image/png').split(',')[1];const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr;
+  return cv;
 }
+function chartPng(criteriaAvg){const b64=chartCanvas(criteriaAvg).toDataURL('image/png').split(',')[1];const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr;}
 function dImage(){const cx=620*9525,cy=300*9525;return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="1" name="chart"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="chart.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';}
 
 function reportPeriod(ym){const now=new Date();const m=String(ym||'').match(/^(\d{4})-(\d{1,2})$/);const year=m?Number(m[1]):now.getFullYear();const month=m?Number(m[2])-1:now.getMonth();const start=new Date(year,month,1),end=new Date(year,month+1,1);return {start,end,label:THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543),fileKey:year+'-'+String(month+1).padStart(2,'0')};}
@@ -693,18 +694,23 @@ function periodData(start,end){
 }
 function reportStyles(){return '<style>*{box-sizing:border-box}body{font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;margin:0;padding:24px}h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}table{border-collapse:collapse;width:100%;margin:6px 0;font-size:15px}th,td{border:1px solid #d0d7e5;padding:6px 9px;text-align:left;vertical-align:top}thead th{background:#e8f0fc;color:#0b2f6b}.meta th{width:130px;background:#f2f7ff}.kpis{display:flex;gap:10px;margin:8px 0}.kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}ul{margin:6px 0;padding-left:20px}li{margin-bottom:6px}@media print{.noprint{display:none}body{padding:10mm}}</style>';}
 function buildReportInner(start,end,word,label){
-  const {records,people,s}=periodData(start,end);const weak=criteria.find(c=>c.key===s.lowestKey);
+  const {records,people,s}=periodData(start,end);
+  const weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
   const tbl=(head,rows)=>'<table><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="'+head.length+'" style="text-align:center;color:#888">ไม่มีข้อมูล</td></tr>')+'</tbody></table>';
+  const chartUrl=chartCanvas(s.criteriaAvg||{}).toDataURL('image/png');
   let h='<h1>รายงานประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง '+esc(word)+' '+esc(label)+'</h1>';
   h+='<p class="sub">รายงานผลการประเมินเจ้าหน้าที่ Onsite Support โดยเจ้าหน้าที่ตรวจคนเข้าเมือง</p>';
-  h+='<table class="meta"><tbody><tr><th>รอบรายงาน</th><td>'+esc(label)+'</td></tr><tr><th>วันที่จัดทำ</th><td>'+esc(new Date().toLocaleString('th-TH'))+'</td></tr><tr><th>จัดทำโดย</th><td>'+esc(user.displayName||user.email)+'</td></tr></tbody></table>';
-  h+='<h2>สรุปภาพรวม</h2><div class="kpis"><div class="kpi"><div class="n">'+s.total+'</div><div>จำนวนประเมิน</div></div><div class="kpi"><div class="n">'+s.evaluated+'</div><div>เจ้าหน้าที่</div></div><div class="kpi"><div class="n">'+fmt(s.avgScore)+'</div><div>คะแนนเฉลี่ย ('+esc(s.band)+')</div></div><div class="kpi"><div class="n">'+(weak?esc(weak.shortTitle):'-')+'</div><div>หัวข้อโฟกัส</div></div></div>';
+  h+='<table class="meta"><tbody><tr><th>รอบรายงาน</th><td>'+esc(label)+'</td></tr><tr><th>วันที่จัดทำ</th><td>'+esc(new Date().toLocaleString('th-TH'))+'</td></tr><tr><th>จัดทำโดย</th><td>'+esc(user.displayName||user.email)+'</td></tr><tr><th>แหล่งข้อมูล</th><td>OSO Evaluation (Supabase)</td></tr></tbody></table>';
+  h+='<h2>Dashboard Summary</h2><div class="kpis"><div class="kpi"><div class="n">'+s.total+'</div><div>จำนวนประเมิน (รายการ)</div></div><div class="kpi"><div class="n">'+s.evaluated+'</div><div>เจ้าหน้าที่ (คน)</div></div><div class="kpi"><div class="n">'+fmt(s.avgScore)+'</div><div>คะแนนเฉลี่ย ('+esc(s.band)+')</div></div><div class="kpi"><div class="n" style="font-size:17px">'+(weak?esc(weak.shortTitle):'-')+'</div><div>หัวข้อโฟกัส ('+(weak?fmt(s.criteriaAvg[weak.key]||0):'-')+')</div></div></div>';
+  h+='<h2>กราฟคะแนนเฉลี่ยรายหัวข้อ</h2><div style="text-align:center;margin:6px 0"><img src="'+chartUrl+'" style="max-width:640px;width:100%;border:1px solid #e2e8f0;border-radius:8px"></div>';
   h+='<h2>คะแนนเฉลี่ยรายหัวข้อ</h2>'+tbl(['ลำดับ','หัวข้อประเมิน','คะแนนเฉลี่ย','ระดับ'],criteria.map(c=>{const a=s.criteriaAvg[c.key]||0;return [c.no,esc(c.shortTitle),fmt(a),esc(scoreBand(a))];}));
   h+='<h2>ประเด็นที่ควรติดตาม</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','คะแนนเฉลี่ย','ระดับ'],(s.risks||[]).map((p,i)=>[i+1,esc(p.name),fmt(p.avg),esc(p.band)]));
-  h+='<h2>จำนวนรายการประเมินตามผลัด</h2>'+tbl(['ลำดับ','ผลัด','จำนวน'],Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[i+1,esc(x[0]||'-'),x[1]]));
-  h+='<h2>สรุปรายบุคคล</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ระดับ'],people.filter(p=>p.count).map((p,i)=>[i+1,esc(p.name),p.count,fmt(p.avg),esc(p.band)]));
+  h+='<h2>จำนวนรายการประเมินตามผลัด</h2>'+tbl(['ลำดับ','ผลัดของเจ้าหน้าที่ตม.','จำนวนรายการ'],Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[i+1,esc(x[0]||'-'),x[1]]));
+  const recs=[records.length?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ',weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม',best?'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':'คัดเลือกเจ้าหน้าที่ต้นแบบหลังมีข้อมูลประเมินเพียงพอ',risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ'];
+  h+='<h2>ข้อเสนอแนะเชิงบริหาร</h2><ol>'+recs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>';
+  h+='<h2>รายละเอียดสรุปรายบุคคล</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ระดับ'],people.filter(p=>p.count).map((p,i)=>[i+1,esc(p.name),p.count,fmt(p.avg),esc(p.band)]));
   const cm=records.filter(r=>r.comment);
-  h+='<h2>ข้อเสนอแนะทั้งหมดในรอบรายงาน</h2>'+(cm.length?'<ul>'+cm.map(r=>'<li><b>'+esc(r.staff)+'</b> ('+esc(r.evaluator)+') — '+esc(r.timestamp)+'<br>'+esc(r.comment)+'</li>').join('')+'</ul>':'<p style="color:#888">ไม่มีข้อเสนอแนะ</p>');
+  h+='<h2>ข้อเสนอแนะทั้งหมดในรอบรายงาน</h2>'+(cm.length?'<ul>'+cm.map(r=>'<li><b>'+esc(r.staff)+'</b> ('+esc(r.evaluator)+') — '+esc(r.timestamp)+'<br>'+esc(r.comment)+'</li>').join('')+'</ul>':'<p style="color:#888">ไม่มีข้อเสนอแนะในรอบรายงานนี้</p>');
   return h;
 }
 async function previewReportPDF(start,end,word,label){
