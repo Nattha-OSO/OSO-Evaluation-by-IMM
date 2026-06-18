@@ -1,0 +1,11 @@
+# OS / editor
+Thumbs.db
+.DS_Store
+*.log
+
+# Node (เผื่อใช้ npx serve / เครื่องมือ build ในอนาคต)
+node_modules/
+
+# หมายเหตุ: config.js ใส่เฉพาะ anon key (ปลอดภัยต่อการเปิดเผย) จึง commit ได้
+# ถ้าต้องการซ่อน ให้ uncomment บรรทัดล่างแล้วตั้งค่าผ่าน build/env แทน
+# config.js
