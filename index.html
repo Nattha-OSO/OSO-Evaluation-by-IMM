@@ -72,6 +72,13 @@
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);z-index:80;background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;box-shadow:0 18px 40px rgba(4,16,40,.4);opacity:0;pointer-events:none;transition:.2s;font-weight:600}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.err{background:#9f1239}
   .banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:12px 14px;margin:16px;font-size:13px}
+  .navtabs{display:flex;gap:6px;align-items:center}
+  .tab{background:transparent;border:0;color:var(--muted);font-weight:700;padding:9px 16px;border-radius:10px;cursor:pointer;font-size:15px}
+  .tab.active{background:#e8f1fd;color:var(--primary-d)}
+  .dir-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px 13px;margin-bottom:7px;font-weight:600}
+  .dir-add{display:flex;gap:8px;margin-bottom:12px}
+  .btn.sm{min-height:32px;padding:4px 12px;font-size:12px}
+  .btn.danger{color:#c0264a;border-color:#f3c9d4;background:#fff5f7}.btn.danger:hover{background:#fee2e8;border-color:#e88aa0;color:#a01437}
   @media(max-width:760px){.pub-top h1{font-size:24px}.pub-logo{height:50px}.pub-logo-card{height:72px}.form-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.pub-seg{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
@@ -127,8 +134,11 @@
 <!-- ===== แดชบอร์ด (หลังล็อกอิน) ===== -->
 <section id="app" class="hidden">
   <header class="top">
-    <h1>แดชบอร์ด — ผลประเมิน</h1>
-    <div style="display:flex;gap:10px">
+    <div class="navtabs">
+      <button class="tab active" id="tabDash" onclick="goView('dash')">แดชบอร์ด</button>
+      <button class="tab" id="tabDir" onclick="goView('dir')">จัดการรายชื่อ</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn" onclick="exportDOCX()">รายงาน DOCX</button>
       <button class="btn" onclick="exportCSV()">ส่งออก CSV</button>
       <button class="btn" onclick="doLogout()">ออกจากระบบ</button>
@@ -172,7 +182,8 @@ if(!cfg.SUPABASE_URL||cfg.SUPABASE_URL.startsWith('PASTE')){
 function hideAll(){['public','login','app'].forEach(id=>$(id).classList.add('hidden'));}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');loadDirectories();}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
-function showApp(){hideAll();$('app').classList.remove('hidden');loadDashboard();}
+function showApp(){hideAll();$('app').classList.remove('hidden');goView('dash');}
+function goView(v){$('tabDash').classList.toggle('active',v==='dash');$('tabDir').classList.toggle('active',v==='dir');if(v==='dir')loadDirectory();else loadDashboard();}
 
 // ---- เริ่มทำงาน ----
 (async function init(){
@@ -256,8 +267,8 @@ function renderDashboard(){
     CRITERIA.map(c=>{const v=critAvg[c.key];return '<div class="crit-row"><div>'+c.no+'. '+esc(c.short)+'</div><div class="bar"><div class="fill" style="width:'+(v/5*100)+'%;background:linear-gradient(90deg,'+c.color+',var(--mint))"></div></div><span class="tag '+tone(v)+'">'+fmt(v)+'</span></div>';}).join('')+
     '</div>';
   html+='<div class="panel"><div class="panel-title">รายการประเมินล่าสุด ('+total+' รายการ)</div>'+
-    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>เจ้าหน้าที่</th><th>ผลัด</th><th>เฉลี่ย</th>'+CRITERIA.map(c=>'<th>'+c.no+'</th>').join('')+'<th>ข้อเสนอแนะ</th></tr></thead><tbody>'+
-    (records.map(r=>{const a=avg(CRITERIA.map(c=>r[c.key]));return '<tr><td>'+esc(new Date(r.created_at).toLocaleString('th-TH'))+'</td><td><b>'+esc(r.staff)+'</b></td><td>'+esc(r.evaluator)+'</td><td><span class="tag '+tone(a)+'">'+fmt(a)+'</span></td>'+CRITERIA.map(c=>'<td><span class="tag '+tone(r[c.key])+'">'+r[c.key]+'</span></td>').join('')+'<td>'+esc(r.comment||'-')+'</td></tr>';}).join('')||'<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">ยังไม่มีข้อมูล</td></tr>')+
+    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>เจ้าหน้าที่</th><th>ผลัด</th><th>เฉลี่ย</th>'+CRITERIA.map(c=>'<th>'+c.no+'</th>').join('')+'<th>ข้อเสนอแนะ</th><th></th></tr></thead><tbody>'+
+    (records.map(r=>{const a=avg(CRITERIA.map(c=>r[c.key]));return '<tr><td>'+esc(new Date(r.created_at).toLocaleString('th-TH'))+'</td><td><b>'+esc(r.staff)+'</b></td><td>'+esc(r.evaluator)+'</td><td><span class="tag '+tone(a)+'">'+fmt(a)+'</span></td>'+CRITERIA.map(c=>'<td><span class="tag '+tone(r[c.key])+'">'+r[c.key]+'</span></td>').join('')+'<td>'+esc(r.comment||'-')+'</td><td><button class="btn danger sm" onclick="delEval('+r.id+')">ลบ</button></td></tr>';}).join('')||'<tr><td colspan="11" style="text-align:center;color:#888;padding:40px">ยังไม่มีข้อมูล</td></tr>')+
     '</tbody></table></div></div>';
   $('appContent').innerHTML=html;
 }
@@ -268,6 +279,94 @@ function exportCSV(){
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download='evaluations_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
   toast('ส่งออกแล้ว');
+}
+
+// ---- ลบรายการประเมิน ----
+async function delEval(id){
+  if(!confirm('ลบรายการประเมินนี้?'))return;
+  const {error}=await sb.from('evaluations').delete().eq('id',id);
+  if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);
+  toast('ลบแล้ว');loadDashboard();
+}
+
+// ---- หน้าจัดการรายชื่อ (staff / shifts) + นำเข้า CSV ----
+async function loadDirectory(){
+  $('appContent').innerHTML='<p class="hint">กำลังโหลด...</p>';
+  const [s,sh]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name')]);
+  if(s.error||sh.error){$('appContent').innerHTML='<div class="card">โหลดรายชื่อไม่สำเร็จ</div>';return;}
+  $('appContent').innerHTML=
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="dirGrid">'+
+    dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+
+    dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+
+    '</div>'+importPanel()+userNote();
+  if(window.matchMedia('(max-width:760px)').matches)$('dirGrid').style.gridTemplateColumns='1fr';
+}
+function dirPanel(title,type,items){
+  return '<div class="panel"><div class="panel-title">'+esc(title)+' ('+items.length+')</div>'+
+    '<div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div>'+
+    '<div>'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn danger sm" onclick="delDir(\''+type+'\','+it.id+')">ลบ</button></div>').join('')||'<p class="hint">ยังไม่มีรายชื่อ</p>')+'</div></div>';
+}
+async function addDir(type){
+  const el=$('add_'+type),name=el.value.trim();if(!name)return toast('กรอกชื่อก่อน',true);
+  const {error}=await sb.from(type).insert({name});
+  if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);
+  el.value='';toast('เพิ่มแล้ว');loadDirectory();
+}
+async function delDir(type,id){
+  if(!confirm('ลบรายชื่อนี้?'))return;
+  const {error}=await sb.from(type).delete().eq('id',id);
+  if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);
+  toast('ลบแล้ว');loadDirectory();
+}
+function userNote(){
+  return '<div class="panel"><div class="panel-title">จัดการผู้ใช้ระบบ (บัญชีล็อกอิน)</div>'+
+    '<p class="hint">เพื่อความปลอดภัย การเพิ่ม/ลบบัญชีผู้ล็อกอิน (Senior/ผู้บริหาร) ทำที่ <b>Supabase Dashboard → Authentication → Users</b> (ต้องใช้สิทธิ์ admin จึงไม่เปิดให้ทำผ่านหน้าเว็บที่ใช้ anon key)</p></div>';
+}
+
+// ---- นำเข้าข้อมูลเก่าจาก CSV (Google Sheets) ----
+const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
+function importPanel(){
+  return '<div class="panel"><div class="panel-title">นำเข้าข้อมูลเก่า (CSV จาก Google Sheets)</div>'+
+    '<p class="hint">ส่งออกชีตเดิมเป็น CSV แล้วอัปโหลดที่นี่ — ลำดับคอลัมน์: <b>เวลา, ผลัด/ผู้ประเมิน, เจ้าหน้าที่, 5 คะแนน, ข้อเสนอแนะ</b> (คะแนนเป็นตัวเลข 1-5 หรือคำว่า ดีเยี่ยม/ดี/พอใช้/ต้องปรับปรุง/ไม่ผ่าน ก็ได้ มีแถวหัวตารางได้)</p>'+
+    '<div class="dir-add"><input type="file" id="csvFile" accept=".csv" class="input" style="padding-top:8px"><button class="btn primary" onclick="importCSV()">นำเข้า</button></div></div>';
+}
+function parseCSV(text){
+  const rows=[];let i=0,f='',row=[],q=false;text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  while(i<text.length){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}
+    if(ch==='"'){q=true;i++;continue;}
+    if(ch===','){row.push(f);f='';i++;continue;}
+    if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}
+    f+=ch;i++;
+  }
+  if(f.length||row.length){row.push(f);rows.push(row);}
+  return rows;
+}
+async function importCSV(){
+  const file=$('csvFile').files[0];if(!file)return toast('เลือกไฟล์ CSV ก่อน',true);
+  const text=await file.text();
+  let rows=parseCSV(text).filter(r=>r.length>1&&r.join('').trim()!=='');
+  if(!rows.length)return toast('ไฟล์ว่าง',true);
+  const toScore=v=>{v=String(v||'').trim();if(LABEL2NUM[v]!=null)return LABEL2NUM[v];const n=parseInt(v,10);return (n>=1&&n<=5)?n:null;};
+  if(toScore(rows[0][3])==null)rows=rows.slice(1); // ข้ามแถวหัวตาราง
+  const recs=[];let skipped=0;
+  for(const r of rows){
+    const ev=(r[1]||'').trim(),st=(r[2]||'').trim();
+    const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];
+    if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}
+    const rec={evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};
+    const d=new Date(r[0]);if(r[0]&&!isNaN(d.getTime()))rec.created_at=d.toISOString();
+    recs.push(rec);
+  }
+  if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
+  let ok=0;
+  for(let j=0;j<recs.length;j+=200){
+    const {error}=await sb.from('evaluations').insert(recs.slice(j,j+200));
+    if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}
+    ok+=Math.min(200,recs.length-j);
+  }
+  toast('นำเข้าสำเร็จ '+ok+' รายการ'+(skipped?(' (ข้าม '+skipped+')'):''));
+  goView('dash');
 }
 
 // ---- รายงาน DOCX (สร้างในเบราว์เซอร์ด้วย JSZip) ----
