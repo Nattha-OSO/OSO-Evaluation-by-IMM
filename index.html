@@ -181,7 +181,20 @@
     <div class="field"><label class="label">Email</label><input class="input" id="loginUser" type="email" autocomplete="username"></div>
     <div class="field"><label class="label">Password</label><input class="input" id="loginPass" type="password" autocomplete="current-password"></div>
     <button class="btn primary" id="loginBtn" style="width:100%" type="submit">เข้าสู่ระบบ</button>
-    <button type="button" class="btn" style="width:100%;margin-top:10px" onclick="showPublic()">&larr; กลับไปหน้าแบบประเมิน (เจ้าหน้าที่)</button>
+    <button type="button" class="btn" style="width:100%;margin-top:10px;border:0;box-shadow:none;color:var(--primary-d);min-height:34px" onclick="forgotPassword()">ลืมรหัสผ่าน?</button>
+    <button type="button" class="btn" style="width:100%;margin-top:6px" onclick="showPublic()">&larr; กลับไปหน้าแบบประเมิน (เจ้าหน้าที่)</button>
+  </form>
+</section>
+
+<!-- ===== หน้าตั้งรหัสผ่านใหม่ (จากลิงก์ recovery ในอีเมล) ===== -->
+<section id="resetpw" class="login hidden">
+  <form class="login-card" onsubmit="submitNewPassword(event)">
+    <div class="mark">ตม.</div>
+    <h1>ตั้งรหัสผ่านใหม่</h1>
+    <p class="muted">กรอกรหัสผ่านใหม่สำหรับบัญชีของคุณ</p>
+    <div class="field"><label class="label">รหัสผ่านใหม่</label><input class="input" id="newPass" type="password" autocomplete="new-password"></div>
+    <div class="field"><label class="label">ยืนยันรหัสผ่านใหม่</label><input class="input" id="newPass2" type="password" autocomplete="new-password"></div>
+    <button class="btn primary" id="newPassBtn" style="width:100%" type="submit">บันทึกรหัสผ่านใหม่</button>
   </form>
 </section>
 
@@ -201,6 +214,7 @@
       <button onclick="exportDOCX()">ส่งออกรายงาน DOCX</button>
       <button onclick="exportCSV()">ส่งออก CSV</button>
       <button onclick="refresh()">รีเฟรช</button>
+      <button onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
     </nav>
     <div class="side-foot"><div class="userbox"><div class="avatar" id="avatar">U</div><div><div id="userName">-</div><div class="mini" id="userRole">-</div></div></div></div>
   </aside>
@@ -231,9 +245,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=3"></script>
+<script src="config.js?v=4"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

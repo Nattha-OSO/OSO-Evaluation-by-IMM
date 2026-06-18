@@ -47,7 +47,7 @@ let sb = null;
 })();
 
 // ---------- สลับหน้าจอ ----------
-function hideAll(){['public','login'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
+function hideAll(){['public','login','resetpw'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
 function gotoLogin(){showLogin();}
 function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();}
@@ -56,10 +56,43 @@ function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubTha
 window.onload = async function(){
   renderPublicForm();
   if(!sb){showPublic();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
+  sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')showResetPw();});
+  if(String(location.hash).indexOf('type=recovery')>=0){showResetPw();return;}
   try{const {data:s}=await sb.auth.getSession();if(s&&s.session){setUser(s.session.user);boot();}else showPublic();}
   catch(e){showPublic();}
 };
 function setUser(u){user={email:u.email,role:'admin',displayName:u.email,username:u.email};}
+
+// ---------- จัดการรหัสผ่าน ----------
+function showResetPw(){hideAll();$('resetpw').classList.remove('hidden');}
+async function submitNewPassword(e){
+  e.preventDefault();const p=$('newPass').value,p2=$('newPass2').value;
+  if(p.length<6)return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
+  if(p!==p2)return toast('รหัสผ่านยืนยันไม่ตรงกัน',true);
+  $('newPassBtn').disabled=true;
+  const {error}=await sb.auth.updateUser({password:p});
+  $('newPassBtn').disabled=false;
+  if(error)return toast('ตั้งรหัสไม่สำเร็จ: '+error.message,true);
+  toast('ตั้งรหัสผ่านใหม่เรียบร้อย');
+  try{history.replaceState(null,'',location.pathname);}catch(_){}
+  const {data:s}=await sb.auth.getSession();
+  if(s&&s.session){setUser(s.session.user);boot();}else showLogin();
+}
+async function forgotPassword(){
+  if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
+  const email=($('loginUser').value||'').trim()||prompt('กรอกอีเมลสำหรับรับลิงก์รีเซ็ตรหัสผ่าน');
+  if(!email)return;
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error)return toast('ส่งไม่สำเร็จ: '+error.message,true);
+  toast('ส่งลิงก์รีเซ็ตไปที่อีเมลแล้ว กรุณาตรวจกล่องจดหมาย');
+}
+async function changePassword(){
+  const p=prompt('ตั้งรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)');
+  if(!p)return;if(p.length<6)return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
+  const {error}=await sb.auth.updateUser({password:p});
+  if(error)return toast('เปลี่ยนรหัสไม่สำเร็จ: '+error.message,true);
+  toast('เปลี่ยนรหัสผ่านเรียบร้อย');
+}
 
 // ---------- หน้าสาธารณะ ----------
 function renderPublicForm(){
