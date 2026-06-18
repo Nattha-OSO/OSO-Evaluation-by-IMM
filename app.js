@@ -232,7 +232,20 @@ async function renderDirectory(){
   $('content').innerHTML=LOADING;
   const [s,sh]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name')]);
   if(s.error||sh.error){$('content').innerHTML='<div class="empty">โหลดรายชื่อไม่สำเร็จ</div>';return;}
-  $('content').innerHTML='<div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+importPanel();
+  $('content').innerHTML='<div class="toolbar"><button class="btn" onclick="dedupNames()">🧹 ล้างชื่อซ้ำ</button><span class="mini">รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว</span></div><div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+importPanel();
+}
+async function dedupNames(){
+  if(!confirm('ล้างชื่อซ้ำในตารางรายชื่อ (staff และ shifts)?\nจะรวมชื่อที่เหมือนกันให้เหลือรายการเดียว'))return;
+  let removed=0;
+  for(const table of ['staff','shifts']){
+    const {data,error}=await sb.from(table).select('id,name').order('id');
+    if(error)continue;
+    const seen=new Set(),dupIds=[];
+    (data||[]).forEach(r=>{const k=nkey(r.name);if(seen.has(k))dupIds.push(r.id);else seen.add(k);});
+    if(dupIds.length){const {error:de}=await sb.from(table).delete().in('id',dupIds);if(!de)removed+=dupIds.length;}
+  }
+  toast(removed?('ล้างชื่อซ้ำแล้ว '+removed+' รายการ'):'ไม่พบชื่อซ้ำ');
+  renderDirectory();
 }
 const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
 function parseImportDate(s){

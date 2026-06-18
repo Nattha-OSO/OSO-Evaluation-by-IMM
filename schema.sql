@@ -75,3 +75,13 @@ insert into public.shifts (name) values ('ผลัด A'), ('ผลัด B'), 
 insert into public.staff (name) values
   ('สมชาย ใจดี'), ('สมหญิง รักงาน'), ('อนุชา ตั้งใจ')
   on conflict (name) do nothing;
+
+-- ============================================================
+--  (ทางเลือก) กันชื่อซ้ำที่ระดับฐานข้อมูล — เทียบแบบ normalize
+--  (ตัดช่องว่างหัวท้าย + ยุบช่องว่างซ้ำ + ไม่สนตัวพิมพ์ใหญ่เล็ก)
+--  ⚠️ ต้องกดปุ่ม "ล้างชื่อซ้ำ" ในเว็บให้ไม่มีชื่อซ้ำก่อน ไม่งั้นสร้าง index ไม่สำเร็จ
+-- ============================================================
+create unique index if not exists staff_name_norm_uidx
+  on public.staff  (lower(regexp_replace(btrim(name), '\s+', ' ', 'g')));
+create unique index if not exists shifts_name_norm_uidx
+  on public.shifts (lower(regexp_replace(btrim(name), '\s+', ' ', 'g')));
