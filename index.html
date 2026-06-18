@@ -24,8 +24,11 @@
   .hidden{display:none!important}.search{flex:1 1 240px;min-width:200px;width:auto}
   .app{height:100vh;display:none;overflow:hidden}.app.ready{display:flex}
   .side{width:268px;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-dark) 100%);display:flex;flex-direction:column;color:#dce7fa}
-  .brand{height:78px;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.10)}
-  .brand .mark{width:42px;height:42px;margin:0;border-radius:11px;font-size:14px}.brand h2{font-size:16px;margin:0;color:#fff;font-weight:700}
+  .brand{min-height:78px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:9px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.10)}
+  .brand-logos{display:flex;gap:8px;align-items:center}
+  .brand-chip{background:#fff;border-radius:9px;padding:4px 8px;height:40px;display:flex;align-items:center;box-shadow:0 4px 12px rgba(4,16,40,.25)}
+  .brand-logo{height:30px;width:auto;display:block}
+  .brand-title{font-size:15px;margin:0;color:#fff;font-weight:800;line-height:1.2;letter-spacing:.2px}
   .side .mini,.side-foot .mini{color:#9fb6db}
   .nav{padding:14px 12px;flex:1;overflow:auto}
   .nav-title{font-size:10px;color:#7e97c4;text-transform:uppercase;letter-spacing:.12em;padding:14px 10px 8px;font-weight:700}
@@ -206,7 +209,7 @@
 <!-- ===== แอป (หลังล็อกอิน) ===== -->
 <section id="app" class="app">
   <aside class="side" id="side">
-    <div class="brand"><div class="mark">ตม.</div><div><h2>Onsite Evaluation</h2><span class="mini">Immigration Office</span></div></div>
+    <div class="brand"><div class="brand-logos"><span class="brand-chip"><img class="brand-logo" src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></span><span class="brand-chip"><img class="brand-logo" src="assets/logo-sosky.png" alt="SO SKY Consortium"></span></div><h2 class="brand-title">OSO Evaluation by IMM</h2></div>
     <nav class="nav">
       <div class="nav-title">ติดตามผล</div>
       <button class="active" data-view="dashboard" onclick="showView('dashboard',this)">1. แดชบอร์ด</button>
@@ -251,9 +254,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=14"></script>
+<script src="config.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
