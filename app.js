@@ -188,6 +188,14 @@ async function renderDirectory(){
   $('content').innerHTML='<div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+importPanel();
 }
 const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
+function parseImportDate(s){
+  s=String(s==null?'':s).trim();if(!s)return null;
+  let d=new Date(s);if(!isNaN(d.getTime()))return d;
+  // รูปแบบ วัน/เดือน/ปี [เวลา] (รองรับ พ.ศ.)
+  const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){let yr=+m[3];if(yr>2200)yr-=543;d=new Date(yr,+m[2]-1,+m[1],+(m[4]||0),+(m[5]||0),+(m[6]||0));if(!isNaN(d.getTime()))return d;}
+  return null;
+}
 function importPanel(){return '<div class="panel" style="margin-top:16px"><div class="panel-title">นำเข้าข้อมูลเก่า (CSV จาก Google Sheets)</div><p class="mini" style="margin:6px 0 12px;line-height:1.6">ส่งออกชีตเดิมเป็น CSV แล้วอัปโหลดที่นี่ — ลำดับคอลัมน์: <b>เวลา, ผลัด/ผู้ประเมิน, เจ้าหน้าที่, 5 คะแนน, ข้อเสนอแนะ</b> (คะแนนเป็นตัวเลข 1-5 หรือคำว่า ดีเยี่ยม/ดี/พอใช้/ต้องปรับปรุง/ไม่ผ่าน ก็ได้ มีแถวหัวตารางได้)</p><div class="dir-add"><input type="file" id="csvFile" accept=".csv" class="input" style="padding-top:8px"><button class="btn primary" onclick="importCSV()">นำเข้า</button></div></div>';}
 function parseCSV(text){const rows=[];let i=0,f='',row=[],q=false;text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');while(i<text.length){const ch=text[i];if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}if(ch==='"'){q=true;i++;continue;}if(ch===','){row.push(f);f='';i++;continue;}if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}f+=ch;i++;}if(f.length||row.length){row.push(f);rows.push(row);}return rows;}
 async function importCSV(){
@@ -197,7 +205,7 @@ async function importCSV(){
   const toScore=v=>{v=String(v||'').trim();if(LABEL2NUM[v]!=null)return LABEL2NUM[v];const n=parseInt(v,10);return (n>=1&&n<=5)?n:null;};
   if(toScore(rows[0][3])==null)rows=rows.slice(1);
   const recs=[];let skipped=0;
-  for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}const rec={evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};const d=new Date(r[0]);if(r[0]&&!isNaN(d.getTime()))rec.created_at=d.toISOString();recs.push(rec);}
+  for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}const dd=parseImportDate(r[0]);const rec={created_at:(dd||new Date()).toISOString(),evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};recs.push(rec);}
   if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
   let ok=0;for(let j=0;j<recs.length;j+=200){const {error}=await sb.from('evaluations').insert(recs.slice(j,j+200));if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}ok+=Math.min(200,recs.length-j);}
   toast('นำเข้าสำเร็จ '+ok+' รายการ'+(skipped?(' (ข้าม '+skipped+')'):''));refresh();
