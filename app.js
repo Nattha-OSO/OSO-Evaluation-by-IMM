@@ -212,7 +212,7 @@ async function refresh(){
 function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();}
 function showView(v,btn){if(v==='users'&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();}
 function toggleSide(){$('side').classList.toggle('open');}
-function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers}[view]||renderDashboard)();}
+function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ',help:'คู่มือการใช้งาน'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers,help:renderHelp}[view]||renderDashboard)();}
 function stat(a,b,c,color){return '<div class="stat"><div class="stat-label">'+a+'</div><div class="stat-num" style="color:'+color+'">'+b+'</div><div class="mini">'+(c||'')+'</div></div>';}
 
 // ---------- แดชบอร์ด ----------
@@ -239,6 +239,76 @@ function renderProfile(){const p=data.people.find(x=>x.name===selectedStaff);if(
 // ---------- วิเคราะห์ภาพรวม ----------
 function renderInsights(){const s=data.summary||{},weak=criteria.find(c=>c.key===s.lowestKey),risks=s.risks||[],best=s.top&&s.top[0],keywords=keywordInsight(data.records.map(r=>r.comment).filter(Boolean).join(' '));$('content').innerHTML='<div class="dash grid"><div class="panel"><div class="panel-head"><div><div class="panel-title">วิเคราะห์ภาพรวม</div><div class="mini">สรุปจากคะแนนและข้อเสนอแนะ</div></div></div><div class="insight"><div class="insight-card"><b>ภาพรวมทีม</b>คะแนนเฉลี่ยอยู่ที่ '+fmt(s.avgScore)+' / 5 ('+esc(s.band||'-')+') จาก '+(s.total||0)+' รายการ</div><div class="insight-card"><b>หัวข้อที่ควรติดตาม</b>'+(weak?esc(weak.shortTitle):'-')+' มีคะแนนเฉลี่ยต่ำสุด ควรใช้เป็นหัวข้อติดตามรอบถัดไป</div><div class="insight-card"><b>กลุ่มติดตาม</b>'+(risks.length?risks.map(p=>esc(p.name)+' ('+fmt(p.avg)+')').join(', '):'ไม่พบกลุ่มเสี่ยงจากคะแนน')+'</div><div class="insight-card"><b>เจ้าหน้าที่ต้นแบบ</b>'+(best?esc(best.name)+' มีคะแนนนำที่ '+fmt(best.avg)+' สามารถใช้เป็นตัวอย่างมาตรฐานบริการ':'ยังไม่มีข้อมูลเพียงพอ')+'</div></div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">คำสำคัญจากข้อเสนอแนะ</div><div class="mini">คำที่พบในข้อเสนอแนะ</div></div></div>'+(keywords.map(k=>'<div class="kpi-line"><span>'+esc(k.word)+'</span><b>'+k.count+'</b></div><div class="bar" style="margin-bottom:8px"><div class="fill" style="width:'+Math.min(100,k.count*18)+'%;background:linear-gradient(90deg,var(--amber),var(--rose))"></div></div>').join('')||'<div class="empty">ยังไม่มีข้อเสนอแนะ</div>')+'</div></div>';}
 function keywordInsight(text){return ['รวดเร็ว','ช้า','ดี','ดีเยี่ยม','สุภาพ','สื่อสาร','เข้าใจ','แก้ไข','ช่วยเหลือ','พึงพอใจ','บริการ','ติดตาม','ปัญหา'].map(w=>({word:w,count:(text.match(new RegExp(w,'g'))||[]).length})).filter(x=>x.count).sort((a,b)=>b.count-a.count).slice(0,10);}
+
+// ---------- คู่มือการใช้งาน (Help) ----------
+function renderHelp(){
+  const roleNow=user.isAdmin?'admin':(user.role||'senior');
+  const sec=(t,b)=>'<div class="panel"><div class="panel-title">'+t+'</div><div style="line-height:1.75;color:#28384f">'+b+'</div></div>';
+  const ul=a=>'<ul style="margin:6px 0 0;padding-left:20px;line-height:1.9">'+a.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+  const ol=a=>'<ol style="margin:6px 0 0;padding-left:20px;line-height:1.9">'+a.map(x=>'<li>'+x+'</li>').join('')+'</ol>';
+  const scoreLines=scoreOptions.map(o=>o.label+'='+o.value).join(' · ');
+  const critList=criteria.map(c=>c.no+'. <b>'+esc(c.shortTitle)+'</b> ('+esc(c.title)+')');
+  let h='';
+  h+=sec('คู่มือการใช้งานระบบ OSO Evaluation by IMM',
+    'ระบบประเมินเจ้าหน้าที่ Onsite Support สำหรับสำนักงานตรวจคนเข้าเมือง<br>บัญชีที่คุณใช้อยู่มีสิทธิ์: <span class="tag neutral">'+esc(roleNow)+'</span><br><br>ระบบแบ่งเป็น 2 ส่วน:'+ul([
+      '<b>หน้าแบบประเมิน (สาธารณะ)</b> — เจ้าหน้าที่ ตม. ให้คะแนนได้เลย ไม่ต้องล็อกอิน',
+      '<b>ระบบหลังบ้าน</b> — Senior / Manager / Admin ล็อกอินเพื่อดูสรุป ทำรายงาน และจัดการข้อมูล'
+    ]));
+  h+=sec('สิทธิ์การใช้งานแต่ละระดับ',
+    '<div class="table-wrap"><table style="min-width:auto"><thead><tr><th>ความสามารถ</th><th>ผู้ประเมิน<br>(สาธารณะ)</th><th>senior</th><th>manager</th><th>admin</th></tr></thead><tbody>'+
+    [['ส่งแบบประเมิน','✔','✔','✔','✔'],['ดูแดชบอร์ด/รายงาน/วิเคราะห์','—','✔','✔','✔'],['แก้ไข/ลบรายการประเมิน','—','✔','✔','✔'],['จัดการรายชื่อ + นำเข้า CSV','—','✔','✔','✔'],['ออกรายงาน DOCX/PDF/CSV','—','✔','✔','✔'],['<b>จัดการผู้ใช้ระบบ</b>','—','—','—','<b>✔</b>']].map(r=>'<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td><td style="text-align:center">'+r[3]+'</td><td style="text-align:center">'+r[4]+'</td></tr>').join('')+
+    '</tbody></table></div><div class="mini" style="margin-top:8px">senior กับ manager มีสิทธิ์เท่ากันทุกอย่าง ยกเว้นทั้งคู่จัดการผู้ใช้ไม่ได้ (เฉพาะ admin)</div>');
+  h+=sec('เกณฑ์การให้คะแนน',
+    '<b>5 หัวข้อการประเมิน:</b>'+ul(critList)+
+    '<br><b>ระดับคะแนนแต่ละหัวข้อ:</b> '+scoreLines+
+    '<br><b>ระดับผลรวม (เฉลี่ย):</b> ≥4.60 ดีเยี่ยม · ≥3.80 ดี · ≥3.00 พอใช้ · ≥2.00 ต้องปรับปรุง · ต่ำกว่า 2.00 ไม่ผ่าน');
+  h+=sec('A. สำหรับผู้ประเมิน (เจ้าหน้าที่ ตม. — หน้าสาธารณะ ไม่ต้องล็อกอิน)',
+    ol([
+      'เปิดลิงก์ระบบ จะเข้าหน้าแบบประเมินทันที',
+      'กรอก <b>ผลัด/ชื่อผู้ประเมิน</b> และเลือก <b>เจ้าหน้าที่ Onsite Support</b> ที่จะประเมิน (พิมพ์ใหม่ได้ถ้าไม่มีในรายการ)',
+      'ให้คะแนนให้ครบ <b>ทั้ง 5 หัวข้อ</b> (ถ้าข้ามจะมีกรอบแดงเตือนและส่งไม่ได้)',
+      'กรอกข้อเสนอแนะเพิ่มเติม (ไม่บังคับ)',
+      'กด <b>ส่งแบบประเมิน</b> → ขึ้นหน้าขอบคุณ กด “ประเมินรายการถัดไป” เพื่อทำคนต่อไป'
+    ]));
+  h+=sec('B. สำหรับ Senior / Manager (หลังล็อกอิน)',
+    'เมนูด้านซ้ายและหน้าที่ใช้งานได้:'+ul([
+      '<b>1. แดชบอร์ด</b> — สรุปภาพรวม: คะแนนเฉลี่ย, เจ้าหน้าที่ที่ถูกประเมิน, หัวข้อที่ควรติดตาม, ผลงานเด่น, รายการที่ควรติดตาม, จำนวนตามผลัด, ข้อเสนอแนะถัดไป',
+      '<b>2. รายการประเมิน</b> — ดูทุกรายการ ค้นหาได้ · กด <b>แก้ไข</b> เพื่อแก้คะแนน/ข้อเสนอแนะ · กด <b>x</b> เพื่อลบ',
+      '<b>3. สรุปรายเจ้าหน้าที่</b> — ตารางความร้อนรายหัวข้อ · คลิกชื่อเพื่อดูโปรไฟล์ + กราฟ radar + แนวโน้ม · ปุ่ม <b>PDF</b> ออกรายงานรายคน',
+      '<b>4. วิเคราะห์ภาพรวม</b> — สรุปเชิงวิเคราะห์ทีม + คำสำคัญที่พบในข้อเสนอแนะ',
+      '<b>จัดการรายชื่อ</b> — เพิ่ม/ลบ ผลัดและเจ้าหน้าที่ · ปุ่ม <b>ล้างชื่อซ้ำ</b> · <b>นำเข้า CSV</b> จากชีตเดิม',
+      '<b>Tools</b> — ออกรายงาน DOCX, ส่งออก CSV, รีเฟรช, เปลี่ยนรหัสผ่าน'
+    ])+
+    '<div class="mini" style="margin-top:8px">Senior/Manager ทำได้ทุกอย่างข้างต้น แต่ <b>ไม่เห็นเมนู “จัดการผู้ใช้ระบบ”</b></div>');
+  h+=sec('C. สำหรับ Admin (เพิ่มเติมจาก Senior/Manager)',
+    'admin ทำได้ทุกอย่างของ senior/manager และมีเมนูพิเศษ <b>จัดการผู้ใช้ระบบ</b>:'+ul([
+      '<b>เพิ่มผู้ใช้</b> — ใส่ email + รหัสผ่าน + เลือกสิทธิ์ (admin/senior/manager) บัญชีถูกยืนยันอัตโนมัติ พร้อมใช้ทันที',
+      '<b>เปลี่ยนสิทธิ์</b> — เลือกจาก dropdown ในตารางผู้ใช้',
+      '<b>ลบบัญชี</b> — กดปุ่มลบ (ลบบัญชีตัวเองไม่ได้)'
+    ])+
+    '<br><b>ข้อกำหนดรหัสผ่าน:</b> อย่างน้อย 6 ตัวอักษร ควรผสมตัวอักษร+ตัวเลข เลี่ยงตัวเลขล้วน เช่น Onsite@2026');
+  h+=sec('D. รายงานและการส่งออก',
+    ul([
+      '<b>รายงาน DOCX (รายเดือน)</b> — เมนู Tools หรือปุ่มมุมขวาบน → ใส่เดือน YYYY-MM → ได้ไฟล์ Word: KPI + กราฟแท่ง + ตารางทุกหัวข้อ + รายบุคคล + ข้อเสนอแนะ',
+      '<b>รายงาน PDF (รายคน)</b> — หน้าสรุปรายเจ้าหน้าที่ → คลิกชื่อ → ปุ่ม PDF → กด Ctrl+P เลือก “Save as PDF”',
+      '<b>ส่งออก CSV</b> — เมนู Tools ได้ไฟล์ทุกรายการเปิดใน Excel ได้'
+    ]));
+  h+=sec('E. การเข้าระบบและรหัสผ่าน',
+    ul([
+      '<b>เข้าสู่ระบบ</b> — กด “เข้าสู่ระบบ” ที่หน้าแบบประเมิน → ใส่ email + รหัสผ่าน',
+      '<b>ลืมรหัสผ่าน</b> — หน้า login กด “ลืมรหัสผ่าน?” ระบบส่งลิงก์ไปอีเมล → ตั้งรหัสใหม่',
+      '<b>เปลี่ยนรหัสผ่าน</b> — เมนู Tools → เปลี่ยนรหัสผ่าน (ตอนล็อกอินอยู่)',
+      '<b>ออกจากระบบ</b> — ปุ่มมุมขวาบน'
+    ]));
+  h+=sec('F. ปัญหาที่พบบ่อย',
+    ul([
+      '<b>ส่งแบบประเมินไม่ได้</b> — ให้คะแนนครบทั้ง 5 หัวข้อ และกรอกผลัด+ชื่อเจ้าหน้าที่แล้วหรือยัง',
+      '<b>ล็อกอินไม่ได้</b> — ดูข้อความสีแดง: รหัสไม่ถูกต้อง / ยังไม่ยืนยันอีเมล (แจ้ง admin) / เชื่อมต่อไม่ได้ (เช็กเน็ต-ปิด VPN)',
+      '<b>ข้อมูลไม่อัปเดต</b> — กดปุ่มรีเฟรชในระบบ',
+      '<b>เห็นหน้าจอเป็นของเก่า</b> — กด Ctrl+F5 หรือเปิดหน้าต่างใหม่ (เคลียร์แคช)'
+    ]));
+  $('content').innerHTML=h;
+}
 
 // ---------- จัดการรายชื่อ ----------
 async function renderDirectory(){

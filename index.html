@@ -224,6 +224,8 @@
       <button onclick="exportCSV()">ส่งออก CSV</button>
       <button onclick="refresh()">รีเฟรช</button>
       <button onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
+      <div class="nav-title">ช่วยเหลือ</div>
+      <button data-view="help" onclick="showView('help',this)">📖 คู่มือการใช้งาน (Help)</button>
     </nav>
     <div class="side-foot"><div class="userbox"><div class="avatar" id="avatar">U</div><div><div id="userName">-</div><div class="mini" id="userRole">-</div></div></div></div>
   </aside>
@@ -254,9 +256,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=15"></script>
+<script src="config.js?v=16"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
