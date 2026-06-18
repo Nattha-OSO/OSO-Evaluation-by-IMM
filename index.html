@@ -220,7 +220,7 @@
       <button data-view="directory" onclick="showView('directory',this)">จัดการรายชื่อ (ผลัด / Onsite)</button>
       <button data-view="users" id="navUsers" class="hidden" onclick="showView('users',this)">จัดการผู้ใช้ระบบ (admin)</button>
       <div class="nav-title">Tools</div>
-      <button onclick="exportDOCX()">ส่งออกรายงาน DOCX</button>
+      <button onclick="openReportModal()">ส่งออกรายงาน DOCX</button>
       <button onclick="exportCSV()">ส่งออก CSV</button>
       <button onclick="refresh()">รีเฟรช</button>
       <button onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
@@ -232,7 +232,7 @@
   <main class="main">
     <header class="top">
       <div style="display:flex;align-items:center;gap:10px"><button class="btn icon mobile" onclick="toggleSide()">=</button><h1 id="pageTitle">แดชบอร์ด</h1></div>
-      <div class="actions"><button class="btn" onclick="exportDOCX()">รายงาน DOCX</button><button class="btn" onclick="doLogout()">ออกจากระบบ</button></div>
+      <div class="actions"><button class="btn" onclick="openReportModal()">รายงาน DOCX</button><button class="btn" onclick="doLogout()">ออกจากระบบ</button></div>
     </header>
     <section class="content" id="content"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></section>
   </main>
@@ -254,11 +254,30 @@
     <div class="modal-foot"><button class="btn" onclick="closeEval()">ยกเลิก</button><button class="btn primary" id="saveEvalBtn" onclick="saveEval()">บันทึก</button></div>
   </div>
 </div>
+<!-- ===== Modal เลือกช่วงรายงาน ===== -->
+<div class="overlay" id="reportModal" onclick="if(event.target===this)closeReport()">
+  <div class="modal small">
+    <div class="modal-head"><div class="modal-title">สร้างรายงาน DOCX</div><button class="btn icon" onclick="closeReport()">x</button></div>
+    <div class="modal-body">
+      <div class="field"><label class="label">ประเภทรายงาน</label>
+        <select class="input" id="rptType" onchange="updateReportFields()">
+          <option value="day">รายวัน (เลือกช่วงวันที่ได้)</option>
+          <option value="month" selected>รายเดือน</option>
+          <option value="year">รายปี</option>
+        </select>
+      </div>
+      <div id="rpt_day" class="hidden"><div class="form-grid"><div class="field"><label class="label">ตั้งแต่วันที่</label><input type="date" class="input" id="rptFrom"></div><div class="field"><label class="label">ถึงวันที่</label><input type="date" class="input" id="rptTo"></div></div><div class="mini">เลือกวันเดียว = รายงานรายวัน · เลือกหลายวัน = รายงานช่วงวันที่</div></div>
+      <div id="rpt_month"><div class="field"><label class="label">เลือกเดือน</label><input type="month" class="input" id="rptMonth"></div></div>
+      <div id="rpt_year" class="hidden"><div class="field"><label class="label">เลือกปี (พ.ศ.)</label><select class="input" id="rptYear"></select></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeReport()">ยกเลิก</button><button class="btn primary" onclick="runReport()">สร้างรายงาน DOCX</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=17"></script>
+<script src="config.js?v=18"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>

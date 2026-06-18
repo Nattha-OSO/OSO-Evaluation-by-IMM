@@ -304,7 +304,7 @@ function renderHelp(){
     '<br><b>ข้อกำหนดรหัสผ่าน:</b> อย่างน้อย 6 ตัวอักษร ควรผสมตัวอักษร+ตัวเลข เลี่ยงตัวเลขล้วน เช่น Onsite@2026');
   h+=sec('D. รายงานและการส่งออก',
     ul([
-      '<b>รายงาน DOCX (รายเดือน)</b> — เมนู Tools หรือปุ่มมุมขวาบน → ใส่เดือน YYYY-MM → ได้ไฟล์ Word: KPI + กราฟแท่ง + ตารางทุกหัวข้อ + รายบุคคล + ข้อเสนอแนะ',
+      '<b>รายงาน DOCX</b> — เมนู Tools หรือปุ่มมุมขวาบน → เลือกประเภท <b>รายวัน (ระบุช่วงวันที่ผ่านปฏิทิน)</b> / <b>รายเดือน</b> / <b>รายปี</b> (ค่าเริ่มต้นเป็นปัจจุบัน) → ได้ไฟล์ Word: KPI + กราฟแท่ง + ตารางทุกหัวข้อ + รายบุคคล + ข้อเสนอแนะ',
       '<b>รายงาน PDF (รายคน)</b> — หน้าสรุปรายเจ้าหน้าที่ → คลิกชื่อ → ปุ่ม PDF → กด Ctrl+P เลือก “Save as PDF”',
       '<b>ส่งออก CSV</b> — เมนู Tools ได้ไฟล์ทุกรายการเปิดใน Excel ได้'
     ]));
@@ -510,20 +510,19 @@ function dImage(){const cx=620*9525,cy=300*9525;return '<w:p><w:pPr><w:jc w:val=
 
 function reportPeriod(ym){const now=new Date();const m=String(ym||'').match(/^(\d{4})-(\d{1,2})$/);const year=m?Number(m[1]):now.getFullYear();const month=m?Number(m[2])-1:now.getMonth();const start=new Date(year,month,1),end=new Date(year,month+1,1);return {start,end,label:THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543),fileKey:year+'-'+String(month+1).padStart(2,'0')};}
 
-async function exportDOCX(){
+function thaiDate(d){return d.getDate()+' '+THAI_MONTHS[d.getMonth()]+' '+(d.getFullYear()+543);}
+async function makeReport(startDate,endDate,periodWord,periodLabel,fileSuffix){
   if(typeof JSZip==='undefined')return toast('โหลด JSZip ไม่สำเร็จ',true);
-  const now=new Date(),def=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  const ym=prompt('รายงานประจำเดือน (YYYY-MM)',def);if(ym===null)return;
+  const now=new Date();
   await ensureFresh();
-  const period=reportPeriod(ym||def);
-  const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=period.start&&d<period.end;});
+  const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=startDate&&d<endDate;});
   const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
   const s=summarizeOverall(records,people),weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
   toast('กำลังสร้าง DOCX...');
   let body='';
-  body+=dPar('รายงานประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง ประจำเดือน '+period.label,{sz:34,bold:true,color:'111827',align:'center',after:60});
+  body+=dPar('รายงานประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง '+periodWord+' '+periodLabel,{sz:34,bold:true,color:'111827',align:'center',after:60});
   body+=dPar('รายงานผลการประเมินเจ้าหน้าที่ Onsite Support โดยเจ้าหน้าที่ตรวจคนเข้าเมือง',{sz:20,color:'374151',align:'center',after:200});
-  body+=dTable([['รอบรายงาน',period.label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO Evaluation (Supabase)']],[2600,6400],'F2F7FF');
+  body+=dTable([['รอบรายงาน',periodLabel],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',user.displayName||user.email],['แหล่งข้อมูล','OSO Evaluation (Supabase)']],[2600,6400],'F2F7FF');
   body+=dHeading('Dashboard Summary');
   body+=dKpiCards([['จำนวนประเมิน',String(s.total),'รายการ'],['เจ้าหน้าที่',String(s.evaluated),'คน'],['คะแนนเฉลี่ย',s.avgScore.toFixed(2),s.band],['หัวข้อโฟกัส',weak?weak.shortTitle:'-',weak?(s.criteriaAvg[weak.key]||0).toFixed(2):'-']]);
   body+=dHeading('กราฟคะแนนเฉลี่ยรายหัวข้อ');
@@ -556,7 +555,39 @@ async function exportDOCX(){
   const word=zip.folder('word');word.file('document.xml',docXml);word.folder('_rels').file('document.xml.rels',drels);
   word.folder('media').file('chart1.png',chartPng(s.criteriaAvg||{}));
   const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='OSO_Evaluation_Monthly_'+period.fileKey+'.docx';a.click();toast('สร้าง DOCX แล้ว');
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='OSO_Evaluation_'+fileSuffix+'.docx';a.click();toast('สร้างรายงาน DOCX แล้ว');
+}
+// ---------- เลือกช่วงรายงาน (modal ปฏิทิน) ----------
+function openReportModal(){
+  const now=new Date(),p2=n=>String(n).padStart(2,'0');
+  const today=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate());
+  $('rptMonth').value=now.getFullYear()+'-'+p2(now.getMonth()+1);
+  $('rptFrom').value=today;$('rptTo').value=today;
+  const yr=now.getFullYear();let yo='';for(let y=yr+1;y>=yr-6;y--)yo+='<option value="'+y+'"'+(y===yr?' selected':'')+'>'+(y+543)+' ('+y+')</option>';
+  $('rptYear').innerHTML=yo;
+  $('rptType').value='month';updateReportFields();
+  $('reportModal').classList.add('open');
+}
+function closeReport(){$('reportModal').classList.remove('open');}
+function updateReportFields(){const t=$('rptType').value;$('rpt_day').classList.toggle('hidden',t!=='day');$('rpt_month').classList.toggle('hidden',t!=='month');$('rpt_year').classList.toggle('hidden',t!=='year');}
+async function runReport(){
+  const t=$('rptType').value;let start,end,word,label,suffix;
+  if(t==='day'){
+    const f=$('rptFrom').value,to=$('rptTo').value;if(!f||!to)return toast('เลือกช่วงวันที่ก่อน',true);
+    let sa=new Date(f+'T00:00:00'),eb=new Date(to+'T00:00:00');if(eb<sa){const x=sa;sa=eb;eb=x;}
+    start=sa;end=new Date(eb.getTime()+86400000);
+    if(sa.getTime()===eb.getTime()){word='ประจำวันที่';label=thaiDate(sa);}else{word='ระหว่างวันที่';label=thaiDate(sa)+' ถึง '+thaiDate(eb);}
+    suffix='Daily_'+f+(f===to?'':('_to_'+to));
+  }else if(t==='month'){
+    const m=$('rptMonth').value;if(!m)return toast('เลือกเดือนก่อน',true);
+    const a=m.split('-').map(Number);start=new Date(a[0],a[1]-1,1);end=new Date(a[0],a[1],1);
+    word='ประจำเดือน';label=THAI_MONTHS[a[1]-1]+' '+(a[0]+543);suffix='Monthly_'+m;
+  }else{
+    const y=Number($('rptYear').value);start=new Date(y,0,1);end=new Date(y+1,0,1);
+    word='ประจำปี';label='พ.ศ. '+(y+543);suffix='Year_'+y;
+  }
+  closeReport();toast('กำลังสร้าง DOCX...');
+  await makeReport(start,end,word,label,suffix);
 }
 
 /* ============================================================
