@@ -290,8 +290,9 @@ async function renderUsers(){
     '</tbody></table></div></div>';
 }
 async function addUser(){
-  const email=($('nuEmail').value||'').trim(),pass=$('nuPass').value||'',role=$('nuRole').value;
-  if(!email||pass.length<6)return toast('กรอกอีเมล + รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
+  const email=($('nuEmail').value||'').replace(/\s+/g,'').toLowerCase(),pass=$('nuPass').value||'',role=$('nuRole').value;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return toast('รูปแบบอีเมลไม่ถูกต้อง: '+(email||'(ว่าง)'),true);
+  if(pass.length<6)return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
   const r=await adminFn({action:'create',email,password:pass,role});
   if(r.error)return toast('เพิ่มไม่สำเร็จ: '+r.error,true);
   toast('เพิ่มผู้ใช้ '+email+' ('+role+') แล้ว');renderUsers();
