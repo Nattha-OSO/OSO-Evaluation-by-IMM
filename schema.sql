@@ -96,3 +96,46 @@ begin
   begin alter publication supabase_realtime add table public.staff;       exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.shifts;      exception when duplicate_object then null; end;
 end $$;
+
+-- ============================================================
+--  บันทึกการใช้งานระบบ (Audit Log) — admin อ่านได้คนเดียว
+-- ============================================================
+create table if not exists public.audit_log (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  actor      text default (auth.jwt() ->> 'email'),   -- เติมอีเมลผู้ทำจาก JWT อัตโนมัติ (กันปลอม)
+  action     text not null,                           -- create / update / delete / import / login ...
+  entity     text,                                    -- evaluation / staff / shifts / user / permissions ...
+  detail     text
+);
+create index if not exists audit_log_created_idx on public.audit_log (created_at desc);
+alter table public.audit_log enable row level security;
+drop policy if exists "log insert authed" on public.audit_log;
+create policy "log insert authed" on public.audit_log for insert to authenticated with check (true);
+drop policy if exists "log read admin" on public.audit_log;
+create policy "log read admin" on public.audit_log for select to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+-- ============================================================
+--  ตั้งค่าระบบ (เก็บสิทธิ์ของแต่ละบทบาท) — ทุกคนอ่านได้ admin แก้ได้
+-- ============================================================
+create table if not exists public.app_settings (
+  key        text primary key,
+  value      jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.app_settings enable row level security;
+drop policy if exists "settings read authed" on public.app_settings;
+create policy "settings read authed" on public.app_settings for select to authenticated using (true);
+drop policy if exists "settings write admin" on public.app_settings;
+create policy "settings write admin" on public.app_settings for all to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+-- ============================================================
+--  ตั้งให้บัญชี admin เริ่มต้นมี role=admin ใน app_metadata (ให้ RLS ด้านบนทำงาน)
+--  *** เปลี่ยนอีเมลให้ตรงกับ admin ของคุณ แล้วให้ admin ออก-เข้าระบบใหม่ 1 ครั้ง ***
+-- ============================================================
+update auth.users
+  set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+  where email = 'nattha.b@somapait.com';

@@ -50,7 +50,7 @@ let sb = null;
 function hideAll(){['public','login','resetpw'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
 function gotoLogin(){showLogin();}
-function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();startRealtime();}
+function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();startRealtime();logAction('login','auth',user&&user.email);}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
 
 window.onload = async function(){
@@ -68,7 +68,34 @@ async function checkAdmin(){
   try{const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'whoami'}});if(!error&&data&&data.isAdmin){user.isAdmin=true;user.role='admin';}}catch(e){}
   applyRoleUI();
 }
-function applyRoleUI(){const n=$('navUsers');if(n)n.classList.toggle('hidden',!user.isAdmin);if($('userRole'))$('userRole').textContent=user.role||'-';}
+// ===== ความสามารถกลางของระบบ (เพิ่มฟังก์ชันใหม่ที่นี่ → จะโผล่ในหน้าจัดการสิทธิ์อัตโนมัติ) =====
+const CAPS=[
+  {key:'view_reports',     label:'ดู/ออกรายงาน (DOCX, CSV, PDF)',              def:{senior:true, manager:true}},
+  {key:'edit_eval',        label:'แก้ไขผลประเมิน',                             def:{senior:true, manager:true}},
+  {key:'delete_eval',      label:'ลบผลประเมิน',                               def:{senior:true, manager:false}},
+  {key:'manage_directory', label:'จัดการรายชื่อ (เพิ่ม/ลบ ผลัด·เจ้าหน้าที่)',     def:{senior:true, manager:true}},
+  {key:'import_csv',       label:'นำเข้าข้อมูลเก่า (CSV)',                     def:{senior:true, manager:false}}
+];
+let perms={};
+function can(cap){
+  if(user&&user.isAdmin)return true;
+  const r=(user&&user.role)||'senior';
+  if(perms&&perms[r]&&perms[r][cap]!==undefined)return !!perms[r][cap];
+  const c=CAPS.find(x=>x.key===cap);return c?!!c.def[r]:false;
+}
+async function loadPerms(){
+  try{const {data}=await sb.from('app_settings').select('value').eq('key','permissions').maybeSingle();perms=(data&&data.value)||{};}catch(e){perms={};}
+  applyRoleUI();if($('app').classList.contains('ready'))render();
+}
+function applyRoleUI(){
+  const show=(id,ok)=>{const n=$(id);if(n)n.classList.toggle('hidden',!ok);};
+  show('navUsers',user.isAdmin); show('navPerms',user.isAdmin); show('navAudit',user.isAdmin);
+  show('navDirectory',user.isAdmin||can('manage_directory'));
+  show('btnReportTop',can('view_reports')); show('btnReportNav',can('view_reports')); show('btnCsvNav',can('view_reports'));
+  if($('userRole'))$('userRole').textContent=user.role||'-';
+}
+// ===== บันทึกการใช้งานระบบ =====
+async function logAction(action,entity,detail){try{if(sb&&user)await sb.from('audit_log').insert({action:action,entity:entity||null,detail:detail?String(detail).slice(0,500):null});}catch(e){}}
 
 // ---------- จัดการรหัสผ่าน ----------
 function showResetPw(){hideAll();$('resetpw').classList.remove('hidden');}
@@ -98,6 +125,7 @@ async function changePassword(){
   if(!p)return;if(p.length<6)return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
   const {error}=await sb.auth.updateUser({password:p});
   if(error)return toast('เปลี่ยนรหัสไม่สำเร็จ: '+error.message,true);
+  logAction('password','auth','self');
   toast('เปลี่ยนรหัสผ่านเรียบร้อย');
 }
 
@@ -225,9 +253,13 @@ function startRealtime(){
 }
 function liveRefresh(){clearTimeout(liveT);liveT=setTimeout(async()=>{try{data=await loadData();if(['dashboard','evaluations','people','insights'].indexOf(view)>=0)render();toast('อัปเดตข้อมูลล่าสุดแล้ว');}catch(e){}},800);}
 function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();}
-function showView(v,btn){if(v==='users'&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();}
+function showView(v,btn){
+  if((v==='users'||v==='perms'||v==='audit')&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}
+  if(v==='directory'&&!(user.isAdmin||can('manage_directory'))){toast('คุณไม่มีสิทธิ์จัดการรายชื่อ',true);return;}
+  view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();
+}
 function toggleSide(){$('side').classList.toggle('open');}
-function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ',help:'คู่มือการใช้งาน'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers,help:renderHelp}[view]||renderDashboard)();}
+function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ',perms:'จัดการสิทธิ์',audit:'บันทึกการใช้งานระบบ',help:'คู่มือการใช้งาน'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers,perms:renderPerms,audit:renderAudit,help:renderHelp}[view]||renderDashboard)();}
 function stat(a,b,c,color){return '<div class="stat"><div class="stat-label">'+a+'</div><div class="stat-num" style="color:'+color+'">'+b+'</div><div class="mini">'+(c||'')+'</div></div>';}
 
 // ---------- แดชบอร์ด ----------
@@ -244,12 +276,12 @@ function radar(vals){const cx=150,cy=128,r=86,levels=[.25,.5,.75,1];let rings=''
 // ---------- รายการประเมิน ----------
 function toolbar(){return '<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาชื่อเจ้าหน้าที่ ผลัด หรือข้อเสนอแนะ"><span class="mini">'+data.records.length+' รายการ</span></div>';}
 function renderEvaluations(){const rows=data.records.filter(r=>!filter||(r.staff+' '+r.evaluator+' '+r.comment).toLowerCase().includes(filter.toLowerCase()));$('content').innerHTML=toolbar()+'<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>เจ้าหน้าที่</th><th>ผลัด</th><th>เฉลี่ย</th>'+criteria.map(c=>'<th>'+c.no+'</th>').join('')+'<th>ข้อเสนอแนะ</th><th></th></tr></thead><tbody>'+(rows.map(evalRow).join('')||'<tr><td colspan="11" class="empty">ไม่มีข้อมูล</td></tr>')+'</tbody></table></div>';}
-function evalRow(r){return '<tr><td class="nowrap">'+esc(r.timestamp)+'</td><td><b>'+esc(r.staff)+'</b><div class="mini">'+esc(r.band)+'</div></td><td>'+esc(r.evaluator)+'</td><td><span class="tag '+tone(r.avg)+'">'+fmt(r.avg)+'</span></td>'+criteria.map(c=>'<td><span class="tag '+tone(r.scores[c.key].value)+'">'+esc(r.scores[c.key].label||'-')+'</span></td>').join('')+'<td class="comment">'+esc(r.comment||'-')+'</td><td class="nowrap"><button class="btn icon" onclick="openEval('+r.rowNumber+')">แก้ไข</button> <button class="btn icon danger" onclick="deleteEval('+r.rowNumber+')">x</button></td></tr>';}
+function evalRow(r){return '<tr><td class="nowrap">'+esc(r.timestamp)+'</td><td><b>'+esc(r.staff)+'</b><div class="mini">'+esc(r.band)+'</div></td><td>'+esc(r.evaluator)+'</td><td><span class="tag '+tone(r.avg)+'">'+fmt(r.avg)+'</span></td>'+criteria.map(c=>'<td><span class="tag '+tone(r.scores[c.key].value)+'">'+esc(r.scores[c.key].label||'-')+'</span></td>').join('')+'<td class="comment">'+esc(r.comment||'-')+'</td><td class="nowrap">'+(can('edit_eval')?'<button class="btn icon" onclick="openEval('+r.rowNumber+')">แก้ไข</button> ':'')+(can('delete_eval')?'<button class="btn icon danger" onclick="deleteEval('+r.rowNumber+')">x</button>':'')+(!can('edit_eval')&&!can('delete_eval')?'<span class="mini">—</span>':'')+'</td></tr>';}
 
 // ---------- สรุปรายเจ้าหน้าที่ ----------
 function renderPeople(){const rows=data.people.filter(p=>!filter||p.name.toLowerCase().includes(filter.toLowerCase()));$('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาชื่อเจ้าหน้าที่"><span class="mini">'+data.people.length+' คน</span></div><div class="heat"><div class="head">เจ้าหน้าที่</div>'+criteria.map(c=>'<div class="head">'+c.no+'. '+esc(c.shortTitle)+'</div>').join('')+rows.map(p=>'<div><b>'+esc(p.name)+'</b><div class="mini">'+p.count+' รายการ | avg '+fmt(p.avg)+'</div></div>'+criteria.map(c=>heatCell(p.criteria[c.key])).join('')).join('')+'</div><div class="dash grid" style="margin-top:16px"><div class="panel"><div class="panel-head"><div><div class="panel-title">อันดับคะแนนรายเจ้าหน้าที่</div><div class="mini">เลือกเจ้าหน้าที่เพื่อดูรายละเอียด</div></div></div><div class="rank">'+(rows.map((p,i)=>'<button class="btn" style="justify-content:space-between" onclick="selectedStaff=\''+js(p.name)+'\';renderProfile()"><span>'+(i+1)+'. '+esc(p.name)+'</span><b>'+fmt(p.avg)+'</b></button>').join('')||'<div class="empty">ไม่มีข้อมูล</div>')+'</div></div><div class="panel" id="profilePanel"><div class="empty">เลือกเจ้าหน้าที่เพื่อดูรายละเอียด</div></div></div>';if(selectedStaff)renderProfile();}
 function heatCell(v){const color=v>=4.6?'#84cc16':v>=3.8?'#2dd4bf':v>=3?'#f59e0b':v>=2?'#fb7185':'#ef4444';return '<div class="cell" style="color:'+color+'">'+(v?fmt(v):'-')+'</div>';}
-function renderProfile(){const p=data.people.find(x=>x.name===selectedStaff);if(!p||!$('profilePanel'))return;$('profilePanel').innerHTML='<div class="panel-head"><div><div class="panel-title">'+esc(p.name)+'</div><div class="mini">'+p.count+' รายการ | '+esc(p.band)+' | ล่าสุด '+esc(p.latest||'-')+'</div></div><button class="btn" onclick="downloadPdf(\''+js(p.name)+'\')">PDF</button></div>'+radar(p.criteria)+'<div class="kpi-line"><span>คะแนนเฉลี่ย</span><b>'+fmt(p.avg)+'</b></div><div class="kpi-line"><span>แนวโน้ม</span><b>'+(p.trend>=0?'+':'')+p.trend.toFixed(2)+'</b></div><div style="margin-top:12px;color:#334155;line-height:1.6">'+esc(p.lastComment||'ยังไม่มีข้อเสนอแนะ')+'</div>';}
+function renderProfile(){const p=data.people.find(x=>x.name===selectedStaff);if(!p||!$('profilePanel'))return;$('profilePanel').innerHTML='<div class="panel-head"><div><div class="panel-title">'+esc(p.name)+'</div><div class="mini">'+p.count+' รายการ | '+esc(p.band)+' | ล่าสุด '+esc(p.latest||'-')+'</div></div>'+(can('view_reports')?'<button class="btn" onclick="downloadPdf(\''+js(p.name)+'\')">PDF</button>':'')+'</div>'+radar(p.criteria)+'<div class="kpi-line"><span>คะแนนเฉลี่ย</span><b>'+fmt(p.avg)+'</b></div><div class="kpi-line"><span>แนวโน้ม</span><b>'+(p.trend>=0?'+':'')+p.trend.toFixed(2)+'</b></div><div style="margin-top:12px;color:#334155;line-height:1.6">'+esc(p.lastComment||'ยังไม่มีข้อเสนอแนะ')+'</div>';}
 
 // ---------- วิเคราะห์ภาพรวม ----------
 function renderInsights(){const s=data.summary||{},weak=criteria.find(c=>c.key===s.lowestKey),risks=s.risks||[],best=s.top&&s.top[0],keywords=keywordInsight(data.records.map(r=>r.comment).filter(Boolean).join(' '));$('content').innerHTML='<div class="dash grid"><div class="panel"><div class="panel-head"><div><div class="panel-title">วิเคราะห์ภาพรวม</div><div class="mini">สรุปจากคะแนนและข้อเสนอแนะ</div></div></div><div class="insight"><div class="insight-card"><b>ภาพรวมทีม</b>คะแนนเฉลี่ยอยู่ที่ '+fmt(s.avgScore)+' / 5 ('+esc(s.band||'-')+') จาก '+(s.total||0)+' รายการ</div><div class="insight-card"><b>หัวข้อที่ควรติดตาม</b>'+(weak?esc(weak.shortTitle):'-')+' มีคะแนนเฉลี่ยต่ำสุด ควรใช้เป็นหัวข้อติดตามรอบถัดไป</div><div class="insight-card"><b>กลุ่มติดตาม</b>'+(risks.length?risks.map(p=>esc(p.name)+' ('+fmt(p.avg)+')').join(', '):'ไม่พบกลุ่มเสี่ยงจากคะแนน')+'</div><div class="insight-card"><b>เจ้าหน้าที่ต้นแบบ</b>'+(best?esc(best.name)+' มีคะแนนนำที่ '+fmt(best.avg)+' สามารถใช้เป็นตัวอย่างมาตรฐานบริการ':'ยังไม่มีข้อมูลเพียงพอ')+'</div></div></div><div class="panel"><div class="panel-head"><div><div class="panel-title">คำสำคัญจากข้อเสนอแนะ</div><div class="mini">คำที่พบในข้อเสนอแนะ</div></div></div>'+(keywords.map(k=>'<div class="kpi-line"><span>'+esc(k.word)+'</span><b>'+k.count+'</b></div><div class="bar" style="margin-bottom:8px"><div class="fill" style="width:'+Math.min(100,k.count*18)+'%;background:linear-gradient(90deg,var(--amber),var(--rose))"></div></div>').join('')||'<div class="empty">ยังไม่มีข้อเสนอแนะ</div>')+'</div></div>';}
@@ -299,7 +331,9 @@ function renderHelp(){
     'admin ทำได้ทุกอย่างของ senior/manager และมีเมนูพิเศษ <b>จัดการผู้ใช้ระบบ</b>:'+ul([
       '<b>เพิ่มผู้ใช้</b> — ใส่ email + รหัสผ่าน + เลือกสิทธิ์ (admin/senior/manager) บัญชีถูกยืนยันอัตโนมัติ พร้อมใช้ทันที',
       '<b>เปลี่ยนสิทธิ์</b> — เลือกจาก dropdown ในตารางผู้ใช้',
-      '<b>ลบบัญชี</b> — กดปุ่มลบ (ลบบัญชีตัวเองไม่ได้)'
+      '<b>ลบบัญชี</b> — กดปุ่มลบ (ลบบัญชีตัวเองไม่ได้)',
+      '<b>จัดการสิทธิ์</b> — กำหนดว่า senior/manager ทำอะไรได้ (แก้/ลบประเมิน, จัดการรายชื่อ, นำเข้า CSV, ออกรายงาน) ฟังก์ชันใหม่ของระบบจะเพิ่มในตารางสิทธิ์อัตโนมัติ',
+      '<b>บันทึกการใช้งานระบบ (Audit Log)</b> — ดูประวัติว่าใครเพิ่ม/แก้ไข/ลบ/นำเข้า/เข้าระบบ เมื่อไหร่ (admin ดูได้คนเดียว)'
     ])+
     '<br><b>ข้อกำหนดรหัสผ่าน:</b> อย่างน้อย 6 ตัวอักษร ควรผสมตัวอักษร+ตัวเลข เลี่ยงตัวเลขล้วน เช่น Onsite@2026');
   h+=sec('D. รายงานและการส่งออก',
@@ -330,7 +364,7 @@ async function renderDirectory(){
   $('content').innerHTML=LOADING;
   const [s,sh]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name')]);
   if(s.error||sh.error){$('content').innerHTML='<div class="empty">โหลดรายชื่อไม่สำเร็จ</div>';return;}
-  $('content').innerHTML='<div class="toolbar"><button class="btn" onclick="dedupNames()">🧹 ล้างชื่อซ้ำ</button><span class="mini">รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว</span></div><div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+importPanel();
+  $('content').innerHTML='<div class="toolbar"><button class="btn" onclick="dedupNames()">🧹 ล้างชื่อซ้ำ</button><span class="mini">รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว</span></div><div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+(can('import_csv')?importPanel():'');
 }
 async function dedupNames(){
   if(!confirm('ล้างชื่อซ้ำในตารางรายชื่อ (staff และ shifts)?\nจะรวมชื่อที่เหมือนกันให้เหลือรายการเดียว'))return;
@@ -384,18 +418,54 @@ async function addUser(){
   if(pass.length<6)return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
   const r=await adminFn({action:'create',email,password:pass,role});
   if(r.error)return toast('เพิ่มไม่สำเร็จ: '+r.error,true);
+  logAction('user_create','user',email+' ('+role+')');
   toast('เพิ่มผู้ใช้ '+email+' ('+role+') แล้ว');renderUsers();
 }
 async function setUserRole(id,role){
   const r=await adminFn({action:'updateRole',id,role});
   if(r.error)return toast('เปลี่ยนสิทธิ์ไม่สำเร็จ: '+r.error,true);
+  logAction('user_role','user',id+' → '+role);
   toast('อัปเดตสิทธิ์เป็น '+role+' แล้ว');
 }
 async function deleteUser(id,email){
   if(!confirm('ลบบัญชีผู้ใช้ '+email+'?'))return;
   const r=await adminFn({action:'delete',id});
   if(r.error)return toast('ลบไม่สำเร็จ: '+r.error,true);
+  logAction('user_delete','user',email);
   toast('ลบผู้ใช้แล้ว');renderUsers();
+}
+// ===== หน้าบันทึกการใช้งานระบบ (Audit Log) — admin =====
+async function renderAudit(){
+  if(!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin)',true);view='dashboard';return render();}
+  $('content').innerHTML=LOADING;
+  const {data,error}=await sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500);
+  if(error){$('content').innerHTML='<div class="panel"><div class="panel-title">บันทึกการใช้งานระบบ</div><div class="empty" style="text-align:left;line-height:1.7">อ่านบันทึกไม่สำเร็จ: <b>'+esc(error.message)+'</b><br><br>ตรวจว่า:<br>1) รัน schema.sql (ตาราง audit_log) แล้ว<br>2) ตั้ง role=admin ใน app_metadata ของบัญชีคุณ (อยู่ใน schema.sql) แล้ว<b>ออก-เข้าระบบใหม่ 1 ครั้ง</b></div></div>';return;}
+  const rows=data||[];
+  const actMap={create:'เพิ่ม',update:'แก้ไข',delete:'ลบ',import:'นำเข้า',login:'เข้าระบบ',dedup:'ล้างชื่อซ้ำ',permissions:'แก้ไขสิทธิ์',user_create:'เพิ่มผู้ใช้',user_role:'เปลี่ยนสิทธิ์ผู้ใช้',user_delete:'ลบผู้ใช้',password:'เปลี่ยนรหัสผ่าน'};
+  const f=(filter||'').toLowerCase();
+  const view2=rows.filter(r=>!f||((r.actor||'')+' '+(r.action||'')+' '+(r.entity||'')+' '+(r.detail||'')).toLowerCase().includes(f));
+  $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ใช้ การกระทำ หรือรายละเอียด"><button class="btn" onclick="filter=\'\';renderAudit()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด</span></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>การกระทำ</th><th>ส่วน</th><th>รายละเอียด</th></tr></thead><tbody>'+
+    (view2.map(r=>'<tr><td class="nowrap">'+esc(new Date(r.created_at).toLocaleString('th-TH'))+'</td><td>'+esc(r.actor||'-')+'</td><td><span class="tag neutral">'+esc(actMap[r.action]||r.action)+'</span></td><td>'+esc(r.entity||'-')+'</td><td class="comment">'+esc(r.detail||'-')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ยังไม่มีบันทึก</td></tr>')+
+    '</tbody></table></div>';
+}
+// ===== หน้าจัดการสิทธิ์ — admin =====
+function renderPerms(){
+  if(!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin)',true);view='dashboard';return render();}
+  const cell=(role,c)=>{const cur=(perms[role]&&perms[role][c.key]!==undefined)?!!perms[role][c.key]:!!c.def[role];return '<input type="checkbox" data-role="'+role+'" data-cap="'+c.key+'"'+(cur?' checked':'')+' style="width:18px;height:18px;cursor:pointer">';};
+  $('content').innerHTML='<div class="panel"><div class="panel-head"><div><div class="panel-title">จัดการสิทธิ์การใช้งาน</div><div class="mini">กำหนดว่าแต่ละบทบาททำอะไรได้ · admin มีสิทธิ์ทุกอย่างเสมอ · ฟังก์ชันใหม่ของระบบจะเพิ่มในตารางนี้อัตโนมัติ</div></div><button class="btn primary" onclick="savePerms()">บันทึกสิทธิ์</button></div>'+
+    '<div class="table-wrap"><table style="min-width:auto"><thead><tr><th>ความสามารถ</th><th style="text-align:center">senior</th><th style="text-align:center">manager</th><th style="text-align:center">admin</th></tr></thead><tbody>'+
+    CAPS.map(c=>'<tr><td>'+esc(c.label)+'</td><td style="text-align:center">'+cell('senior',c)+'</td><td style="text-align:center">'+cell('manager',c)+'</td><td style="text-align:center">✔</td></tr>').join('')+
+    '<tr style="opacity:.7"><td>จัดการผู้ใช้ระบบ</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">✔</td></tr>'+
+    '<tr style="opacity:.7"><td>ดูบันทึกการใช้งาน + จัดการสิทธิ์</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">✔</td></tr>'+
+    '</tbody></table></div><div class="mini" style="margin-top:8px">หมายเหตุ: เมนูจัดการผู้ใช้ / บันทึกการใช้งาน / จัดการสิทธิ์ สงวนไว้สำหรับ admin เท่านั้น (ปรับให้บทบาทอื่นไม่ได้)</div></div>';
+}
+async function savePerms(){
+  const next={senior:{},manager:{}};
+  document.querySelectorAll('#content input[type=checkbox][data-cap]').forEach(b=>{next[b.dataset.role][b.dataset.cap]=b.checked;});
+  const {error}=await sb.from('app_settings').upsert({key:'permissions',value:next,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(error)return toast('บันทึกไม่สำเร็จ: '+error.message,true);
+  perms=next;logAction('permissions','permissions','update');applyRoleUI();toast('บันทึกสิทธิ์แล้ว');
 }
 const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
 function parseImportDate(s){
@@ -433,11 +503,12 @@ async function importCSV(){
   if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
   let ok=0;for(let j=0;j<recs.length;j+=200){const {error}=await sb.from('evaluations').insert(recs.slice(j,j+200));if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}ok+=Math.min(200,recs.length-j);}
   await syncDirectories(recs.map(r=>r.staff),recs.map(r=>r.evaluator));
+  logAction('import','evaluation',ok+' รายการ');
   toast('นำเข้าสำเร็จ '+ok+' รายการ + อัปเดตรายชื่อแล้ว'+(skipped?(' (ข้าม '+skipped+')'):''));refresh();
 }
 function dirPanel(title,type,items){return '<div class="panel"><div class="panel-head"><div><div class="panel-title">'+esc(title)+'</div><div class="mini">'+items.length+' รายชื่อ</div></div></div><div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div><div class="dir-list">'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn icon danger" title="ลบ" onclick="delDir(\''+type+'\','+it.id+')">x</button></div>').join('')||'<div class="empty">ยังไม่มีรายชื่อ</div>')+'</div></div>';}
-async function addDir(type){const el=$('add_'+type),name=normName(el.value);if(!name)return toast('กรุณากรอกชื่อ',true);const {data:ex}=await sb.from(type).select('name');if((ex||[]).some(x=>nkey(x.name)===nkey(name)))return toast('มีรายชื่อ "'+name+'" อยู่แล้ว (ถือว่าซ้ำ)',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';toast('เพิ่มแล้ว');renderDirectory();}
-async function delDir(type,id){if(!confirm('ลบรายชื่อนี้?'))return;const {error}=await sb.from(type).delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');renderDirectory();}
+async function addDir(type){const el=$('add_'+type),name=normName(el.value);if(!name)return toast('กรุณากรอกชื่อ',true);const {data:ex}=await sb.from(type).select('name');if((ex||[]).some(x=>nkey(x.name)===nkey(name)))return toast('มีรายชื่อ "'+name+'" อยู่แล้ว (ถือว่าซ้ำ)',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';logAction('create',type,name);toast('เพิ่มแล้ว');renderDirectory();}
+async function delDir(type,id){if(!confirm('ลบรายชื่อนี้?'))return;const {error}=await sb.from(type).delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);logAction('delete',type,'id='+id);toast('ลบแล้ว');renderDirectory();}
 async function addStaff(){const name=prompt('ชื่อเจ้าหน้าที่ Onsite Support');if(!name)return;const {error}=await sb.from('staff').insert({name:name.trim()});if(error)return toast('เพิ่มไม่สำเร็จ',true);toast('เพิ่มแล้ว');refresh();}
 
 // ---------- Modal แก้ไขผลประเมิน ----------
@@ -457,9 +528,10 @@ async function saveEval(){
   $('saveEvalBtn').disabled=false;
   if(error)return toast('บันทึกไม่สำเร็จ: '+error.message,true);
   await syncDirectories([row.staff],[row.evaluator]);
+  logAction(editRow?'update':'create','evaluation',row.staff+' / '+row.evaluator);
   toast('บันทึกแล้ว');closeEval();refresh();
 }
-async function deleteEval(id){if(!confirm('ลบผลประเมินรายการนี้?'))return;const {error}=await sb.from('evaluations').delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);toast('ลบแล้ว');refresh();}
+async function deleteEval(id){if(!confirm('ลบผลประเมินรายการนี้?'))return;const {error}=await sb.from('evaluations').delete().eq('id',id);if(error)return toast('ลบไม่สำเร็จ: '+error.message,true);logAction('delete','evaluation','id='+id);toast('ลบแล้ว');refresh();}
 
 // ---------- ส่งออก CSV ----------
 async function exportCSV(){
