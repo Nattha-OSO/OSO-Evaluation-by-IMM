@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='27';
+const APP_VERSION='28';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -732,7 +732,21 @@ async function emailReportPDF(start,end,word,label,suffix){
     const durl=await html2pdf().set(opt).from(wrap).outputPdf('datauristring');
     const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
     toast('กำลังส่งอีเมล...');
-    const r=await callFn('send-report',{to:to,subject:'รายงานประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label,filename:fname,pdfBase64:b64,message:'เรียน ผู้เกี่ยวข้อง\n\nแนบรายงานประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label+' (ไฟล์ PDF)\n\nจัดทำโดย '+(user.displayName||user.email)});
+    // สรุปผลแบบอ่านง่ายในเนื้อหาอีเมล
+    const pd=periodData(start,end),s=pd.s,weak=criteria.find(c=>c.key===s.lowestKey);
+    const wd=pd.people.filter(p=>p.count),maxAvg=wd.length?Math.max.apply(null,wd.map(p=>p.avg)):0,stars=wd.filter(p=>Math.abs(p.avg-maxAvg)<0.005).map(p=>p.name);
+    const signer=user.displayName||user.email;
+    const subject='รายงานประเมิน Onsite Support '+word+' '+label;
+    const msg='เรียน ผู้เกี่ยวข้อง\n\n'+
+      'สรุปผลการประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label+'\n'+
+      '• จำนวนการประเมิน: '+s.total+' รายการ\n'+
+      '• เจ้าหน้าที่ที่ถูกประเมิน: '+s.evaluated+' คน\n'+
+      '• คะแนนเฉลี่ยรวม: '+fmt(s.avgScore)+' / 5 (ระดับ '+s.band+')\n'+
+      '• หัวข้อที่ควรติดตาม: '+(weak?weak.shortTitle:'-')+'\n'+
+      (stars.length?'• เจ้าหน้าที่ต้นแบบ: '+stars.join(', ')+' (คะแนน '+fmt(maxAvg)+')\n':'')+
+      '\nรายละเอียดทั้งหมดอยู่ในไฟล์ PDF ที่แนบมาพร้อมอีเมลนี้\n\n'+
+      'ขอแสดงความนับถือ\n'+signer;
+    const r=await callFn('send-report',{to:to,subject:subject,filename:fname,pdfBase64:b64,message:msg});
     if(r.error)return toast('ส่งไม่สำเร็จ: '+r.error,true);
     logAction('email','report',to+' / '+label);toast('ส่งอีเมลแล้ว → '+to);closeReport();
   }catch(e){toast('สร้าง/ส่ง PDF ไม่สำเร็จ: '+((e&&e.message)||e),true);}
