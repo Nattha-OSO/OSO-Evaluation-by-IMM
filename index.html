@@ -274,15 +274,24 @@
       <div id="rpt_day" class="hidden"><div class="form-grid"><div class="field"><label class="label">ตั้งแต่วันที่</label><input type="date" class="input" id="rptFrom"></div><div class="field"><label class="label">ถึงวันที่</label><input type="date" class="input" id="rptTo"></div></div><div class="mini">เลือกวันเดียว = รายงานรายวัน · เลือกหลายวัน = รายงานช่วงวันที่</div></div>
       <div id="rpt_month"><div class="field"><label class="label">เลือกเดือน</label><input type="month" class="input" id="rptMonth"></div></div>
       <div id="rpt_year" class="hidden"><div class="field"><label class="label">เลือกปี (พ.ศ.)</label><select class="input" id="rptYear"></select></div></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <div class="field"><label class="label">ส่งทางอีเมล (PDF) — ระบุอีเมลผู้รับ (หลายคนคั่นด้วย , )</label><input class="input" id="rptEmail" type="text" placeholder="name@example.com, name2@example.com"></div>
+      <div class="mini">กด “ดูตัวอย่าง PDF” เพื่อตรวจก่อน แล้วค่อย “ส่งอีเมล” · การส่งอีเมลต้องตั้งค่า SMTP ก่อน (ดู SEND-EMAIL.md)</div>
     </div>
-    <div class="modal-foot"><button class="btn" onclick="closeReport()">ยกเลิก</button><button class="btn primary" onclick="runReport()">สร้างรายงาน DOCX</button></div>
+    <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
+      <button class="btn" onclick="closeReport()">ยกเลิก</button>
+      <button class="btn" onclick="runReport('preview')">👁 ดูตัวอย่าง PDF</button>
+      <button class="btn" onclick="runReport('docx')">ดาวน์โหลด DOCX</button>
+      <button class="btn primary" onclick="runReport('email')">✉ ส่งอีเมล (PDF)</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=25"></script>
+<script src="config.js?v=26"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=25"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>

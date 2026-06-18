@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='25';
+const APP_VERSION='26';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -351,7 +351,8 @@ function renderHelp(){
     ul([
       '<b>รายงาน DOCX</b> — เมนู Tools หรือปุ่มมุมขวาบน → เลือกประเภท <b>รายวัน (ระบุช่วงวันที่ผ่านปฏิทิน)</b> / <b>รายเดือน</b> / <b>รายปี</b> (ค่าเริ่มต้นเป็นปัจจุบัน) → ได้ไฟล์ Word: KPI + กราฟแท่ง + ตารางทุกหัวข้อ + รายบุคคล + ข้อเสนอแนะ',
       '<b>รายงาน PDF (รายคน)</b> — หน้าสรุปรายเจ้าหน้าที่ → คลิกชื่อ → ปุ่ม PDF → กด Ctrl+P เลือก “Save as PDF”',
-      '<b>ส่งออก CSV</b> — เมนู Tools ได้ไฟล์ทุกรายการเปิดใน Excel ได้'
+      '<b>ส่งออก CSV</b> — เมนู Tools ได้ไฟล์ทุกรายการเปิดใน Excel ได้',
+      '<b>ส่งรายงานทางอีเมล (PDF)</b> — ในหน้าต่างรายงาน กรอกอีเมลผู้รับ (หลายคนคั่นด้วย ,) → กด “ดูตัวอย่าง PDF” ตรวจก่อน → “ส่งอีเมล” แนบไฟล์ PDF (ต้องตั้งค่า SMTP ก่อน — ดู SEND-EMAIL.md)'
     ]));
   h+=sec('E. การเข้าระบบและรหัสผ่าน',
     ul([
@@ -452,7 +453,7 @@ async function renderAudit(){
   const {data,error}=await sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500);
   if(error){$('content').innerHTML='<div class="panel"><div class="panel-title">บันทึกการใช้งานระบบ</div><div class="empty" style="text-align:left;line-height:1.7">อ่านบันทึกไม่สำเร็จ: <b>'+esc(error.message)+'</b><br><br>ตรวจว่า:<br>1) รัน schema.sql (ตาราง audit_log) แล้ว<br>2) ตั้ง role=admin ใน app_metadata ของบัญชีคุณ (อยู่ใน schema.sql) แล้ว<b>ออก-เข้าระบบใหม่ 1 ครั้ง</b></div></div>';return;}
   const rows=data||[];
-  const actMap={create:'เพิ่ม',update:'แก้ไข',delete:'ลบ',import:'นำเข้า',login:'เข้าระบบ',dedup:'ล้างชื่อซ้ำ',permissions:'แก้ไขสิทธิ์',user_create:'เพิ่มผู้ใช้',user_role:'เปลี่ยนสิทธิ์ผู้ใช้',user_delete:'ลบผู้ใช้',password:'เปลี่ยนรหัสผ่าน'};
+  const actMap={create:'เพิ่ม',update:'แก้ไข',delete:'ลบ',import:'นำเข้า',login:'เข้าระบบ',dedup:'ล้างชื่อซ้ำ',permissions:'แก้ไขสิทธิ์',user_create:'เพิ่มผู้ใช้',user_role:'เปลี่ยนสิทธิ์ผู้ใช้',user_delete:'ลบผู้ใช้',password:'เปลี่ยนรหัสผ่าน',email:'ส่งอีเมลรายงาน'};
   const f=(filter||'').toLowerCase();
   const view2=rows.filter(r=>!f||((r.actor||'')+' '+(r.action||'')+' '+(r.entity||'')+' '+(r.detail||'')).toLowerCase().includes(f));
   $('content').innerHTML='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="filter=this.value;render()" placeholder="ค้นหาผู้ใช้ การกระทำ หรือรายละเอียด"><button class="btn" onclick="filter=\'\';renderAudit()">รีเฟรช</button><span class="mini">'+rows.length+' รายการล่าสุด</span></div>'+
@@ -653,24 +654,83 @@ function openReportModal(){
 }
 function closeReport(){$('reportModal').classList.remove('open');}
 function updateReportFields(){const t=$('rptType').value;$('rpt_day').classList.toggle('hidden',t!=='day');$('rpt_month').classList.toggle('hidden',t!=='month');$('rpt_year').classList.toggle('hidden',t!=='year');}
-async function runReport(){
+function computePeriod(){
   const t=$('rptType').value;let start,end,word,label,suffix;
   if(t==='day'){
-    const f=$('rptFrom').value,to=$('rptTo').value;if(!f||!to)return toast('เลือกช่วงวันที่ก่อน',true);
+    const f=$('rptFrom').value,to=$('rptTo').value;if(!f||!to){toast('เลือกช่วงวันที่ก่อน',true);return null;}
     let sa=new Date(f+'T00:00:00'),eb=new Date(to+'T00:00:00');if(eb<sa){const x=sa;sa=eb;eb=x;}
     start=sa;end=new Date(eb.getTime()+86400000);
     if(sa.getTime()===eb.getTime()){word='ประจำวันที่';label=thaiDate(sa);}else{word='ระหว่างวันที่';label=thaiDate(sa)+' ถึง '+thaiDate(eb);}
     suffix='Daily_'+f+(f===to?'':('_to_'+to));
   }else if(t==='month'){
-    const m=$('rptMonth').value;if(!m)return toast('เลือกเดือนก่อน',true);
+    const m=$('rptMonth').value;if(!m){toast('เลือกเดือนก่อน',true);return null;}
     const a=m.split('-').map(Number);start=new Date(a[0],a[1]-1,1);end=new Date(a[0],a[1],1);
     word='ประจำเดือน';label=THAI_MONTHS[a[1]-1]+' '+(a[0]+543);suffix='Monthly_'+m;
   }else{
     const y=Number($('rptYear').value);start=new Date(y,0,1);end=new Date(y+1,0,1);
     word='ประจำปี';label='พ.ศ. '+(y+543);suffix='Year_'+y;
   }
-  closeReport();toast('กำลังสร้าง DOCX...');
-  await makeReport(start,end,word,label,suffix);
+  return {start,end,word,label,suffix};
+}
+async function runReport(action){
+  const p=computePeriod();if(!p)return;
+  if(action==='preview')return previewReportPDF(p.start,p.end,p.word,p.label);
+  if(action==='email')return emailReportPDF(p.start,p.end,p.word,p.label,p.suffix);
+  closeReport();toast('กำลังสร้าง DOCX...');await makeReport(p.start,p.end,p.word,p.label,p.suffix);
+}
+// เรียก Edge Function แบบทั่วไป (ดึงข้อความ error จริง)
+async function callFn(name,body){
+  try{const {data,error}=await sb.functions.invoke(name,{body});
+    if(error){let msg=error.message||'error';try{if(error.context&&typeof error.context.json==='function'){const j=await error.context.json();if(j&&j.error)msg=j.error;}}catch(_){}return {error:msg};}
+    if(data&&data.error)return {error:data.error};return {data:data||{}};
+  }catch(ex){return {error:String((ex&&ex.message)||ex)};}
+}
+// สร้างเนื้อหารายงานเป็น HTML (ใช้ทั้งพรีวิวและสร้าง PDF)
+function periodData(start,end){
+  const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=start&&d<end;});
+  const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
+  return {records,people,s:summarizeOverall(records,people)};
+}
+function reportStyles(){return '<style>*{box-sizing:border-box}body{font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;margin:0;padding:24px}h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}table{border-collapse:collapse;width:100%;margin:6px 0;font-size:15px}th,td{border:1px solid #d0d7e5;padding:6px 9px;text-align:left;vertical-align:top}thead th{background:#e8f0fc;color:#0b2f6b}.meta th{width:130px;background:#f2f7ff}.kpis{display:flex;gap:10px;margin:8px 0}.kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}ul{margin:6px 0;padding-left:20px}li{margin-bottom:6px}@media print{.noprint{display:none}body{padding:10mm}}</style>';}
+function buildReportInner(start,end,word,label){
+  const {records,people,s}=periodData(start,end);const weak=criteria.find(c=>c.key===s.lowestKey);
+  const tbl=(head,rows)=>'<table><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="'+head.length+'" style="text-align:center;color:#888">ไม่มีข้อมูล</td></tr>')+'</tbody></table>';
+  let h='<h1>รายงานประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง '+esc(word)+' '+esc(label)+'</h1>';
+  h+='<p class="sub">รายงานผลการประเมินเจ้าหน้าที่ Onsite Support โดยเจ้าหน้าที่ตรวจคนเข้าเมือง</p>';
+  h+='<table class="meta"><tbody><tr><th>รอบรายงาน</th><td>'+esc(label)+'</td></tr><tr><th>วันที่จัดทำ</th><td>'+esc(new Date().toLocaleString('th-TH'))+'</td></tr><tr><th>จัดทำโดย</th><td>'+esc(user.displayName||user.email)+'</td></tr></tbody></table>';
+  h+='<h2>สรุปภาพรวม</h2><div class="kpis"><div class="kpi"><div class="n">'+s.total+'</div><div>จำนวนประเมิน</div></div><div class="kpi"><div class="n">'+s.evaluated+'</div><div>เจ้าหน้าที่</div></div><div class="kpi"><div class="n">'+fmt(s.avgScore)+'</div><div>คะแนนเฉลี่ย ('+esc(s.band)+')</div></div><div class="kpi"><div class="n">'+(weak?esc(weak.shortTitle):'-')+'</div><div>หัวข้อโฟกัส</div></div></div>';
+  h+='<h2>คะแนนเฉลี่ยรายหัวข้อ</h2>'+tbl(['ลำดับ','หัวข้อประเมิน','คะแนนเฉลี่ย','ระดับ'],criteria.map(c=>{const a=s.criteriaAvg[c.key]||0;return [c.no,esc(c.shortTitle),fmt(a),esc(scoreBand(a))];}));
+  h+='<h2>ประเด็นที่ควรติดตาม</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','คะแนนเฉลี่ย','ระดับ'],(s.risks||[]).map((p,i)=>[i+1,esc(p.name),fmt(p.avg),esc(p.band)]));
+  h+='<h2>จำนวนรายการประเมินตามผลัด</h2>'+tbl(['ลำดับ','ผลัด','จำนวน'],Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[i+1,esc(x[0]||'-'),x[1]]));
+  h+='<h2>สรุปรายบุคคล</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ระดับ'],people.filter(p=>p.count).map((p,i)=>[i+1,esc(p.name),p.count,fmt(p.avg),esc(p.band)]));
+  const cm=records.filter(r=>r.comment);
+  h+='<h2>ข้อเสนอแนะทั้งหมดในรอบรายงาน</h2>'+(cm.length?'<ul>'+cm.map(r=>'<li><b>'+esc(r.staff)+'</b> ('+esc(r.evaluator)+') — '+esc(r.timestamp)+'<br>'+esc(r.comment)+'</li>').join('')+'</ul>':'<p style="color:#888">ไม่มีข้อเสนอแนะ</p>');
+  return h;
+}
+async function previewReportPDF(start,end,word,label){
+  await ensureFresh();
+  const w=window.open('','_blank');if(!w)return toast('เบราว์เซอร์บล็อก popup',true);
+  const html='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ตัวอย่างรายงาน</title>'+reportStyles()+'</head><body><div style="max-width:820px;margin:0 auto">'+buildReportInner(start,end,word,label)+'<div class="noprint" style="text-align:center;margin:22px 0"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;background:#2563eb;color:#fff;border:0;border-radius:8px;cursor:pointer">🖨 พิมพ์ / บันทึกเป็น PDF</button></div></div></body></html>';
+  w.document.write(html);w.document.close();
+}
+async function emailReportPDF(start,end,word,label,suffix){
+  const to=($('rptEmail').value||'').trim();
+  if(!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+([,;]\s*[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+)*$/.test(to))return toast('กรอกอีเมลผู้รับให้ถูกต้อง (หลายอีเมลคั่นด้วย , )',true);
+  if(typeof html2pdf==='undefined')return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
+  await ensureFresh();toast('กำลังสร้าง PDF...');
+  const wrap=document.createElement('div');wrap.style.cssText='position:fixed;left:-9999px;top:0;width:820px;background:#fff';
+  wrap.innerHTML=reportStyles()+'<div>'+buildReportInner(start,end,word,label)+'</div>';
+  document.body.appendChild(wrap);
+  try{
+    const opt={margin:8,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}};
+    const durl=await html2pdf().set(opt).from(wrap).outputPdf('datauristring');
+    const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
+    toast('กำลังส่งอีเมล...');
+    const r=await callFn('send-report',{to:to,subject:'รายงานประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label,filename:fname,pdfBase64:b64,message:'เรียน ผู้เกี่ยวข้อง\n\nแนบรายงานประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label+' (ไฟล์ PDF)\n\nจัดทำโดย '+(user.displayName||user.email)});
+    if(r.error)return toast('ส่งไม่สำเร็จ: '+r.error,true);
+    logAction('email','report',to+' / '+label);toast('ส่งอีเมลแล้ว → '+to);closeReport();
+  }catch(e){toast('สร้าง/ส่ง PDF ไม่สำเร็จ: '+((e&&e.message)||e),true);}
+  finally{document.body.removeChild(wrap);}
 }
 
 /* ============================================================
