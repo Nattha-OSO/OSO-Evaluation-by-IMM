@@ -215,6 +215,7 @@
       <button data-view="insights" onclick="showView('insights',this)">4. วิเคราะห์ภาพรวม</button>
       <div class="nav-title">จัดการข้อมูล</div>
       <button data-view="directory" onclick="showView('directory',this)">จัดการรายชื่อ (ผลัด / Onsite)</button>
+      <button data-view="users" id="navUsers" class="hidden" onclick="showView('users',this)">จัดการผู้ใช้ระบบ (admin)</button>
       <div class="nav-title">Tools</div>
       <button onclick="exportDOCX()">ส่งออกรายงาน DOCX</button>
       <button onclick="exportCSV()">ส่งออก CSV</button>
@@ -250,9 +251,9 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=9"></script>
+<script src="config.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

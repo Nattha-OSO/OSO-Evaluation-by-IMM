@@ -50,7 +50,7 @@ let sb = null;
 function hideAll(){['public','login','resetpw'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
 function gotoLogin(){showLogin();}
-function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();}
+function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
 
 window.onload = async function(){
@@ -61,7 +61,14 @@ window.onload = async function(){
   try{const {data:s}=await sb.auth.getSession();if(s&&s.session){setUser(s.session.user);boot();}else showPublic();}
   catch(e){showPublic();}
 };
-function setUser(u){user={email:u.email,role:'admin',displayName:u.email,username:u.email};}
+function setUser(u){const r=(u&&u.app_metadata&&u.app_metadata.role)||'senior';user={email:u.email,role:r,isAdmin:r==='admin',displayName:u.email,username:u.email};}
+// ถาม Edge Function ว่าเป็น admin ไหม (รองรับ bootstrap ผ่าน ADMIN_EMAILS) แล้วเปิด/ซ่อนเมนูจัดการผู้ใช้
+async function checkAdmin(){
+  user.isAdmin=(user.role==='admin');
+  try{const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'whoami'}});if(!error&&data&&data.isAdmin){user.isAdmin=true;user.role='admin';}}catch(e){}
+  applyRoleUI();
+}
+function applyRoleUI(){const n=$('navUsers');if(n)n.classList.toggle('hidden',!user.isAdmin);if($('userRole'))$('userRole').textContent=user.role||'-';}
 
 // ---------- จัดการรหัสผ่าน ----------
 function showResetPw(){hideAll();$('resetpw').classList.remove('hidden');}
@@ -203,9 +210,9 @@ async function refresh(){
   catch(e){toast((e&&e.message)||'โหลดข้อมูลไม่สำเร็จ',true);$('content').innerHTML='<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>';}
 }
 function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();}
-function showView(v,btn){view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();}
+function showView(v,btn){if(v==='users'&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();}
 function toggleSide(){$('side').classList.toggle('open');}
-function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory}[view]||renderDashboard)();}
+function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers}[view]||renderDashboard)();}
 function stat(a,b,c,color){return '<div class="stat"><div class="stat-label">'+a+'</div><div class="stat-num" style="color:'+color+'">'+b+'</div><div class="mini">'+(c||'')+'</div></div>';}
 
 // ---------- แดชบอร์ด ----------
@@ -252,6 +259,43 @@ async function dedupNames(){
   }
   toast(removed?('ล้างชื่อซ้ำแล้ว '+removed+' รายการ'):'ไม่พบชื่อซ้ำ');
   renderDirectory();
+}
+
+// ---------- จัดการผู้ใช้ระบบ (เฉพาะ admin, ผ่าน Edge Function) ----------
+async function renderUsers(){
+  if(!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin)',true);view='dashboard';return render();}
+  $('content').innerHTML=LOADING;
+  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'list'}});
+  if(error||!data||data.error){
+    $('content').innerHTML='<div class="panel"><div class="panel-title">จัดการผู้ใช้ระบบ</div><div class="empty" style="text-align:left;line-height:1.7">เรียกใช้ Edge Function ไม่สำเร็จ<br><b>'+esc((error&&error.message)||(data&&data.error)||'')+'</b><br><br>ตรวจว่า:<br>1) deploy ฟังก์ชัน <code>admin-users</code> แล้ว (<code>supabase functions deploy admin-users</code>)<br>2) ตั้งความลับ <code>supabase secrets set ADMIN_EMAILS="'+esc(user.email)+'"</code><br>ดูรายละเอียดในไฟล์ USER-MANAGEMENT.md</div></div>';return;
+  }
+  const users=data.users||[];
+  const roleSel=(id,r)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===r?' selected':'')+'>'+x+'</option>').join('')+'</select>';
+  $('content').innerHTML=
+    '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชีล็อกอิน + กำหนดสิทธิ์ (admin มีสิทธิ์จัดการผู้ใช้ / senior, manager ไม่มี)</div></div></div>'+
+    '<div class="form-grid"><div class="field"><label class="label">Email</label><input class="input" id="nuEmail" type="email" placeholder="user@example.com"></div><div class="field"><label class="label">รหัสผ่าน</label><input class="input" id="nuPass" type="text" placeholder="อย่างน้อย 6 ตัวอักษร"></div></div>'+
+    '<div style="display:flex;gap:10px;align-items:flex-end;margin-top:6px"><div class="field" style="margin:0"><label class="label">สิทธิ์</label><select class="input" id="nuRole" style="width:auto"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn primary" onclick="addUser()">+ เพิ่มผู้ใช้</button></div></div>'+
+    '<div class="panel" style="margin-top:16px"><div class="panel-title">ผู้ใช้ทั้งหมด ('+users.length+')</div><div class="table-wrap"><table><thead><tr><th>Email</th><th>สิทธิ์</th><th>เข้าระบบล่าสุด</th><th></th></tr></thead><tbody>'+
+    (users.map(u=>'<tr><td><b>'+esc(u.email)+'</b>'+(u.email===user.email?' <span class="tag neutral">คุณ</span>':'')+'</td><td>'+roleSel(u.id,u.role)+'</td><td class="nowrap">'+esc(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('th-TH'):'-')+'</td><td class="nowrap">'+(u.email===user.email?'':'<button class="btn danger sm" onclick="deleteUser(\''+u.id+'\',\''+js(u.email)+'\')">ลบ</button>')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">ไม่มีผู้ใช้</td></tr>')+
+    '</tbody></table></div></div>';
+}
+async function addUser(){
+  const email=($('nuEmail').value||'').trim(),pass=$('nuPass').value||'',role=$('nuRole').value;
+  if(!email||pass.length<6)return toast('กรอกอีเมล + รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
+  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'create',email,password:pass,role}});
+  if(error||(data&&data.error))return toast('เพิ่มไม่สำเร็จ: '+((error&&error.message)||data.error),true);
+  toast('เพิ่มผู้ใช้ '+email+' ('+role+') แล้ว');renderUsers();
+}
+async function setUserRole(id,role){
+  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'updateRole',id,role}});
+  if(error||(data&&data.error))return toast('เปลี่ยนสิทธิ์ไม่สำเร็จ: '+((error&&error.message)||data.error),true);
+  toast('อัปเดตสิทธิ์เป็น '+role+' แล้ว');
+}
+async function deleteUser(id,email){
+  if(!confirm('ลบบัญชีผู้ใช้ '+email+'?'))return;
+  const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'delete',id}});
+  if(error||(data&&data.error))return toast('ลบไม่สำเร็จ: '+((error&&error.message)||data.error),true);
+  toast('ลบผู้ใช้แล้ว');renderUsers();
 }
 const LABEL2NUM={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
 function parseImportDate(s){
