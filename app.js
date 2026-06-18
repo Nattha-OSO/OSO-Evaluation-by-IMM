@@ -306,10 +306,15 @@ function renderHelp(){
       '<b>หน้าแบบประเมิน (สาธารณะ)</b> — เจ้าหน้าที่ ตม. ให้คะแนนได้เลย ไม่ต้องล็อกอิน',
       '<b>ระบบหลังบ้าน</b> — Senior / Manager / Admin ล็อกอินเพื่อดูสรุป ทำรายงาน และจัดการข้อมูล'
     ]));
-  h+=sec('สิทธิ์การใช้งานแต่ละระดับ',
-    '<div class="table-wrap"><table style="min-width:auto"><thead><tr><th>ความสามารถ</th><th>ผู้ประเมิน<br>(สาธารณะ)</th><th>senior</th><th>manager</th><th>admin</th></tr></thead><tbody>'+
-    [['ส่งแบบประเมิน','✔','✔','✔','✔'],['ดูแดชบอร์ด/รายงาน/วิเคราะห์','—','✔','✔','✔'],['แก้ไข/ลบรายการประเมิน','—','✔','✔','✔'],['จัดการรายชื่อ + นำเข้า CSV','—','✔','✔','✔'],['ออกรายงาน DOCX/PDF/CSV','—','✔','✔','✔'],['<b>จัดการผู้ใช้ระบบ</b>','—','—','—','<b>✔</b>']].map(r=>'<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td><td style="text-align:center">'+r[3]+'</td><td style="text-align:center">'+r[4]+'</td></tr>').join('')+
-    '</tbody></table></div><div class="mini" style="margin-top:8px">ค่าในตารางคือ<b>ค่าเริ่มต้น</b> — admin ปรับสิทธิ์ของ senior/manager ได้ที่เมนู “จัดการสิทธิ์” และจะมีผลกับผู้ใช้ที่ออนไลน์อยู่<b>ทันที</b> · เมนูจัดการผู้ใช้ / จัดการสิทธิ์ / บันทึกการใช้งาน สงวนเฉพาะ admin</div>');
+  const eff=(role,key)=>{const c=CAPS.find(x=>x.key===key);if(perms&&perms[role]&&perms[role][key]!==undefined)return !!perms[role][key];return c?!!c.def[role]:false;};
+  const yn=b=>b?'✔':'—',ctr=v=>'<td style="text-align:center">'+v+'</td>';
+  let prows='<tr><td>ส่งแบบประเมิน</td>'+ctr('✔')+ctr('✔')+ctr('✔')+ctr('✔')+'</tr>';
+  prows+='<tr><td>ดูแดชบอร์ด / วิเคราะห์ (เข้าระบบ)</td>'+ctr('—')+ctr('✔')+ctr('✔')+ctr('✔')+'</tr>';
+  CAPS.forEach(c=>{prows+='<tr><td>'+esc(c.label)+'</td>'+ctr('—')+ctr(yn(eff('senior',c.key)))+ctr(yn(eff('manager',c.key)))+ctr('✔')+'</tr>';});
+  prows+='<tr><td><b>จัดการผู้ใช้ / จัดการสิทธิ์ / บันทึกการใช้งาน</b></td>'+ctr('—')+ctr('—')+ctr('—')+ctr('<b>✔</b>')+'</tr>';
+  h+=sec('สิทธิ์การใช้งานแต่ละระดับ (ปัจจุบัน)',
+    '<div class="table-wrap"><table style="min-width:auto"><thead><tr><th>ความสามารถ</th><th>ผู้ประเมิน<br>(สาธารณะ)</th><th>senior</th><th>manager</th><th>admin</th></tr></thead><tbody>'+prows+
+    '</tbody></table></div><div class="mini" style="margin-top:8px">ตารางนี้แสดง<b>สิทธิ์ที่ใช้อยู่จริง</b>ในระบบ — admin ปรับได้ที่เมนู “จัดการสิทธิ์” และมีผลกับผู้ใช้ที่ออนไลน์อยู่<b>ทันที</b> · เมนูจัดการผู้ใช้ / จัดการสิทธิ์ / บันทึกการใช้งาน สงวนเฉพาะ admin</div>');
   h+=sec('เกณฑ์การให้คะแนน',
     '<b>5 หัวข้อการประเมิน:</b>'+ul(critList)+
     '<br><b>ระดับคะแนนแต่ละหัวข้อ:</b> '+scoreLines+
