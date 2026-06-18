@@ -126,13 +126,27 @@ async function submitPublic(){
 function resetPublic(){$('pubEvaluator').value='';$('pubStaff').value='';$('pubComment').value='';document.querySelectorAll('#pubCriteria button.active').forEach(b=>b.classList.remove('active'));$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');window.scrollTo(0,0);}
 
 // ---------- ล็อกอิน ----------
+function showLoginError(msg){const b=$('loginError');if(b){b.textContent=msg;b.classList.remove('hidden');}toast(msg,true);}
+function loginErrorText(error){const m=String(error&&error.message||'').toLowerCase();
+  if(m.indexOf('invalid login')>=0||m.indexOf('invalid credentials')>=0)return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+  if(m.indexOf('email not confirmed')>=0)return 'อีเมลนี้ยังไม่ได้ยืนยัน — ให้ผู้ดูแลปิด "Confirm email" หรือยืนยันบัญชีใน Supabase (Authentication → Users)';
+  if(m.indexOf('rate limit')>=0||m.indexOf('too many')>=0)return 'พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
+  if(m.indexOf('failed to fetch')>=0||m.indexOf('networkerror')>=0||m.indexOf('load failed')>=0)return 'เชื่อมต่อเซิร์ฟเวอร์ Supabase ไม่ได้ — ตรวจอินเทอร์เน็ต/VPN หรือค่าใน config.js';
+  return 'เข้าสู่ระบบไม่สำเร็จ: '+(error&&error.message||'ไม่ทราบสาเหตุ');
+}
 async function doLogin(e){
-  e.preventDefault();if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
-  $('loginBtn').disabled=true;
-  const {data:d,error}=await sb.auth.signInWithPassword({email:$('loginUser').value,password:$('loginPass').value});
-  $('loginBtn').disabled=false;
-  if(error)return toast('เข้าสู่ระบบไม่สำเร็จ: '+error.message,true);
-  setUser(d.user);boot();
+  e.preventDefault();
+  const eb=$('loginError');if(eb){eb.classList.add('hidden');eb.textContent='';}
+  if(!sb)return showLoginError('ยังไม่ได้ตั้งค่า Supabase ใน config.js');
+  const email=($('loginUser').value||'').trim(),pass=$('loginPass').value||'';
+  if(!email||!pass)return showLoginError('กรุณากรอกอีเมลและรหัสผ่านให้ครบ');
+  $('loginBtn').disabled=true;$('loginBtn').textContent='กำลังเข้าสู่ระบบ...';
+  try{
+    const {data:d,error}=await sb.auth.signInWithPassword({email,password:pass});
+    if(error){console.error('login error',error);showLoginError(loginErrorText(error));return;}
+    setUser(d.user);boot();
+  }catch(ex){console.error('login exception',ex);showLoginError(loginErrorText(ex));}
+  finally{$('loginBtn').disabled=false;$('loginBtn').textContent='เข้าสู่ระบบ';}
 }
 async function doLogout(){if(sb)await sb.auth.signOut();showPublic();}
 
