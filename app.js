@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='47';
+const APP_VERSION='48';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -366,9 +366,10 @@ function hydrateUser(){$('userName').textContent=user.displayName||user.email;$(
 function showView(v,btn){
   if((v==='users'||v==='perms'||v==='audit')&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}
   if(v==='directory'&&!(user.isAdmin||can('manage_directory'))){toast('คุณไม่มีสิทธิ์จัดการรายชื่อ',true);return;}
-  view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));$('side').classList.remove('open');render();
+  view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));closeSide();render();
 }
-function toggleSide(){$('side').classList.toggle('open');}
+function toggleSide(){const open=$('side').classList.toggle('open');const b=$('sideBackdrop');if(b)b.classList.toggle('open',open);}
+function closeSide(){$('side').classList.remove('open');const b=$('sideBackdrop');if(b)b.classList.remove('open');}
 function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ',perms:'จัดการสิทธิ์',audit:'บันทึกการใช้งานระบบ',help:'คู่มือการใช้งาน'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers,perms:renderPerms,audit:renderAudit,help:renderHelp}[view]||renderDashboard)();}
 function stat(a,b,c,color){return '<div class="stat"><div class="stat-label">'+a+'</div><div class="stat-num" style="color:'+color+'">'+b+'</div><div class="mini">'+(c||'')+'</div></div>';}
 
