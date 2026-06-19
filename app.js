@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='28';
+const APP_VERSION='29';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -720,8 +720,11 @@ async function previewReportPDF(start,end,word,label){
   w.document.write(html);w.document.close();
 }
 async function emailReportPDF(start,end,word,label,suffix){
-  const to=($('rptEmail').value||'').trim();
-  if(!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+([,;]\s*[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+)*$/.test(to))return toast('กรอกอีเมลผู้รับให้ถูกต้อง (หลายอีเมลคั่นด้วย , )',true);
+  // กรองอักขระซ่อน/ที่ไม่ใช่ ASCII ออก แล้วตรวจรูปแบบอีเมลแต่ละตัว
+  const list=($('rptEmail').value||'').normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase().split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+  const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+  if(!list.length||!list.every(e=>reMail.test(e)))return toast('อีเมลผู้รับไม่ถูกต้อง: '+(list.join(', ')||'(ว่าง)'),true);
+  const to=list.join(',');
   if(typeof html2pdf==='undefined')return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
   await ensureFresh();toast('กำลังสร้าง PDF...');
   const wrap=document.createElement('div');wrap.style.cssText='position:fixed;left:-9999px;top:0;width:820px;background:#fff';
