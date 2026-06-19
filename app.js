@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='41';
+const APP_VERSION='42';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -50,7 +50,32 @@ let sb = null;
 // ---------- สลับหน้าจอ ----------
 function hideAll(){['public','login','register','resetpw'].forEach(id=>{const el=$(id);if(el)el.classList.add('hidden');});$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
-function showRegister(){hideAll();const r=$('register');if(r)r.classList.remove('hidden');const eb=$('regError');if(eb)eb.classList.add('hidden');}
+function showRegister(){hideAll();const r=$('register');if(r)r.classList.remove('hidden');const eb=$('regError');if(eb)eb.classList.add('hidden');const m=$('regPassMeter');if(m)m.style.display='none';}
+// แถบวัดความแข็งแรงรหัสผ่านแบบเรียลไทม์ (หน้าลงทะเบียน)
+function regPassStrength(){
+  const inp=$('regPass'),m=$('regPassMeter');if(!inp||!m)return;
+  const p=inp.value||'';
+  if(!p){m.style.display='none';return;}
+  m.style.display='block';
+  let s=0;
+  if(p.length>=6)s++;
+  if(p.length>=10)s++;
+  if(/[a-z]/.test(p)&&/[A-Z]/.test(p))s++;
+  if(/[0-9]/.test(p))s++;
+  if(/[^A-Za-z0-9]/.test(p))s++;
+  const levels=[
+    {w:'22%',c:'#ef4444',t:'อ่อนมาก'},
+    {w:'44%',c:'#f59e0b',t:'อ่อน'},
+    {w:'64%',c:'#eab308',t:'ปานกลาง'},
+    {w:'84%',c:'#22c55e',t:'ดี'},
+    {w:'100%',c:'#16a34a',t:'แข็งแรง'}
+  ];
+  const lv=levels[Math.min(levels.length-1,Math.max(0,s-1))];
+  const bar=$('regPassBar'),txt=$('regPassText');
+  if(bar){bar.style.width=lv.w;bar.style.background=lv.c;}
+  const okMin=p.length>=6&&/[A-Za-z]/.test(p)&&/[0-9]/.test(p);
+  if(txt){txt.style.color=lv.c;txt.textContent='ความแข็งแรง: '+lv.t+(okMin?' ✓':' — ยังไม่ครบเกณฑ์ (ต้องมีตัวอักษร+ตัวเลข อย่างน้อย 6 ตัว)');}
+}
 function gotoLogin(){showLogin();}
 function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();loadMyProfile();startRealtime();logAction('login','auth',user&&user.email);}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
@@ -210,6 +235,7 @@ async function doRegister(e){
       return showRegError(emsg);
     }
     $('regName').value=$('regEmail').value=$('regPass').value=$('regReason').value='';
+    const pm=$('regPassMeter');if(pm)pm.style.display='none';
     showLogin();
     showLoginInfo('ส่งคำขอลงทะเบียนแล้ว ✓ โปรดรอผู้ดูแลระบบอนุมัติ จากนั้นเข้าสู่ระบบด้วยอีเมล/รหัสผ่านที่ลงทะเบียนไว้');
   }catch(ex){b.disabled=false;b.textContent='ส่งคำขอลงทะเบียน';showRegError(String((ex&&ex.message)||ex));}
