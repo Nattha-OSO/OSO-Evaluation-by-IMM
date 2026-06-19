@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='36';
+const APP_VERSION='37';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -740,27 +740,13 @@ async function emailReportPDF(start,end,word,label,suffix){
   const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
   if(!list.length||!list.every(e=>reMail.test(e)))return toast('อีเมลผู้รับไม่ถูกต้อง: '+(list.join(', ')||'(ว่าง)'),true);
   const to=list.join(',');
-  if(typeof html2canvas==='undefined'||!window.jspdf)return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
-  await ensureFresh();toast('กำลังสร้าง PDF...');
-  const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto';
-  ov.innerHTML=reportStyles()+'<div style="text-align:center;color:#2563eb;font-weight:700;padding:6px">กำลังสร้าง PDF...</div><div class="rpt" id="rptTarget" style="width:760px">'+buildReportInner(start,end,word,label)+'</div>';
-  document.body.appendChild(ov);
-  await new Promise(r=>setTimeout(r,250));
+  await ensureFresh();toast('กำลังสร้างรายงาน DOCX...');
   try{
-    const target=ov.querySelector('#rptTarget');
-    const canvas=await html2canvas(target,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
-    const imgData=canvas.toDataURL('image/jpeg',0.95);
-    const {jsPDF}=window.jspdf;
-    const pdf=new jsPDF('p','mm','a4');
-    const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight(),margin=16;
-    const imgW=pageW-margin*2,imgH=canvas.height*imgW/canvas.width,pageContentH=pageH-margin*2;
-    let heightLeft=imgH,position=margin;
-    pdf.addImage(imgData,'JPEG',margin,position,imgW,imgH);
-    heightLeft-=pageContentH;
-    while(heightLeft>0){position=margin-(imgH-heightLeft);pdf.addPage();pdf.addImage(imgData,'JPEG',margin,position,imgW,imgH);heightLeft-=pageContentH;}
-    const b64=pdf.output('datauristring').split(',')[1];
-    let docxB64=null;try{const dblob=await buildReportDocxBlob(start,end,word,label);if(dblob)docxB64=await blobToB64(dblob);}catch(_){}
+    // แนบเฉพาะ DOCX (ตัด PDF ออกตามที่กำหนด)
+    const dblob=await buildReportDocxBlob(start,end,word,label);
+    if(!dblob)return toast('สร้างไฟล์ DOCX ไม่สำเร็จ',true);
+    const docxB64=await blobToB64(dblob);
+    if(!docxB64)return toast('แปลงไฟล์ DOCX ไม่สำเร็จ',true);
     toast('กำลังส่งอีเมล...');
     // สรุปผลแบบอ่านง่ายในเนื้อหาอีเมล
     const pd=periodData(start,end),s=pd.s,weak=criteria.find(c=>c.key===s.lowestKey);
@@ -774,15 +760,13 @@ async function emailReportPDF(start,end,word,label,suffix){
       '• คะแนนเฉลี่ยรวม: '+fmt(s.avgScore)+' / 5 (ระดับ '+s.band+')\n'+
       '• หัวข้อที่ควรติดตาม: '+(weak?weak.shortTitle:'-')+'\n'+
       (stars.length?'• เจ้าหน้าที่ต้นแบบ: '+stars.join(', ')+' (คะแนน '+fmt(maxAvg)+')\n':'')+
-      '\nรายละเอียดทั้งหมดอยู่ในไฟล์ PDF ที่แนบมาพร้อมอีเมลนี้\n\n'+
+      '\nรายละเอียดทั้งหมดอยู่ในไฟล์ DOCX ที่แนบมาพร้อมอีเมลนี้\n\n'+
       'ขอแสดงความนับถือ\n'+signer;
-    const atts=[{content:b64,name:'OSO_Evaluation_'+suffix+'.pdf'}];
-    if(docxB64)atts.push({content:docxB64,name:'OSO_Evaluation_'+suffix+'.docx'});
+    const atts=[{content:docxB64,name:'OSO_Evaluation_'+suffix+'.docx'}];
     const r=await callFn('send-report',{to:to,subject:subject,attachments:atts,message:msg});
     if(r.error)return toast('ส่งไม่สำเร็จ: '+r.error,true);
-    logAction('email','report',to+' / '+label+' (PDF+DOCX)');toast('ส่งอีเมลแล้ว (PDF+DOCX) → '+to);closeReport();
-  }catch(e){toast('สร้าง/ส่ง PDF ไม่สำเร็จ: '+((e&&e.message)||e),true);}
-  finally{document.body.removeChild(ov);}
+    logAction('email','report',to+' / '+label+' (DOCX)');toast('ส่งอีเมลแล้ว (DOCX) → '+to);closeReport();
+  }catch(e){toast('สร้าง/ส่งรายงานไม่สำเร็จ: '+((e&&e.message)||e),true);}
 }
 
 /* ============================================================
