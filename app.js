@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='32';
+const APP_VERSION='33';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -739,13 +739,13 @@ async function emailReportPDF(start,end,word,label,suffix){
   if(typeof html2pdf==='undefined')return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
   await ensureFresh();toast('กำลังสร้าง PDF...');
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;padding:10px';
-  ov.innerHTML=reportStyles()+'<div style="text-align:center;color:#2563eb;font-weight:700;padding:6px">กำลังสร้าง PDF...</div><div class="rpt" id="rptTarget" style="width:720px;margin:0 auto">'+buildReportInner(start,end,word,label)+'</div>';
+  ov.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto';
+  ov.innerHTML=reportStyles()+'<div style="text-align:center;color:#2563eb;font-weight:700;padding:6px">กำลังสร้าง PDF...</div><div class="rpt" id="rptTarget" style="width:760px">'+buildReportInner(start,end,word,label)+'</div>';
   document.body.appendChild(ov);
   await new Promise(r=>setTimeout(r,250));
   try{
     const target=ov.querySelector('#rptTarget');
-    const opt={margin:[12,10,12,10],image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:760},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
+    const opt={margin:10,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,x:0,y:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
     const durl=await html2pdf().set(opt).from(target).outputPdf('datauristring');
     const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
     toast('กำลังส่งอีเมล...');
