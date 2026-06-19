@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='46';
+const APP_VERSION='47';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -100,8 +100,9 @@ function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubTha
 window.onload = async function(){
   renderPublicForm();
   if(!sb){showPublic();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
-  sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')showResetPw();});
-  if(String(location.hash).indexOf('type=recovery')>=0){showResetPw();return;}
+  sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){sessionStorage.setItem('pw_recovery','1');showResetPw();}});
+  // โหมดตั้งรหัสใหม่: ต้องตั้งรหัสให้เสร็จก่อน ห้าม boot เข้าระบบแม้จะมี session (กันรีเฟรชแล้วหลุดเข้าระบบ)
+  if(sessionStorage.getItem('pw_recovery')==='1'||String(location.hash).indexOf('type=recovery')>=0){sessionStorage.setItem('pw_recovery','1');showResetPw();return;}
   try{const {data:s}=await sb.auth.getSession();if(s&&s.session){enterApp(s.session.user,'public');}else showPublic();}
   catch(e){showPublic();}
 };
@@ -160,19 +161,30 @@ async function logAction(action,entity,detail){try{if(sb&&user)await sb.from('au
 async function loadMyProfile(){try{const {data}=await sb.from('profiles').select('display_name').eq('email',user.email).maybeSingle();if(data&&data.display_name){user.displayName=data.display_name;hydrateUser();}}catch(e){}}
 
 // ---------- จัดการรหัสผ่าน ----------
-function showResetPw(){hideAll();$('resetpw').classList.remove('hidden');}
+function showResetPw(){sessionStorage.setItem('pw_recovery','1');hideAll();$('resetpw').classList.remove('hidden');}
 async function submitNewPassword(e){
   e.preventDefault();const p=$('newPass').value,p2=$('newPass2').value;
   if(p.length<6)return toast('รหัสผ่านอย่างน้อย 6 ตัวอักษร',true);
+  if(!/[A-Za-z]/.test(p)||!/[0-9]/.test(p))return toast('รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข',true);
   if(p!==p2)return toast('รหัสผ่านยืนยันไม่ตรงกัน',true);
   $('newPassBtn').disabled=true;
   const {error}=await sb.auth.updateUser({password:p});
   $('newPassBtn').disabled=false;
   if(error)return toast('ตั้งรหัสไม่สำเร็จ: '+error.message,true);
+  // ตั้งรหัสสำเร็จ -> ออกจากโหมด recovery แล้วค่อยให้เข้าระบบ
+  sessionStorage.removeItem('pw_recovery');
   toast('ตั้งรหัสผ่านใหม่เรียบร้อย');
   try{history.replaceState(null,'',location.pathname);}catch(_){}
   const {data:s}=await sb.auth.getSession();
   if(s&&s.session){enterApp(s.session.user);}else showLogin();
+}
+// ยกเลิกการตั้งรหัสใหม่: ออกจาก session recovery แล้วกลับหน้า login (กัน session ค้าง)
+async function cancelReset(){
+  sessionStorage.removeItem('pw_recovery');
+  try{if(sb)await sb.auth.signOut();}catch(_){}
+  try{history.replaceState(null,'',location.pathname);}catch(_){}
+  if($('newPass'))$('newPass').value='';if($('newPass2'))$('newPass2').value='';
+  showLogin();
 }
 async function forgotPassword(){
   if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
