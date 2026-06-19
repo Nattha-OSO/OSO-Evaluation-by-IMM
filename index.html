@@ -10,13 +10,13 @@
 <title>ระบบประเมินเจ้าหน้าที่ Onsite Support สำหรับ ตม.</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  *{box-sizing:border-box}html,body{height:100%;margin:0}
+  *{box-sizing:border-box}html,body{height:100%;margin:0;overflow-x:hidden}
   body{font-family:'Sarabun',Inter,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
   button,input,select,textarea{font:inherit}button{border:0}
   ::selection{background:rgba(37,99,235,.20)}
   :root{--bg:radial-gradient(1200px 600px at 100% -10%,#d6e6ff 0%,rgba(214,230,255,0) 55%),radial-gradient(1000px 560px at -8% 112%,#e4f1ff 0%,rgba(228,241,255,0) 52%),#eef3fb;--panel:#ffffff;--panel2:#f2f7ff;--text:#15273f;--muted:#6a7d9b;--line:#e7edf7;--line2:#d4deee;--navy:#0b2f6b;--navy2:#16438f;--navy-dark:#071d49;--primary:#2563eb;--primary-d:#1749c4;--accent:#d2a850;--accent2:#eed492;--cyan:#0ea5e9;--mint:#10b9a7;--violet:#6366f1;--amber:#f59e0b;--rose:#f43f5e;--lime:#22c55e;--radius:16px;--shadow:0 18px 46px rgba(15,50,110,.13);--shadow-sm:0 2px 12px rgba(15,50,110,.07)}
-  .login{min-height:100vh;display:grid;place-items:center;padding:22px;position:relative;overflow:hidden;background:linear-gradient(135deg,#0d2f63 0%,#143d82 46%,#1657c8 100%)}
-  .login-card{position:relative;width:420px;max-width:100%;background:rgba(255,255,255,.97);border-radius:18px;box-shadow:0 30px 70px rgba(4,16,40,.45);padding:34px 30px}
+  .login{min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:22px;position:relative;overflow-x:hidden;overflow-y:auto;background:linear-gradient(135deg,#0d2f63 0%,#143d82 46%,#1657c8 100%)}
+  .login-card{position:relative;width:420px;max-width:100%;margin:auto;background:rgba(255,255,255,.97);border-radius:18px;box-shadow:0 30px 70px rgba(4,16,40,.45);padding:34px 30px}
   .mark{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--navy),var(--primary));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;margin-bottom:18px}
   .login h1{font-size:23px;margin:0 0 6px;color:var(--navy);font-weight:800}
   .muted{color:var(--muted)}.mini{font-size:12px;color:var(--muted)}
@@ -118,7 +118,8 @@
   .pub-logos{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
   .pub-logo-card{background:#fff;border-radius:18px;padding:12px 16px;height:88px;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 30px rgba(4,16,40,.32)}
   .pub-logo{height:64px;width:auto;display:block}
-  .pub-top h1{margin:0;font-size:30px;font-weight:800;line-height:1.3;max-width:640px;text-shadow:0 2px 12px rgba(0,0,0,.2)}
+  .pub-top h1{margin:0;font-size:30px;font-weight:800;line-height:1.3;max-width:680px;text-shadow:0 2px 12px rgba(0,0,0,.2);text-wrap:balance}
+  .pub-top h1 .pub-sub{display:block;font-size:.62em;font-weight:600;margin-top:9px;color:#dbe9ff;letter-spacing:.3px;text-shadow:0 1px 8px rgba(0,0,0,.18)}
   .pub-login-top{position:absolute;top:16px;right:16px;z-index:2;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px}
   .pub-login-top:hover{background:rgba(255,255,255,.3)}
   .pub-wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:24px 16px}
@@ -203,7 +204,7 @@
         <div class="pub-logo-card"><img class="pub-logo" src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></div>
         <div class="pub-logo-card"><img class="pub-logo" src="assets/logo-sosky.png" alt="SO SKY Consortium"></div>
       </div>
-      <h1>แบบประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</h1>
+      <h1>แบบประเมินเจ้าหน้าที่ Onsite Support<span class="pub-sub">สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</span></h1>
     </div>
   </header>
   <main class="pub-wrap">
@@ -212,8 +213,8 @@
         <h2>แบบประเมินการให้บริการ</h2>
         <p class="pub-hint">กรุณาให้คะแนนให้ครบทั้ง 5 หัวข้อ (ข้อเสนอแนะไม่บังคับ) — ไม่ต้องเข้าสู่ระบบ</p>
         <div class="form-grid">
-          <div class="field"><label class="label">ผลัด/ชื่อเจ้าหน้าที่ ตม. (ผู้ประเมิน)</label><input class="input" id="pubEvaluator" list="pubEvaluatorList" placeholder="เช่น ผลัด A"></div>
-          <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support ที่รับการประเมิน</label><input class="input" id="pubStaff" list="pubStaffList" placeholder="เลือกหรือพิมพ์ชื่อ"></div>
+          <div class="field"><label class="label">ผลัด/ชื่อเจ้าหน้าที่ ตม. (ผู้ประเมิน)</label><select class="input" id="pubEvaluatorSel" onchange="pickInto('pubEvaluator',this)"><option value="">— เลือกจากรายชื่อ —</option></select><input class="input" id="pubEvaluator" list="pubEvaluatorList" placeholder="หรือพิมพ์เอง เช่น ผลัด A" style="margin-top:8px"></div>
+          <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support ที่รับการประเมิน</label><select class="input" id="pubStaffSel" onchange="pickInto('pubStaff',this)"><option value="">— เลือกจากรายชื่อ —</option></select><input class="input" id="pubStaff" list="pubStaffList" placeholder="หรือพิมพ์ชื่อเอง" style="margin-top:8px"></div>
         </div>
         <datalist id="pubStaffList"></datalist><datalist id="pubEvaluatorList"></datalist>
         <div class="criteria-grid" id="pubCriteria" style="margin-top:16px"></div>
@@ -352,8 +353,8 @@
     <div class="modal-head"><div><div class="modal-title" id="evalTitle">แก้ไขผลประเมิน</div><div class="mini">บันทึกลงฐานข้อมูล Supabase</div></div><button class="btn icon" onclick="closeEval()">x</button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="field"><label class="label">ผลัดของเจ้าหน้าที่ตม.</label><input class="input" id="fEvaluator" list="evaluatorList"></div>
-        <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support</label><input class="input" id="fStaff" list="staffList" placeholder="เลือกหรือพิมพ์ชื่อ"></div>
+        <div class="field"><label class="label">ผลัดของเจ้าหน้าที่ตม.</label><select class="input" id="fEvaluatorSel" onchange="pickInto('fEvaluator',this)"><option value="">— เลือกจากรายชื่อ —</option></select><input class="input" id="fEvaluator" list="evaluatorList" placeholder="หรือพิมพ์เอง" style="margin-top:8px"></div>
+        <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support</label><select class="input" id="fStaffSel" onchange="pickInto('fStaff',this)"><option value="">— เลือกจากรายชื่อ —</option></select><input class="input" id="fStaff" list="staffList" placeholder="หรือพิมพ์ชื่อเอง" style="margin-top:8px"></div>
       </div>
       <datalist id="staffList"></datalist><datalist id="evaluatorList"></datalist>
       <div class="criteria-grid" id="criteriaForm"></div>
@@ -391,11 +392,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=49"></script>
+<script src="config.js?v=50"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=49"></script>
+<script src="app.js?v=50"></script>
 </body>
 </html>

@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='49';
+const APP_VERSION='50';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -212,10 +212,17 @@ async function loadPublicDirectories(){
   if(!sb)return;
   try{
     const [s,sh]=await Promise.all([sb.from('staff').select('name').order('name'),sb.from('shifts').select('name').order('name')]);
-    $('pubStaffList').innerHTML=(s.data||[]).map(x=>'<option value="'+esc(x.name)+'">').join('');
-    $('pubEvaluatorList').innerHTML=(sh.data||[]).map(x=>'<option value="'+esc(x.name)+'">').join('');
+    const staffNames=(s.data||[]).map(x=>x.name),evNames=(sh.data||[]).map(x=>x.name);
+    $('pubStaffList').innerHTML=staffNames.map(n=>'<option value="'+esc(n)+'">').join('');
+    $('pubEvaluatorList').innerHTML=evNames.map(n=>'<option value="'+esc(n)+'">').join('');
+    if($('pubStaffSel'))$('pubStaffSel').innerHTML=selOpts(staffNames);
+    if($('pubEvaluatorSel'))$('pubEvaluatorSel').innerHTML=selOpts(evNames);
   }catch(e){}
 }
+// ตัวเลือกใน <select> ช่วยเลือกจากรายชื่อ (ใช้งานได้ชัวร์บนมือถือ)
+function selOpts(names){return '<option value="">— เลือกจากรายชื่อ —</option>'+(names||[]).map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');}
+// เลือกจาก select แล้วเติมค่าในช่องพิมพ์ (รองรับทั้งเลือกและพิมพ์เอง)
+function pickInto(inpId,sel){if(sel&&sel.value){const i=$(inpId);if(i)i.value=sel.value;}}
 async function submitPublic(){
   if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
   const evaluator=$('pubEvaluator').value.trim(),staff=$('pubStaff').value.trim();
@@ -666,7 +673,7 @@ async function delDir(type,id){if(!confirm('ลบรายชื่อนี้
 async function addStaff(){const name=prompt('ชื่อเจ้าหน้าที่ Onsite Support');if(!name)return;const {error}=await sb.from('staff').insert({name:name.trim()});if(error)return toast('เพิ่มไม่สำเร็จ',true);toast('เพิ่มแล้ว');refresh();}
 
 // ---------- Modal แก้ไขผลประเมิน ----------
-function openEval(row){editRow=Number(row||0);const rec=editRow?data.records.find(r=>r.rowNumber===editRow):null;$('evalTitle').textContent=rec?'แก้ไขผลประเมิน':'บันทึกผลประเมิน';$('fEvaluator').value=rec?rec.evaluator:'';$('fStaff').value=rec?rec.staff:(selectedStaff||'');$('fComment').value=rec?rec.comment:'';$('staffList').innerHTML=data.staffNames.map(x=>'<option value="'+esc(x)+'">').join('');$('evaluatorList').innerHTML=(data.shiftNames||[]).map(x=>'<option value="'+esc(x)+'">').join('');$('criteriaForm').innerHTML=criteria.map(c=>criterionHtml(c,rec)).join('');$('evalModal').classList.add('open');}
+function openEval(row){editRow=Number(row||0);const rec=editRow?data.records.find(r=>r.rowNumber===editRow):null;$('evalTitle').textContent=rec?'แก้ไขผลประเมิน':'บันทึกผลประเมิน';$('fEvaluator').value=rec?rec.evaluator:'';$('fStaff').value=rec?rec.staff:(selectedStaff||'');$('fComment').value=rec?rec.comment:'';$('staffList').innerHTML=data.staffNames.map(x=>'<option value="'+esc(x)+'">').join('');$('evaluatorList').innerHTML=(data.shiftNames||[]).map(x=>'<option value="'+esc(x)+'">').join('');if($('fStaffSel'))$('fStaffSel').innerHTML=selOpts(data.staffNames);if($('fEvaluatorSel'))$('fEvaluatorSel').innerHTML=selOpts(data.shiftNames||[]);$('criteriaForm').innerHTML=criteria.map(c=>criterionHtml(c,rec)).join('');$('evalModal').classList.add('open');}
 function criterionHtml(c,rec){const value=rec?rec.scores[c.key].label:'';return '<div class="criterion"><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="criterion-title">'+c.no+'. '+esc(c.shortTitle)+'</div><div class="mini">'+esc(c.title)+'</div></div><span class="tag neutral" id="pill-'+c.key+'">'+(value||'-')+'</span></div><ul class="points">'+c.points.map(p=>'<li>'+esc(p)+'</li>').join('')+'</ul><div class="seg">'+scoreOptions.map(o=>'<button type="button" style="--tone:'+scoreColor(o.value)+'" class="'+(o.label===value?'active':'')+'" data-key="'+c.key+'" data-value="'+o.label+'" onclick="pickScore(this)">'+esc(o.label)+'</button>').join('')+'</div></div>';}
 function pickScore(btn){const key=btn.dataset.key;document.querySelectorAll('button[data-key="'+key+'"]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');$('pill-'+key).textContent=btn.dataset.value;}
 function closeEval(){$('evalModal').classList.remove('open');editRow=0;}
