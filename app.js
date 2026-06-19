@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='43';
+const APP_VERSION='44';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -52,6 +52,14 @@ function hideAll(){['public','login','register','resetpw'].forEach(id=>{const el
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
 function showRegister(){hideAll();const r=$('register');if(r)r.classList.remove('hidden');const eb=$('regError');if(eb)eb.classList.add('hidden');const m=$('regPassMeter');if(m)m.style.display='none';resetRegPassEye();}
 function resetRegPassEye(){const i=$('regPass');if(i)i.type='password';const b=$('regPassEye');if(b){b.textContent='👁';b.style.color='#64748b';}}
+// สลับแสดง/ซ่อนรหัสผ่าน (ใช้ได้ทุกช่อง) — ส่งปุ่มมาด้วย this
+function togglePass(inpId,btn){
+  const i=$(inpId);if(!i)return;
+  const show=i.type==='password';
+  i.type=show?'text':'password';
+  if(btn){btn.textContent=show?'🙈':'👁';btn.style.color=show?'#1749c4':'#64748b';}
+  i.focus();
+}
 // สลับแสดง/ซ่อนรหัสผ่าน (หน้าลงทะเบียน)
 function toggleRegPass(){
   const i=$('regPass'),b=$('regPassEye');if(!i)return;
@@ -508,7 +516,7 @@ async function renderUsers(){
   const roleSel=(id,r)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===r?' selected':'')+'>'+x+'</option>').join('')+'</select>';
   $('content').innerHTML=
     '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชีล็อกอิน + กำหนดสิทธิ์ (admin มีสิทธิ์จัดการผู้ใช้ / senior, manager ไม่มี)</div></div></div>'+
-    '<div class="form-grid"><div class="field"><label class="label">Email</label><input class="input" id="nuEmail" type="email" placeholder="user@example.com"></div><div class="field"><label class="label">รหัสผ่าน</label><input class="input" id="nuPass" type="text" placeholder="เช่น Onsite@2026"></div></div>'+
+    '<div class="form-grid"><div class="field"><label class="label">Email</label><input class="input" id="nuEmail" type="email" placeholder="user@example.com"></div><div class="field"><label class="label">รหัสผ่าน</label><div style="position:relative"><input class="input" id="nuPass" type="password" placeholder="เช่น Onsite@2026" style="padding-right:46px"><button type="button" onclick="togglePass(\'nuPass\',this)" aria-label="แสดง/ซ่อนรหัสผ่าน" title="แสดง/ซ่อนรหัสผ่าน" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button></div></div></div>'+
     '<div class="mini" style="background:#f2f7ff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-top:8px;line-height:1.7">📌 <b>ข้อกำหนดรหัสผ่าน</b><br>• อย่างน้อย 6 ตัวอักษร<br>• ควรผสม <b>ตัวอักษร (a-z, A-Z)</b> กับ <b>ตัวเลข</b> และมีสัญลักษณ์จะยิ่งดี<br>• หลีกเลี่ยง<b>ตัวเลขล้วน</b>หรือรหัสที่เดาง่าย — ระบบความปลอดภัยของ Supabase อาจปฏิเสธ<br>• ตัวอย่างที่ใช้ได้: <code>Onsite@2026</code>, <code>Imm2026!ok</code></div>'+
     '<div style="display:flex;gap:10px;align-items:flex-end;margin-top:12px"><div class="field" style="margin:0"><label class="label">สิทธิ์</label><select class="input" id="nuRole" style="width:auto"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn primary" onclick="addUser()">+ เพิ่มผู้ใช้</button></div></div>'+
     reqPanel+
