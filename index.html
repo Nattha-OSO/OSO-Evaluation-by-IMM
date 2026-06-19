@@ -31,6 +31,9 @@
   .brand-logos{display:flex;gap:8px;align-items:center}
   .brand-chip{background:#fff;border-radius:9px;padding:4px 8px;height:40px;display:flex;align-items:center;box-shadow:0 4px 12px rgba(4,16,40,.25)}
   .brand-logo{height:30px;width:auto;display:block}
+  .login-logos{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .login-logo-card{background:#fff;border-radius:14px;padding:8px 12px;height:66px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(4,16,40,.18);border:1px solid #eef2f9}
+  .login-logo-card img{height:46px;width:auto;display:block}
   .brand-title{font-size:15px;margin:0;color:#fff;font-weight:800;line-height:1.2;letter-spacing:.2px}
   .side .mini,.side-foot .mini{color:#9fb6db}
   .nav{padding:14px 12px;flex:1;overflow:auto}
@@ -185,8 +188,11 @@
 <!-- ===== หน้าเข้าสู่ระบบ ===== -->
 <section id="login" class="login hidden">
   <form class="login-card" onsubmit="doLogin(event)">
-    <div class="mark">ตม.</div>
-    <h1>ระบบประเมินเจ้าหน้าที่ Onsite Support</h1>
+    <div class="login-logos">
+      <div class="login-logo-card"><img src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></div>
+      <div class="login-logo-card"><img src="assets/logo-sosky.png" alt="SO SKY Consortium"></div>
+    </div>
+    <h1>ระบบประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</h1>
     <p class="muted">สำหรับ Senior / ผู้บริหาร (Supabase Auth)</p>
     <div id="loginInfo" class="hidden" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
     <div class="field"><label class="label">Email</label><input class="input" id="loginUser" type="email" autocomplete="username"></div>
@@ -207,9 +213,12 @@
 <!-- ===== หน้าลงทะเบียนขอใช้งาน (รอ Admin อนุมัติ) ===== -->
 <section id="register" class="login hidden">
   <form class="login-card" onsubmit="doRegister(event)">
-    <div class="mark">ตม.</div>
+    <div class="login-logos">
+      <div class="login-logo-card"><img src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></div>
+      <div class="login-logo-card"><img src="assets/logo-sosky.png" alt="SO SKY Consortium"></div>
+    </div>
     <h1>ลงทะเบียนขอใช้งานระบบ</h1>
-    <p class="muted">กรอกข้อมูลเพื่อขอสิทธิ์ — ผู้ดูแลระบบจะพิจารณาอนุมัติก่อนเข้าใช้งาน</p>
+    <p class="muted">ระบบประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</p>
     <div id="regInfo" class="hidden" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5">หลังส่งคำขอ บัญชีจะอยู่สถานะ "รออนุมัติ" จนกว่าผู้ดูแลระบบจะอนุมัติ จึงเข้าสู่ระบบได้</div>
     <div class="field"><label class="label">ชื่อ-นามสกุล (ชื่อในระบบ)</label><input class="input" id="regName" type="text" placeholder="เช่น นางสาวณัฏฐา ..."></div>
     <div class="field"><label class="label">Email</label><input class="input" id="regEmail" type="email" autocomplete="email" placeholder="user@example.com"></div>
@@ -322,11 +331,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=44"></script>
+<script src="config.js?v=45"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=44"></script>
+<script src="app.js?v=45"></script>
 </body>
 </html>

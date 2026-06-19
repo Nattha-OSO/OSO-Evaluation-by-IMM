@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='44';
+const APP_VERSION='45';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
