@@ -208,7 +208,12 @@
     <div id="regInfo" class="hidden" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5">หลังส่งคำขอ บัญชีจะอยู่สถานะ "รออนุมัติ" จนกว่าผู้ดูแลระบบจะอนุมัติ จึงเข้าสู่ระบบได้</div>
     <div class="field"><label class="label">ชื่อ-นามสกุล (ชื่อในระบบ)</label><input class="input" id="regName" type="text" placeholder="เช่น นางสาวณัฏฐา ..."></div>
     <div class="field"><label class="label">Email</label><input class="input" id="regEmail" type="email" autocomplete="email" placeholder="user@example.com"></div>
-    <div class="field"><label class="label">ตั้งรหัสผ่าน</label><input class="input" id="regPass" type="password" autocomplete="new-password" placeholder="เช่น Onsite@2026" oninput="regPassStrength()"></div>
+    <div class="field"><label class="label">ตั้งรหัสผ่าน</label>
+      <div style="position:relative">
+        <input class="input" id="regPass" type="password" autocomplete="new-password" placeholder="เช่น Onsite@2026" oninput="regPassStrength()" style="padding-right:46px">
+        <button type="button" id="regPassEye" onclick="toggleRegPass()" aria-label="แสดง/ซ่อนรหัสผ่าน" title="แสดง/ซ่อนรหัสผ่าน" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:19px;line-height:1;padding:6px;color:#64748b">👁</button>
+      </div>
+    </div>
     <div id="regPassMeter" style="margin:-4px 0 12px;display:none">
       <div style="height:7px;background:#e5e7eb;border-radius:5px;overflow:hidden"><div id="regPassBar" style="height:100%;width:0;border-radius:5px;transition:width .2s,background .2s"></div></div>
       <div id="regPassText" class="mini" style="margin-top:5px;text-align:left;font-weight:600"></div>
@@ -312,11 +317,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=42"></script>
+<script src="config.js?v=43"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=42"></script>
+<script src="app.js?v=43"></script>
 </body>
 </html>

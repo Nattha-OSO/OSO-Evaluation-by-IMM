@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='42';
+const APP_VERSION='43';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -50,7 +50,16 @@ let sb = null;
 // ---------- สลับหน้าจอ ----------
 function hideAll(){['public','login','register','resetpw'].forEach(id=>{const el=$(id);if(el)el.classList.add('hidden');});$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
-function showRegister(){hideAll();const r=$('register');if(r)r.classList.remove('hidden');const eb=$('regError');if(eb)eb.classList.add('hidden');const m=$('regPassMeter');if(m)m.style.display='none';}
+function showRegister(){hideAll();const r=$('register');if(r)r.classList.remove('hidden');const eb=$('regError');if(eb)eb.classList.add('hidden');const m=$('regPassMeter');if(m)m.style.display='none';resetRegPassEye();}
+function resetRegPassEye(){const i=$('regPass');if(i)i.type='password';const b=$('regPassEye');if(b){b.textContent='👁';b.style.color='#64748b';}}
+// สลับแสดง/ซ่อนรหัสผ่าน (หน้าลงทะเบียน)
+function toggleRegPass(){
+  const i=$('regPass'),b=$('regPassEye');if(!i)return;
+  const show=i.type==='password';
+  i.type=show?'text':'password';
+  if(b){b.textContent=show?'🙈':'👁';b.style.color=show?'#1749c4':'#64748b';}
+  i.focus();
+}
 // แถบวัดความแข็งแรงรหัสผ่านแบบเรียลไทม์ (หน้าลงทะเบียน)
 function regPassStrength(){
   const inp=$('regPass'),m=$('regPassMeter');if(!inp||!m)return;
@@ -236,6 +245,7 @@ async function doRegister(e){
     }
     $('regName').value=$('regEmail').value=$('regPass').value=$('regReason').value='';
     const pm=$('regPassMeter');if(pm)pm.style.display='none';
+    resetRegPassEye();
     showLogin();
     showLoginInfo('ส่งคำขอลงทะเบียนแล้ว ✓ โปรดรอผู้ดูแลระบบอนุมัติ จากนั้นเข้าสู่ระบบด้วยอีเมล/รหัสผ่านที่ลงทะเบียนไว้');
   }catch(ex){b.disabled=false;b.textContent='ส่งคำขอลงทะเบียน';showRegError(String((ex&&ex.message)||ex));}
