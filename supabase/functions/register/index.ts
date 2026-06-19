@@ -15,6 +15,28 @@ const cors = {
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
+function esc(s: string) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// ส่งอีเมลผ่าน Brevo (best-effort — ใช้ secret ชุดเดียวกับ send-report)
+async function sendMail(to: string[], subject: string, text: string) {
+  const apiKey = Deno.env.get("BREVO_API_KEY");
+  const senderEmail = Deno.env.get("SENDER_EMAIL");
+  const senderName = Deno.env.get("SENDER_NAME") || "OSO Evaluation by IMM";
+  if (!apiKey || !senderEmail || !to.length) return false;
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", "accept": "application/json" },
+    body: JSON.stringify({
+      sender: { email: senderEmail, name: senderName },
+      to: to.map((e) => ({ email: e })),
+      subject,
+      textContent: text,
+      htmlContent: '<div style="font-family:Tahoma,Arial,sans-serif;white-space:pre-line;font-size:14px;color:#1f2937;line-height:1.6">' + esc(text) + "</div>",
+    }),
+  });
+  return res.ok;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -49,6 +71,23 @@ Deno.serve(async (req) => {
       email, full_name, reason: reason || null, status: "pending",
     });
     if (ierr) console.error("insert access_requests:", ierr.message);
+
+    // แจ้งเตือน admin ทางอีเมลว่ามีคำขอใหม่ (ไม่ขัดจังหวะการลงทะเบียนถ้าอีเมลล้มเหลว)
+    try {
+      const admins = (Deno.env.get("ADMIN_EMAILS") || "").split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+      if (admins.length) {
+        const appUrl = Deno.env.get("APP_URL") || "https://nattha-oso.github.io/OSO-Evaluation-by-IMM/";
+        await sendMail(
+          admins,
+          "[OSO] คำขอลงทะเบียนใหม่: " + full_name,
+          "มีผู้ขอใช้งานระบบใหม่ รอการอนุมัติ\n\n" +
+          "• ชื่อ-นามสกุล: " + full_name + "\n" +
+          "• อีเมล: " + email + "\n" +
+          "• เหตุผล/หน่วยงาน: " + (reason || "-") + "\n\n" +
+          "อนุมัติได้ที่เมนู \"จัดการผู้ใช้ระบบ\" → แผง \"คำขอลงทะเบียน (รออนุมัติ)\"\n" + appUrl,
+        );
+      }
+    } catch (_) { /* ignore */ }
 
     return json({ ok: true });
   } catch (e) {

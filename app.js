@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='38';
+const APP_VERSION='39';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -504,11 +504,12 @@ async function deleteUser(id,email){
 async function approveRequest(reqId,email,uid){
   const sel=$('rqrole'+reqId);const role=(sel&&sel.value)||'senior';
   if(!uid)return toast('ไม่พบบัญชีของ '+email+' (บัญชีอาจยังไม่ถูกสร้าง) — ลองรีเฟรช',true);
-  const r=await adminFn({action:'updateRole',id:uid,role});
+  const r=await adminFn({action:'approve',id:uid,email:email,role});
   if(r.error)return toast('อนุมัติไม่สำเร็จ: '+r.error,true);
   try{await sb.from('access_requests').update({status:'approved',reviewed_by:user.email,reviewed_at:new Date().toISOString()}).eq('id',reqId);}catch(e){}
   logAction('user_approve','user',email+' ('+role+')');
-  toast('อนุมัติ '+email+' เป็น '+role+' แล้ว');renderUsers();
+  const mailed=r.data&&r.data.mailed;
+  toast('อนุมัติ '+email+' เป็น '+role+' แล้ว'+(mailed?' (ส่งอีเมลแจ้งผู้ใช้แล้ว)':''));renderUsers();
 }
 async function rejectRequest(reqId,email,uid){
   if(!confirm('ปฏิเสธคำขอของ '+email+'?\n(บัญชีล็อกอินจะถูกลบ ผู้ใช้สามารถลงทะเบียนใหม่ได้)'))return;

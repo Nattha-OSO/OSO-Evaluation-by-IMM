@@ -15,6 +15,28 @@ const cors = {
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
+function esc(s: string) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// ส่งอีเมลผ่าน Brevo (best-effort — ใช้ secret ชุดเดียวกับ send-report)
+async function sendMail(to: string[], subject: string, text: string) {
+  const apiKey = Deno.env.get("BREVO_API_KEY");
+  const senderEmail = Deno.env.get("SENDER_EMAIL");
+  const senderName = Deno.env.get("SENDER_NAME") || "OSO Evaluation by IMM";
+  if (!apiKey || !senderEmail || !to.length) return false;
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", "accept": "application/json" },
+    body: JSON.stringify({
+      sender: { email: senderEmail, name: senderName },
+      to: to.map((e) => ({ email: e })),
+      subject,
+      textContent: text,
+      htmlContent: '<div style="font-family:Tahoma,Arial,sans-serif;white-space:pre-line;font-size:14px;color:#1f2937;line-height:1.6">' + esc(text) + "</div>",
+    }),
+  });
+  return res.ok;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -66,6 +88,29 @@ Deno.serve(async (req) => {
       const { error } = await admin.auth.admin.updateUserById(id, { app_metadata: { role: r } });
       if (error) throw error;
       return json({ ok: true });
+    }
+    if (action === "approve") {
+      // อนุมัติคำขอลงทะเบียน: กำหนดสิทธิ์ + แจ้งผู้ใช้ทางอีเมล
+      const { id, role: r, email } = body;
+      if (!id || !["admin", "senior", "manager"].includes(r)) return json({ error: "ข้อมูลไม่ถูกต้อง" }, 400);
+      const { error } = await admin.auth.admin.updateUserById(id, { app_metadata: { role: r } });
+      if (error) throw error;
+      let mailed = false;
+      try {
+        if (email) {
+          const appUrl = Deno.env.get("APP_URL") || "https://nattha-oso.github.io/OSO-Evaluation-by-IMM/";
+          mailed = await sendMail(
+            [String(email)],
+            "บัญชีของคุณได้รับอนุมัติแล้ว — OSO Evaluation by IMM",
+            "เรียน ผู้ขอใช้งานระบบ\n\n" +
+            "บัญชีของคุณ (" + email + ") ได้รับการอนุมัติให้เข้าใช้งานระบบประเมินเจ้าหน้าที่ Onsite Support เรียบร้อยแล้ว\n" +
+            "สิทธิ์การใช้งาน: " + r + "\n\n" +
+            "เข้าสู่ระบบได้ที่:\n" + appUrl + "\n\n" +
+            "ขอแสดงความนับถือ\nผู้ดูแลระบบ OSO Evaluation by IMM",
+          );
+        }
+      } catch (_) { /* ignore mail errors */ }
+      return json({ ok: true, mailed });
     }
     if (action === "delete") {
       const { id } = body;
