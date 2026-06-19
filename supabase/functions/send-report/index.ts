@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { to, subject, filename, pdfBase64, message } = body;
-    if (!to || !pdfBase64) return json({ error: "ต้องระบุอีเมลผู้รับและไฟล์ PDF" }, 400);
+    // รองรับหลายไฟล์แนบ (PDF + DOCX) ผ่าน body.attachments; เผื่อรูปแบบเดิม pdfBase64 ไฟล์เดียว
+    const atts = Array.isArray(body.attachments) && body.attachments.length
+      ? body.attachments.filter((a: any) => a && a.content).map((a: any) => ({ content: a.content, name: a.name || "report" }))
+      : (pdfBase64 ? [{ content: pdfBase64, name: filename || "report.pdf" }] : []);
+    if (!to || !atts.length) return json({ error: "ต้องระบุอีเมลผู้รับและไฟล์แนบ" }, 400);
     const recipients = String(to).split(/[,;]/).map((s) => s.trim()).filter(Boolean);
     if (!recipients.length) return json({ error: "ไม่มีอีเมลผู้รับ" }, 400);
 
@@ -52,7 +56,7 @@ Deno.serve(async (req) => {
         subject: subject || "รายงานประเมินเจ้าหน้าที่ Onsite Support",
         textContent: message || "แนบรายงาน PDF",
         htmlContent: '<div style="font-family:Tahoma,Arial,sans-serif;white-space:pre-line;font-size:14px;color:#1f2937;line-height:1.6">' + esc(message || "แนบรายงาน PDF") + "</div>",
-        attachment: [{ content: pdfBase64, name: filename || "report.pdf" }],
+        attachment: atts,
       }),
     });
     if (!res.ok) {

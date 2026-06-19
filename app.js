@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='35';
+const APP_VERSION='36';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -607,8 +607,8 @@ function dImage(){const cx=620*9525,cy=300*9525;return '<w:p><w:pPr><w:jc w:val=
 function reportPeriod(ym){const now=new Date();const m=String(ym||'').match(/^(\d{4})-(\d{1,2})$/);const year=m?Number(m[1]):now.getFullYear();const month=m?Number(m[2])-1:now.getMonth();const start=new Date(year,month,1),end=new Date(year,month+1,1);return {start,end,label:THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543),fileKey:year+'-'+String(month+1).padStart(2,'0')};}
 
 function thaiDate(d){return d.getDate()+' '+THAI_MONTHS[d.getMonth()]+' '+(d.getFullYear()+543);}
-async function makeReport(startDate,endDate,periodWord,periodLabel,fileSuffix){
-  if(typeof JSZip==='undefined')return toast('โหลด JSZip ไม่สำเร็จ',true);
+async function buildReportDocxBlob(startDate,endDate,periodWord,periodLabel){
+  if(typeof JSZip==='undefined'){toast('โหลด JSZip ไม่สำเร็จ',true);return null;}
   const now=new Date();
   await ensureFresh();
   const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=startDate&&d<endDate;});
@@ -650,9 +650,13 @@ async function makeReport(startDate,endDate,periodWord,periodLabel,fileSuffix){
   zip.folder('_rels').file('.rels',rels);
   const word=zip.folder('word');word.file('document.xml',docXml);word.folder('_rels').file('document.xml.rels',drels);
   word.folder('media').file('chart1.png',chartPng(s.criteriaAvg||{}));
-  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  return await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+async function makeReport(startDate,endDate,periodWord,periodLabel,fileSuffix){
+  const blob=await buildReportDocxBlob(startDate,endDate,periodWord,periodLabel);if(!blob)return;
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='OSO_Evaluation_'+fileSuffix+'.docx';a.click();toast('สร้างรายงาน DOCX แล้ว');
 }
+function blobToB64(blob){return new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=()=>res(null);fr.readAsDataURL(blob);});}
 // ---------- เลือกช่วงรายงาน (modal ปฏิทิน) ----------
 function openReportModal(){
   const now=new Date(),p2=n=>String(n).padStart(2,'0');
@@ -707,7 +711,7 @@ function reportStyles(){return '<style>.rpt{box-sizing:border-box;font-family:"T
 function buildReportInner(start,end,word,label){
   const {records,people,s}=periodData(start,end);
   const weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
-  const tbl=(head,rows,cols)=>{const cg=cols?'<colgroup>'+cols.map(w=>'<col style="width:'+w+'">').join('')+'</colgroup>':'';return '<table>'+cg+'<thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="'+head.length+'" style="text-align:center;color:#888">ไม่มีข้อมูล</td></tr>')+'</tbody></table>';};
+  const tbl=(head,rows,cols)=>'<table><thead><tr>'+head.map((h,i)=>'<th'+(cols&&cols[i]?' style="width:'+cols[i]+'"':'')+'>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="'+head.length+'" style="text-align:center;color:#888">ไม่มีข้อมูล</td></tr>')+'</tbody></table>';
   const chartUrl=chartCanvas(s.criteriaAvg||{}).toDataURL('image/png');
   let h='<h1>รายงานประเมินเจ้าหน้าที่ Onsite Support สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง '+esc(word)+' '+esc(label)+'</h1>';
   h+='<p class="sub">รายงานผลการประเมินเจ้าหน้าที่ Onsite Support โดยเจ้าหน้าที่ตรวจคนเข้าเมือง</p>';
@@ -749,13 +753,14 @@ async function emailReportPDF(start,end,word,label,suffix){
     const imgData=canvas.toDataURL('image/jpeg',0.95);
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF('p','mm','a4');
-    const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight(),margin=10;
+    const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight(),margin=16;
     const imgW=pageW-margin*2,imgH=canvas.height*imgW/canvas.width,pageContentH=pageH-margin*2;
     let heightLeft=imgH,position=margin;
     pdf.addImage(imgData,'JPEG',margin,position,imgW,imgH);
     heightLeft-=pageContentH;
     while(heightLeft>0){position=margin-(imgH-heightLeft);pdf.addPage();pdf.addImage(imgData,'JPEG',margin,position,imgW,imgH);heightLeft-=pageContentH;}
-    const b64=pdf.output('datauristring').split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
+    const b64=pdf.output('datauristring').split(',')[1];
+    let docxB64=null;try{const dblob=await buildReportDocxBlob(start,end,word,label);if(dblob)docxB64=await blobToB64(dblob);}catch(_){}
     toast('กำลังส่งอีเมล...');
     // สรุปผลแบบอ่านง่ายในเนื้อหาอีเมล
     const pd=periodData(start,end),s=pd.s,weak=criteria.find(c=>c.key===s.lowestKey);
@@ -771,9 +776,11 @@ async function emailReportPDF(start,end,word,label,suffix){
       (stars.length?'• เจ้าหน้าที่ต้นแบบ: '+stars.join(', ')+' (คะแนน '+fmt(maxAvg)+')\n':'')+
       '\nรายละเอียดทั้งหมดอยู่ในไฟล์ PDF ที่แนบมาพร้อมอีเมลนี้\n\n'+
       'ขอแสดงความนับถือ\n'+signer;
-    const r=await callFn('send-report',{to:to,subject:subject,filename:fname,pdfBase64:b64,message:msg});
+    const atts=[{content:b64,name:'OSO_Evaluation_'+suffix+'.pdf'}];
+    if(docxB64)atts.push({content:docxB64,name:'OSO_Evaluation_'+suffix+'.docx'});
+    const r=await callFn('send-report',{to:to,subject:subject,attachments:atts,message:msg});
     if(r.error)return toast('ส่งไม่สำเร็จ: '+r.error,true);
-    logAction('email','report',to+' / '+label);toast('ส่งอีเมลแล้ว → '+to);closeReport();
+    logAction('email','report',to+' / '+label+' (PDF+DOCX)');toast('ส่งอีเมลแล้ว (PDF+DOCX) → '+to);closeReport();
   }catch(e){toast('สร้าง/ส่ง PDF ไม่สำเร็จ: '+((e&&e.message)||e),true);}
   finally{document.body.removeChild(ov);}
 }
