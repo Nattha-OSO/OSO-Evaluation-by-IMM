@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='50';
+const APP_VERSION='51';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -213,10 +213,9 @@ async function loadPublicDirectories(){
   try{
     const [s,sh]=await Promise.all([sb.from('staff').select('name').order('name'),sb.from('shifts').select('name').order('name')]);
     const staffNames=(s.data||[]).map(x=>x.name),evNames=(sh.data||[]).map(x=>x.name);
-    $('pubStaffList').innerHTML=staffNames.map(n=>'<option value="'+esc(n)+'">').join('');
-    $('pubEvaluatorList').innerHTML=evNames.map(n=>'<option value="'+esc(n)+'">').join('');
-    if($('pubStaffSel'))$('pubStaffSel').innerHTML=selOpts(staffNames);
-    if($('pubEvaluatorSel'))$('pubEvaluatorSel').innerHTML=selOpts(evNames);
+    // หน้าสาธารณะเลือกได้เฉพาะรายชื่อที่มีในตารางเท่านั้น (ไม่ให้พิมพ์/เพิ่มเอง)
+    if($('pubStaff'))$('pubStaff').innerHTML=selOpts(staffNames);
+    if($('pubEvaluator'))$('pubEvaluator').innerHTML=selOpts(evNames);
   }catch(e){}
 }
 // ตัวเลือกใน <select> ช่วยเลือกจากรายชื่อ (ใช้งานได้ชัวร์บนมือถือ)
@@ -236,7 +235,6 @@ async function submitPublic(){
   const {error}=await sb.from('evaluations').insert(row);
   $('pubSubmit').disabled=false;
   if(error)return toast('ส่งไม่สำเร็จ: '+error.message,true);
-  sb.from('staff').insert({name:staff}).then(()=>{},()=>{});
   $('pubForm').classList.add('hidden');$('pubThanks').classList.remove('hidden');window.scrollTo(0,0);
 }
 function resetPublic(){$('pubEvaluator').value='';$('pubStaff').value='';$('pubComment').value='';document.querySelectorAll('#pubCriteria button.active').forEach(b=>b.classList.remove('active'));$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');window.scrollTo(0,0);}

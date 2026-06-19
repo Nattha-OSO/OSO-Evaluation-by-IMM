@@ -213,10 +213,9 @@
         <h2>แบบประเมินการให้บริการ</h2>
         <p class="pub-hint">กรุณาให้คะแนนให้ครบทั้ง 5 หัวข้อ (ข้อเสนอแนะไม่บังคับ) — ไม่ต้องเข้าสู่ระบบ</p>
         <div class="form-grid">
-          <div class="field"><label class="label">ผลัด/ชื่อเจ้าหน้าที่ ตม. (ผู้ประเมิน)</label><select class="input" id="pubEvaluatorSel" onchange="pickInto('pubEvaluator',this)"><option value="">— เลือกจากรายชื่อ —</option></select><input class="input" id="pubEvaluator" list="pubEvaluatorList" placeholder="หรือพิมพ์เอง เช่น ผลัด A" style="margin-top:8px"></div>
-          <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support ที่รับการประเมิน</label><select class="input" id="pubStaffSel" onchange="pickInto('pubStaff',this)"><option value="">— เลือกจากรายชื่อ —</option></select><input class="input" id="pubStaff" list="pubStaffList" placeholder="หรือพิมพ์ชื่อเอง" style="margin-top:8px"></div>
+          <div class="field"><label class="label">ผลัด/ชื่อเจ้าหน้าที่ ตม. (ผู้ประเมิน)</label><select class="input" id="pubEvaluator"><option value="">— เลือกจากรายชื่อ —</option></select></div>
+          <div class="field"><label class="label">เจ้าหน้าที่ Onsite Support ที่รับการประเมิน</label><select class="input" id="pubStaff"><option value="">— เลือกจากรายชื่อ —</option></select></div>
         </div>
-        <datalist id="pubStaffList"></datalist><datalist id="pubEvaluatorList"></datalist>
         <div class="criteria-grid" id="pubCriteria" style="margin-top:16px"></div>
         <div class="field" style="margin-top:16px"><label class="label">ข้อเสนอแนะเพิ่มเติม</label><textarea id="pubComment" placeholder="จุดเด่น ข้อเสนอแนะ หรือรายละเอียดเพิ่มเติม"></textarea></div>
         <button class="btn primary" id="pubSubmit" style="width:100%;margin-top:18px;min-height:48px" onclick="submitPublic()">ส่งแบบประเมิน</button>
@@ -392,11 +391,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=50"></script>
+<script src="config.js?v=51"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=50"></script>
+<script src="app.js?v=51"></script>
 </body>
 </html>
