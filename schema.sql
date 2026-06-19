@@ -160,3 +160,54 @@ create policy "profiles write admin" on public.profiles for all to authenticated
 update auth.users
   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
   where email = 'nattha.b@somapait.com';
+
+-- ============================================================
+--  ลงทะเบียนขอใช้งาน + อนุมัติโดย Admin
+--  - ผู้ใช้ลงทะเบียน -> สร้างบัญชี "รออนุมัติ" (ไม่มี role)
+--  - Admin กำหนด role ให้ -> จึงเข้าใช้งานได้
+--  ⚠️ รันส่วนนี้เพิ่มได้ทันที (idempotent) ไม่กระทบข้อมูลเดิม
+-- ============================================================
+create table if not exists public.access_requests (
+  id          bigint generated always as identity primary key,
+  created_at  timestamptz not null default now(),
+  email       text not null,
+  full_name   text,
+  reason      text,
+  status      text not null default 'pending',   -- pending / approved / rejected
+  reviewed_by text,
+  reviewed_at timestamptz
+);
+create index if not exists access_requests_status_idx on public.access_requests (status, created_at desc);
+alter table public.access_requests enable row level security;
+-- เฉพาะ admin อ่าน/จัดการคำขอ (การ insert คำขอทำผ่าน Edge Function register ด้วย service role)
+drop policy if exists "req admin all" on public.access_requests;
+create policy "req admin all" on public.access_requests for all to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+-- ------------------------------------------------------------
+--  เข้มงวด RLS: ผู้ที่ "ยังไม่ได้รับอนุมัติ" (ไม่มี role) เข้าถึงข้อมูลไม่ได้
+--  แม้จะมี session อยู่ ก็อ่าน/แก้ผลประเมินผ่าน API ไม่ได้
+-- ------------------------------------------------------------
+-- ผลประเมิน: อ่าน/แก้ ต้องเป็น role ที่อนุมัติแล้วเท่านั้น (anon ยัง insert ผ่านฟอร์มสาธารณะได้)
+drop policy if exists "authed read evaluation" on public.evaluations;
+drop policy if exists "approved read evaluation" on public.evaluations;
+create policy "approved read evaluation" on public.evaluations for select to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'));
+drop policy if exists "authed modify evaluation" on public.evaluations;
+drop policy if exists "approved modify evaluation" on public.evaluations;
+create policy "approved modify evaluation" on public.evaluations for all to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'))
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'));
+
+-- รายชื่อ staff/shifts: อ่านได้ทุกคน (เติม dropdown ฟอร์ม) แต่แก้ไขต้องเป็น role ที่อนุมัติ
+drop policy if exists "authed write staff" on public.staff;
+drop policy if exists "approved write staff" on public.staff;
+create policy "approved write staff" on public.staff for all to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'))
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'));
+drop policy if exists "authed write shifts" on public.shifts;
+drop policy if exists "approved write shifts" on public.shifts;
+create policy "approved write shifts" on public.shifts for all to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'))
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'));

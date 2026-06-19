@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='37';
+const APP_VERSION='38';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -48,8 +48,9 @@ let sb = null;
 })();
 
 // ---------- สลับหน้าจอ ----------
-function hideAll(){['public','login','resetpw'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
+function hideAll(){['public','login','register','resetpw'].forEach(id=>{const el=$(id);if(el)el.classList.add('hidden');});$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
+function showRegister(){hideAll();const r=$('register');if(r)r.classList.remove('hidden');const eb=$('regError');if(eb)eb.classList.add('hidden');}
 function gotoLogin(){showLogin();}
 function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();loadMyProfile();startRealtime();logAction('login','auth',user&&user.email);}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
@@ -59,10 +60,22 @@ window.onload = async function(){
   if(!sb){showPublic();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
   sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')showResetPw();});
   if(String(location.hash).indexOf('type=recovery')>=0){showResetPw();return;}
-  try{const {data:s}=await sb.auth.getSession();if(s&&s.session){setUser(s.session.user);boot();}else showPublic();}
+  try{const {data:s}=await sb.auth.getSession();if(s&&s.session){enterApp(s.session.user,'public');}else showPublic();}
   catch(e){showPublic();}
 };
 function setUser(u){const r=(u&&u.app_metadata&&u.app_metadata.role)||'senior';user={email:u.email,role:r,isAdmin:r==='admin',displayName:u.email,username:u.email};}
+// ---------- การอนุมัติ: ผู้ใช้ต้องมีบทบาทที่ admin กำหนด จึงจะเข้าใช้งานได้ ----------
+const APPROVED_ROLES=['admin','senior','manager'];
+function userRole(u){return (u&&u.app_metadata&&u.app_metadata.role)||'';}
+function isApproved(u){return APPROVED_ROLES.indexOf(userRole(u))>=0;}
+// เข้าระบบถ้าได้รับอนุมัติแล้ว ไม่งั้นออกจากระบบและแจ้งรออนุมัติ
+async function enterApp(u){
+  if(isApproved(u)){setUser(u);boot();return true;}
+  try{await sb.auth.signOut();}catch(_){}
+  showLogin();
+  showLoginInfo('บัญชีนี้กำลังรอผู้ดูแลระบบอนุมัติ — เมื่อได้รับอนุมัติแล้วจึงเข้าใช้งานได้',true);
+  return false;
+}
 // ถาม Edge Function ว่าเป็น admin ไหม (รองรับ bootstrap ผ่าน ADMIN_EMAILS) แล้วเปิด/ซ่อนเมนูจัดการผู้ใช้
 async function checkAdmin(){
   user.isAdmin=(user.role==='admin');
@@ -117,7 +130,7 @@ async function submitNewPassword(e){
   toast('ตั้งรหัสผ่านใหม่เรียบร้อย');
   try{history.replaceState(null,'',location.pathname);}catch(_){}
   const {data:s}=await sb.auth.getSession();
-  if(s&&s.session){setUser(s.session.user);boot();}else showLogin();
+  if(s&&s.session){enterApp(s.session.user);}else showLogin();
 }
 async function forgotPassword(){
   if(!sb)return toast('ยังไม่ได้ตั้งค่า Supabase',true);
@@ -168,7 +181,34 @@ async function submitPublic(){
 function resetPublic(){$('pubEvaluator').value='';$('pubStaff').value='';$('pubComment').value='';document.querySelectorAll('#pubCriteria button.active').forEach(b=>b.classList.remove('active'));$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');window.scrollTo(0,0);}
 
 // ---------- ล็อกอิน ----------
-function showLoginError(msg){const b=$('loginError');if(b){b.textContent=msg;b.classList.remove('hidden');}toast(msg,true);}
+function showLoginError(msg){const b=$('loginError');if(b){b.textContent=msg;b.classList.remove('hidden');}const i=$('loginInfo');if(i)i.classList.add('hidden');toast(msg,true);}
+function showLoginInfo(msg,silent){const i=$('loginInfo');if(i){i.textContent=msg;i.classList.remove('hidden');}const e=$('loginError');if(e)e.classList.add('hidden');if(!silent)toast(msg);}
+function showRegError(msg){const b=$('regError');if(b){b.textContent=msg;b.classList.remove('hidden');}toast(msg,true);}
+// ---------- ลงทะเบียนขอใช้งาน (สร้างบัญชีสถานะรออนุมัติผ่าน Edge Function register) ----------
+async function doRegister(e){
+  e.preventDefault();
+  const eb=$('regError');if(eb)eb.classList.add('hidden');
+  if(!sb)return showRegError('ยังไม่ได้ตั้งค่า Supabase ใน config.js');
+  const name=($('regName').value||'').trim();
+  const email=($('regEmail').value||'').normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase();
+  const pass=$('regPass').value||'';
+  const reason=($('regReason').value||'').trim();
+  if(!name)return showRegError('กรุณากรอกชื่อ-นามสกุล');
+  if(!/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(email))return showRegError('รูปแบบอีเมลไม่ถูกต้อง: '+(email||'(ว่าง)'));
+  if(pass.length<6)return showRegError('รหัสผ่านอย่างน้อย 6 ตัวอักษร');
+  const b=$('regBtn');b.disabled=true;b.textContent='กำลังส่งคำขอ...';
+  try{
+    const {data,error}=await sb.functions.invoke('register',{body:{email,password:pass,full_name:name,reason}});
+    let emsg=null;
+    if(error){emsg=error.message||'error';try{if(error.context&&typeof error.context.json==='function'){const j=await error.context.json();if(j&&j.error)emsg=j.error;}}catch(_){}}
+    else if(data&&data.error)emsg=data.error;
+    b.disabled=false;b.textContent='ส่งคำขอลงทะเบียน';
+    if(emsg)return showRegError(emsg);
+    $('regName').value=$('regEmail').value=$('regPass').value=$('regReason').value='';
+    showLogin();
+    showLoginInfo('ส่งคำขอลงทะเบียนแล้ว ✓ โปรดรอผู้ดูแลระบบอนุมัติ จากนั้นเข้าสู่ระบบด้วยอีเมล/รหัสผ่านที่ลงทะเบียนไว้');
+  }catch(ex){b.disabled=false;b.textContent='ส่งคำขอลงทะเบียน';showRegError(String((ex&&ex.message)||ex));}
+}
 function loginErrorText(error){const m=String(error&&error.message||'').toLowerCase();
   if(m.indexOf('invalid login')>=0||m.indexOf('invalid credentials')>=0)return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
   if(m.indexOf('email not confirmed')>=0)return 'อีเมลนี้ยังไม่ได้ยืนยัน — ให้ผู้ดูแลปิด "Confirm email" หรือยืนยันบัญชีใน Supabase (Authentication → Users)';
@@ -193,6 +233,7 @@ async function doLogin(e){
   try{
     const {data:d,error}=await sb.auth.signInWithPassword({email,password:pass});
     if(error){console.error('login error',error);setLoginBtn('idle');showLoginError(loginErrorText(error));shakeLogin();return;}
+    if(!isApproved(d.user)){await sb.auth.signOut();setLoginBtn('idle');showLoginError('บัญชีของคุณกำลังรอผู้ดูแลระบบอนุมัติ — เมื่อได้รับอนุมัติแล้วจึงเข้าสู่ระบบได้');shakeLogin();return;}
     setUser(d.user);setLoginBtn('ok');toast('เข้าสู่ระบบสำเร็จ');setTimeout(()=>{boot();setLoginBtn('idle');},650);
   }catch(ex){console.error('login exception',ex);setLoginBtn('idle');showLoginError(loginErrorText(ex));shakeLogin();}
 }
@@ -413,12 +454,23 @@ async function renderUsers(){
   }
   const users=(r.data&&r.data.users)||[];
   let pmap={};try{const {data:profs}=await sb.from('profiles').select('email,display_name');(profs||[]).forEach(p=>pmap[p.email]=p.display_name||'');}catch(e){}
+  let reqs=[];try{const {data:rq}=await sb.from('access_requests').select('*').eq('status','pending').order('created_at',{ascending:false});reqs=rq||[];}catch(e){}
+  const reqPanel='<div class="panel" style="margin-top:16px"><div class="panel-title">คำขอลงทะเบียน (รออนุมัติ) ('+reqs.length+')</div>'+
+    '<div class="mini" style="margin-bottom:8px">อนุมัติ = กำหนดสิทธิ์ให้บัญชีและเปิดให้เข้าใช้งานได้ · ปฏิเสธ = ลบบัญชีคำขอนั้น</div>'+
+    (reqs.length?'<div class="table-wrap"><table><thead><tr><th>อีเมล</th><th>ชื่อ-นามสกุล</th><th>เหตุผล/หน่วยงาน</th><th>วันที่ขอ</th><th>อนุมัติเป็น</th><th></th></tr></thead><tbody>'+
+      reqs.map(q=>{const uid=(users.find(u=>u.email===q.email)||{}).id||'';
+        return '<tr><td><b>'+esc(q.email)+'</b></td><td>'+esc(q.full_name||'-')+'</td><td>'+esc(q.reason||'-')+'</td><td class="nowrap">'+esc(q.created_at?new Date(q.created_at).toLocaleString('th-TH'):'-')+'</td>'+
+        '<td><select class="input" id="rqrole'+q.id+'" style="min-height:34px;width:auto;padding:4px 10px"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></td>'+
+        '<td class="nowrap"><button class="btn primary sm" onclick="approveRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">อนุมัติ</button> <button class="btn danger sm" onclick="rejectRequest('+q.id+',\''+js(q.email)+'\',\''+uid+'\')">ปฏิเสธ</button></td></tr>';}).join('')+
+      '</tbody></table></div>':'<div class="empty">ไม่มีคำขอรออนุมัติ</div>')+
+    '</div>';
   const roleSel=(id,r)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===r?' selected':'')+'>'+x+'</option>').join('')+'</select>';
   $('content').innerHTML=
     '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชีล็อกอิน + กำหนดสิทธิ์ (admin มีสิทธิ์จัดการผู้ใช้ / senior, manager ไม่มี)</div></div></div>'+
     '<div class="form-grid"><div class="field"><label class="label">Email</label><input class="input" id="nuEmail" type="email" placeholder="user@example.com"></div><div class="field"><label class="label">รหัสผ่าน</label><input class="input" id="nuPass" type="text" placeholder="เช่น Onsite@2026"></div></div>'+
     '<div class="mini" style="background:#f2f7ff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-top:8px;line-height:1.7">📌 <b>ข้อกำหนดรหัสผ่าน</b><br>• อย่างน้อย 6 ตัวอักษร<br>• ควรผสม <b>ตัวอักษร (a-z, A-Z)</b> กับ <b>ตัวเลข</b> และมีสัญลักษณ์จะยิ่งดี<br>• หลีกเลี่ยง<b>ตัวเลขล้วน</b>หรือรหัสที่เดาง่าย — ระบบความปลอดภัยของ Supabase อาจปฏิเสธ<br>• ตัวอย่างที่ใช้ได้: <code>Onsite@2026</code>, <code>Imm2026!ok</code></div>'+
     '<div style="display:flex;gap:10px;align-items:flex-end;margin-top:12px"><div class="field" style="margin:0"><label class="label">สิทธิ์</label><select class="input" id="nuRole" style="width:auto"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn primary" onclick="addUser()">+ เพิ่มผู้ใช้</button></div></div>'+
+    reqPanel+
     '<div class="panel" style="margin-top:16px"><div class="panel-title">ผู้ใช้ทั้งหมด ('+users.length+')</div><div class="mini" style="margin-bottom:8px">แก้ "ชื่อที่แสดง" แล้วคลิกออกจากช่อง = บันทึกอัตโนมัติ (ใช้เป็นชื่อในระบบ + ลงท้ายอีเมลรายงาน)</div><div class="table-wrap"><table><thead><tr><th>Email</th><th>ชื่อที่แสดง</th><th>สิทธิ์</th><th>เข้าระบบล่าสุด</th><th></th></tr></thead><tbody>'+
     (users.map(u=>'<tr><td><b>'+esc(u.email)+'</b>'+(u.email===user.email?' <span class="tag neutral">คุณ</span>':'')+'</td><td><input class="input" style="min-height:32px;width:180px" value="'+esc(pmap[u.email]||'')+'" placeholder="เช่น นางสาวณัฏฐา ..." onchange="setDisplayName(\''+js(u.email)+'\',this.value)"></td><td>'+roleSel(u.id,u.role)+'</td><td class="nowrap">'+esc(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('th-TH'):'-')+'</td><td class="nowrap">'+(u.email===user.email?'':'<button class="btn danger sm" onclick="deleteUser(\''+u.id+'\',\''+js(u.email)+'\')">ลบ</button>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ไม่มีผู้ใช้</td></tr>')+
     '</tbody></table></div></div>';
@@ -448,6 +500,22 @@ async function deleteUser(id,email){
   if(r.error)return toast('ลบไม่สำเร็จ: '+r.error,true);
   logAction('user_delete','user',email);
   toast('ลบผู้ใช้แล้ว');renderUsers();
+}
+async function approveRequest(reqId,email,uid){
+  const sel=$('rqrole'+reqId);const role=(sel&&sel.value)||'senior';
+  if(!uid)return toast('ไม่พบบัญชีของ '+email+' (บัญชีอาจยังไม่ถูกสร้าง) — ลองรีเฟรช',true);
+  const r=await adminFn({action:'updateRole',id:uid,role});
+  if(r.error)return toast('อนุมัติไม่สำเร็จ: '+r.error,true);
+  try{await sb.from('access_requests').update({status:'approved',reviewed_by:user.email,reviewed_at:new Date().toISOString()}).eq('id',reqId);}catch(e){}
+  logAction('user_approve','user',email+' ('+role+')');
+  toast('อนุมัติ '+email+' เป็น '+role+' แล้ว');renderUsers();
+}
+async function rejectRequest(reqId,email,uid){
+  if(!confirm('ปฏิเสธคำขอของ '+email+'?\n(บัญชีล็อกอินจะถูกลบ ผู้ใช้สามารถลงทะเบียนใหม่ได้)'))return;
+  if(uid){const r=await adminFn({action:'delete',id:uid});if(r.error&&!/not.*found|no.*user/i.test(r.error))console.warn('reject delete:',r.error);}
+  try{await sb.from('access_requests').update({status:'rejected',reviewed_by:user.email,reviewed_at:new Date().toISOString()}).eq('id',reqId);}catch(e){}
+  logAction('user_reject','user',email);
+  toast('ปฏิเสธคำขอของ '+email+' แล้ว');renderUsers();
 }
 async function setDisplayName(email,name){
   name=(name||'').trim();

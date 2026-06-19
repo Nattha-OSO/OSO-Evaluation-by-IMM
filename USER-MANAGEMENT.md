@@ -1,11 +1,24 @@
 # การจัดการผู้ใช้ระบบ (Roles: admin / senior / manager)
 
 ระบบสิทธิ์:
-- **admin** — จัดการผู้ใช้ได้ (เพิ่ม/ลบบัญชีล็อกอิน + กำหนดสิทธิ์) เห็นเมนู "จัดการผู้ใช้ระบบ"
+- **admin** — จัดการผู้ใช้ได้ (เพิ่ม/ลบบัญชีล็อกอิน + กำหนดสิทธิ์ + อนุมัติคำขอลงทะเบียน) เห็นเมนู "จัดการผู้ใช้ระบบ"
 - **senior**, **manager** — ใช้งานทุกอย่างได้ **ยกเว้น** จัดการผู้ใช้ (ไม่เห็นเมนูนี้)
+- **(ยังไม่อนุมัติ)** — ผู้ที่ลงทะเบียนแต่ admin ยังไม่กำหนดสิทธิ์ = ล็อกอินไม่ได้ (ขึ้นข้อความ "รออนุมัติ") และเข้าถึงข้อมูลผ่าน API ไม่ได้ (RLS บังคับต้องมี role)
 
-การสร้าง/ลบบัญชีล็อกอินจริงต้องใช้ `service_role` จึงทำผ่าน **Supabase Edge Function** ชื่อ `admin-users`
-(โค้ดอยู่ที่ `supabase/functions/admin-users/index.ts`)
+การสร้าง/ลบบัญชีล็อกอินจริงต้องใช้ `service_role` จึงทำผ่าน **Supabase Edge Function**:
+- `admin-users` — เพิ่ม/ลบ/เปลี่ยนสิทธิ์ (เฉพาะ admin) — `supabase/functions/admin-users/index.ts`
+- `register` — รับคำขอลงทะเบียนจากหน้า public (ไม่ต้องล็อกอิน) สร้างบัญชี "รออนุมัติ" — `supabase/functions/register/index.ts`
+
+---
+
+## ระบบลงทะเบียน + อนุมัติ (ตั้งแต่เวอร์ชัน 38)
+
+**ผู้ขอใช้งาน:** หน้าเข้าสู่ระบบ → ปุ่ม **"ลงทะเบียนขอใช้งานระบบ"** → กรอกชื่อ/อีเมล/รหัสผ่าน/เหตุผล → ส่งคำขอ
+→ บัญชีถูกสร้างสถานะ **รออนุมัติ** (ยังเข้าระบบไม่ได้)
+
+**Admin:** เมนู **จัดการผู้ใช้ระบบ** → แผง **"คำขอลงทะเบียน (รออนุมัติ)"** → เลือกสิทธิ์ → กด **อนุมัติ** (เปิดใช้งานทันที) หรือ **ปฏิเสธ** (ลบบัญชีคำขอ)
+
+> ต้องรัน `schema.sql` ส่วน **access_requests + RLS** (idempotent รันซ้ำได้) และ deploy ฟังก์ชัน `register` (ดูด้านล่าง)
 
 ---
 
@@ -27,7 +40,17 @@ npx supabase secrets set ADMIN_EMAILS="nattha.b@somapait.com"
 
 # 4) deploy ฟังก์ชัน
 npx supabase functions deploy admin-users
+
+# 5) deploy ฟังก์ชันลงทะเบียน (ต้องใส่ --no-verify-jwt เพราะเป็นหน้า public ไม่ต้องล็อกอิน)
+npx supabase functions deploy register --no-verify-jwt
 ```
+
+> ถ้า login/link แบบ non-interactive ไม่ได้ ให้ใช้แทน:
+> ```powershell
+> $env:SUPABASE_ACCESS_TOKEN="<โทเค็นจริง sbp_... จาก https://supabase.com/dashboard/account/tokens>"
+> npx supabase functions deploy admin-users --project-ref hokuuilqvfdeekchqelz --use-api
+> npx supabase functions deploy register --project-ref hokuuilqvfdeekchqelz --use-api --no-verify-jwt
+> ```
 
 > ถ้าถาม project password ตอน link ให้ใส่รหัส database ที่ตั้งตอนสร้างโปรเจกต์
 
