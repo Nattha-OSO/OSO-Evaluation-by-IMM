@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='31';
+const APP_VERSION='32';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -578,7 +578,7 @@ function dTable(rows,widths,headerFill){
   const grid='<w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
   const borders='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideV w:val="single" w:sz="4" w:color="D0D7E5"/></w:tblBorders>';
   const trs=rows.map((cells,ri)=>{const isH=ri===0;return '<w:tr>'+cells.map((cell,ci)=>{const fill=isH?(headerFill||'E8F0FC'):null;return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/>'+(fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'')+'<w:vAlign w:val="center"/></w:tcPr>'+dCellPar(cell,{sz:20,bold:isH,color:isH?'0b2f6b':'1f2937'})+'</w:tc>';}).join('')+'</w:tr>';}).join('');
-  return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>'+borders+'</w:tblPr>'+grid+trs+'</w:tbl>'+dPar('',{after:60});
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+widths.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+borders+'</w:tblPr>'+grid+trs+'</w:tbl>'+dPar('',{after:60});
 }
 function dKpiCards(cards){
   // แถวเดียว 4 ช่อง
@@ -587,7 +587,7 @@ function dKpiCards(cards){
   // ทำเป็นตาราง 3 แถว (label / value / sub)
   const grid='<w:tblGrid>'+cards.map(()=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>';
   const mk=(arr,o)=>'<w:tr>'+arr.map(t=>'<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/></w:tcPr>'+dCellPar(t,o)+'</w:tc>').join('')+'</w:tr>';
-  return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DCE5F2"/><w:left w:val="single" w:sz="4" w:color="DCE5F2"/><w:bottom w:val="single" w:sz="4" w:color="DCE5F2"/><w:right w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideH w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideV w:val="single" w:sz="4" w:color="DCE5F2"/></w:tblBorders></w:tblPr>'+grid+mk(rows[0],{sz:18,color:'6a7d9b',align:'center'})+mk(rows[1],{sz:34,bold:true,color:'0b2f6b',align:'center'})+mk(rows[2],{sz:18,color:'6a7d9b',align:'center'})+'</w:tbl>'+dPar('',{after:80});
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+(w*cards.length)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DCE5F2"/><w:left w:val="single" w:sz="4" w:color="DCE5F2"/><w:bottom w:val="single" w:sz="4" w:color="DCE5F2"/><w:right w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideH w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideV w:val="single" w:sz="4" w:color="DCE5F2"/></w:tblBorders></w:tblPr>'+grid+mk(rows[0],{sz:18,color:'6a7d9b',align:'center'})+mk(rows[1],{sz:34,bold:true,color:'0b2f6b',align:'center'})+mk(rows[2],{sz:18,color:'6a7d9b',align:'center'})+'</w:tbl>'+dPar('',{after:80});
 }
 function chartCanvas(criteriaAvg){
   const cv=document.createElement('canvas');cv.width=620;cv.height=300;const g=cv.getContext('2d');
@@ -703,7 +703,7 @@ function periodData(start,end){
   const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
   return {records,people,s:summarizeOverall(records,people)};
 }
-function reportStyles(){return '<style>.rpt{box-sizing:border-box;font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;background:#fff;padding:16px}.rpt *{box-sizing:border-box}.rpt h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.rpt .sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}.rpt h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}.rpt table{border-collapse:collapse;width:100%;margin:6px 0;font-size:15px}.rpt th,.rpt td{border:1px solid #d0d7e5;padding:6px 9px;text-align:left;vertical-align:top}.rpt thead th{background:#e8f0fc;color:#0b2f6b}.rpt .meta th{width:130px;background:#f2f7ff}.rpt .kpis{display:flex;gap:10px;margin:8px 0}.rpt .kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.rpt .kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}.rpt ul{margin:6px 0;padding-left:20px}.rpt li{margin-bottom:6px}.rpt img{max-width:100%;display:block;margin:0 auto}body{margin:0}@media print{.noprint{display:none}}</style>';}
+function reportStyles(){return '<style>.rpt{box-sizing:border-box;font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;background:#fff;padding:16px}.rpt *{box-sizing:border-box}.rpt h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.rpt .sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}.rpt h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}.rpt table{border-collapse:collapse;width:100%;max-width:100%;margin:6px 0;font-size:14px}.rpt th,.rpt td{border:1px solid #d0d7e5;padding:5px 7px;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}.rpt thead th{background:#e8f0fc;color:#0b2f6b}.rpt .meta th{width:130px;background:#f2f7ff}.rpt .kpis{display:flex;gap:10px;margin:8px 0}.rpt .kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.rpt .kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}.rpt ul{margin:6px 0;padding-left:20px}.rpt li{margin-bottom:6px}.rpt img{max-width:100%;display:block;margin:0 auto}body{margin:0}@media print{.noprint{display:none}}</style>';}
 function buildReportInner(start,end,word,label){
   const {records,people,s}=periodData(start,end);
   const weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
@@ -740,12 +740,12 @@ async function emailReportPDF(start,end,word,label,suffix){
   await ensureFresh();toast('กำลังสร้าง PDF...');
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;padding:10px';
-  ov.innerHTML=reportStyles()+'<div style="text-align:center;color:#2563eb;font-weight:700;padding:6px">กำลังสร้าง PDF...</div><div class="rpt" id="rptTarget" style="max-width:780px;margin:0 auto">'+buildReportInner(start,end,word,label)+'</div>';
+  ov.innerHTML=reportStyles()+'<div style="text-align:center;color:#2563eb;font-weight:700;padding:6px">กำลังสร้าง PDF...</div><div class="rpt" id="rptTarget" style="width:720px;margin:0 auto">'+buildReportInner(start,end,word,label)+'</div>';
   document.body.appendChild(ov);
   await new Promise(r=>setTimeout(r,250));
   try{
     const target=ov.querySelector('#rptTarget');
-    const opt={margin:8,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
+    const opt={margin:[12,10,12,10],image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:760},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
     const durl=await html2pdf().set(opt).from(target).outputPdf('datauristring');
     const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
     toast('กำลังส่งอีเมล...');
