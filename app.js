@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='54';
+const APP_VERSION='55';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -707,7 +707,7 @@ async function exportCSV(){
    ============================================================ */
 function dEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
 function dRun(text,o){o=o||{};const sz=Math.round((o.sz||22)*1.3);const rpr='<w:rPr><w:rFonts w:ascii="TH Sarabun New" w:hAnsi="TH Sarabun New" w:cs="TH Sarabun New"/>'+(o.bold?'<w:b/><w:bCs/>':'')+'<w:color w:val="'+(o.color||'1f2937')+'"/><w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/></w:rPr>';const lines=String(text==null?'':text).split('\n');let out='';for(let i=0;i<lines.length;i++){if(i>0)out+='<w:r>'+rpr+'<w:br/></w:r>';out+='<w:r>'+rpr+'<w:t xml:space="preserve">'+dEsc(lines[i])+'</w:t></w:r>';}return out;}
-function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
+function dPar(text,o){o=o||{};const jc=o.align?'<w:jc w:val="'+o.align+'"/>':'';const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';const ind=o.indent?'<w:ind w:left="'+o.indent+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+jc+shd+ind+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 function dHeading(text){return dPar(text,{sz:26,bold:true,color:'1749c4',before:200,after:80});}
 function dCellPar(text,o){o=o||{};const shd=o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'';return '<w:p><w:pPr><w:spacing w:before="20" w:after="20"/>'+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+shd+'</w:pPr>'+dRun(text,o)+'</w:p>';}
 function dTable(rows,widths,headerFill){
@@ -768,7 +768,16 @@ async function buildReportDocxBlob(startDate,endDate,periodWord,periodLabel){
   const er=Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[String(i+1),x[0]||'-',String(x[1])]);
   body+=er.length?dTable([['ลำดับ','ผลัดของเจ้าหน้าที่ตม.','จำนวนรายการ']].concat(er),[900,6000,2100]):dPar('ไม่มีข้อมูลผลัดในรอบรายงานนี้',{color:'6a7d9b'});
   body+=dHeading('ข้อเสนอแนะเชิงบริหาร');
-  [records.length?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ',weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม',best?'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':'คัดเลือกเจ้าหน้าที่ต้นแบบหลังมีข้อมูลประเมินเพียงพอ',risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ'].forEach((t,i)=>{body+=dPar((i+1)+'. '+t,{fill:'F4F6F9',after:40});});
+  const stars=people.filter(p=>p.count&&p.avg>=4.995).map(p=>p.name);
+  const rec1=records.length?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ';
+  const rec2=weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม';
+  const rec4=risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ';
+  const rec3=stars.length>1?'นำแนวปฏิบัติของเจ้าหน้าที่ที่ได้คะแนนเต็ม 5.00 มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม ได้แก่':(stars.length===1?'นำแนวปฏิบัติของ '+stars[0]+' (คะแนนเต็ม 5.00) มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':(best?'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':'คัดเลือกเจ้าหน้าที่ต้นแบบหลังมีข้อมูลประเมินเพียงพอ'));
+  body+=dPar('1. '+rec1,{fill:'F4F6F9',after:40});
+  body+=dPar('2. '+rec2,{fill:'F4F6F9',after:40});
+  body+=dPar('3. '+rec3,{fill:'F4F6F9',after:(stars.length>1?20:40)});
+  if(stars.length>1)stars.forEach(n=>{body+=dPar('•  '+n,{fill:'F4F6F9',indent:520,after:20});});
+  body+=dPar('4. '+rec4,{fill:'F4F6F9',after:40});
   body+=dHeading('รายละเอียดสรุปรายบุคคล');
   const pr=people.filter(p=>p.count).map((p,i)=>[String(i+1),p.name,String(p.count),p.avg.toFixed(2),p.band]);
   body+=pr.length?dTable([['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ระดับ']].concat(pr),[800,3600,1400,1500,1700]):dPar('ไม่มีข้อมูลรายบุคคลในรอบรายงานนี้',{color:'6a7d9b'});
@@ -857,8 +866,18 @@ function buildReportInner(start,end,word,label){
   h+='<h2>คะแนนเฉลี่ยรายหัวข้อ</h2>'+tbl(['ลำดับ','หัวข้อประเมิน','คะแนนเฉลี่ย','ระดับ'],criteria.map(c=>{const a=s.criteriaAvg[c.key]||0;return [c.no,esc(c.shortTitle),fmt(a),esc(scoreBand(a))];}),['9%','49%','22%','20%']);
   h+='<h2>ประเด็นที่ควรติดตาม</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','คะแนนเฉลี่ย','ระดับ'],(s.risks||[]).map((p,i)=>[i+1,esc(p.name),fmt(p.avg),esc(p.band)]),['9%','49%','22%','20%']);
   h+='<h2>จำนวนรายการประเมินตามผลัด</h2>'+tbl(['ลำดับ','ผลัดของเจ้าหน้าที่ตม.','จำนวนรายการ'],Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]).map((x,i)=>[i+1,esc(x[0]||'-'),x[1]]),['10%','64%','26%']);
-  const recs=[records.length?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ',weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม',best?'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':'คัดเลือกเจ้าหน้าที่ต้นแบบหลังมีข้อมูลประเมินเพียงพอ',risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ'];
-  h+='<h2>ข้อเสนอแนะเชิงบริหาร</h2><ol>'+recs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>';
+  const stars=people.filter(p=>p.count&&p.avg>=4.995).map(p=>p.name);
+  let rec3;
+  if(stars.length>1)rec3=esc('นำแนวปฏิบัติของเจ้าหน้าที่ที่ได้คะแนนเต็ม 5.00 มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม ได้แก่')+'<ul style="margin-top:4px">'+stars.map(n=>'<li>'+esc(n)+'</li>').join('')+'</ul>';
+  else if(stars.length===1)rec3=esc('นำแนวปฏิบัติของ '+stars[0]+' (คะแนนเต็ม 5.00) มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม');
+  else rec3=esc(best?'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม':'คัดเลือกเจ้าหน้าที่ต้นแบบหลังมีข้อมูลประเมินเพียงพอ');
+  const recHtml=[
+    esc(records.length?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ'),
+    esc(weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม'),
+    rec3,
+    esc(risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ')
+  ];
+  h+='<h2>ข้อเสนอแนะเชิงบริหาร</h2><ol>'+recHtml.map(x=>'<li>'+x+'</li>').join('')+'</ol>';
   h+='<h2>รายละเอียดสรุปรายบุคคล</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ระดับ'],people.filter(p=>p.count).map((p,i)=>[i+1,esc(p.name),p.count,fmt(p.avg),esc(p.band)]),['8%','40%','16%','18%','18%']);
   const cm=records.filter(r=>r.comment);
   h+='<h2>ข้อเสนอแนะทั้งหมดในรอบรายงาน</h2>'+(cm.length?'<ul>'+cm.map(r=>'<li><b>'+esc(r.staff)+'</b> ('+esc(r.evaluator)+') — '+esc(r.timestamp)+'<br>'+esc(r.comment)+'</li>').join('')+'</ul>':'<p style="color:#888">ไม่มีข้อเสนอแนะในรอบรายงานนี้</p>');
