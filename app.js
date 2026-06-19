@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='39';
+const APP_VERSION='40';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -203,7 +203,11 @@ async function doRegister(e){
     if(error){emsg=error.message||'error';try{if(error.context&&typeof error.context.json==='function'){const j=await error.context.json();if(j&&j.error)emsg=j.error;}}catch(_){}}
     else if(data&&data.error)emsg=data.error;
     b.disabled=false;b.textContent='ส่งคำขอลงทะเบียน';
-    if(emsg)return showRegError(emsg);
+    if(emsg){
+      if(/failed to send a request|not found|404|failed to fetch/i.test(emsg))
+        emsg='ยังไม่ได้ติดตั้งฟังก์ชันลงทะเบียนบนเซิร์ฟเวอร์ — ผู้ดูแลระบบต้อง deploy ฟังก์ชัน "register" ก่อน (ดู USER-MANAGEMENT.md)';
+      return showRegError(emsg);
+    }
     $('regName').value=$('regEmail').value=$('regPass').value=$('regReason').value='';
     showLogin();
     showLoginInfo('ส่งคำขอลงทะเบียนแล้ว ✓ โปรดรอผู้ดูแลระบบอนุมัติ จากนั้นเข้าสู่ระบบด้วยอีเมล/รหัสผ่านที่ลงทะเบียนไว้');
