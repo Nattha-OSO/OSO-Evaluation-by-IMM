@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='33';
+const APP_VERSION='34';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -736,7 +736,7 @@ async function emailReportPDF(start,end,word,label,suffix){
   const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
   if(!list.length||!list.every(e=>reMail.test(e)))return toast('อีเมลผู้รับไม่ถูกต้อง: '+(list.join(', ')||'(ว่าง)'),true);
   const to=list.join(',');
-  if(typeof html2pdf==='undefined')return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
+  if(typeof html2canvas==='undefined'||!window.jspdf)return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
   await ensureFresh();toast('กำลังสร้าง PDF...');
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto';
@@ -745,9 +745,17 @@ async function emailReportPDF(start,end,word,label,suffix){
   await new Promise(r=>setTimeout(r,250));
   try{
     const target=ov.querySelector('#rptTarget');
-    const opt={margin:10,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,x:0,y:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
-    const durl=await html2pdf().set(opt).from(target).outputPdf('datauristring');
-    const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
+    const canvas=await html2canvas(target,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+    const imgData=canvas.toDataURL('image/jpeg',0.95);
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF('p','mm','a4');
+    const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight(),margin=10;
+    const imgW=pageW-margin*2,imgH=canvas.height*imgW/canvas.width,pageContentH=pageH-margin*2;
+    let heightLeft=imgH,position=margin;
+    pdf.addImage(imgData,'JPEG',margin,position,imgW,imgH);
+    heightLeft-=pageContentH;
+    while(heightLeft>0){position=margin-(imgH-heightLeft);pdf.addPage();pdf.addImage(imgData,'JPEG',margin,position,imgW,imgH);heightLeft-=pageContentH;}
+    const b64=pdf.output('datauristring').split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
     toast('กำลังส่งอีเมล...');
     // สรุปผลแบบอ่านง่ายในเนื้อหาอีเมล
     const pd=periodData(start,end),s=pd.s,weak=criteria.find(c=>c.key===s.lowestKey);
