@@ -162,6 +162,10 @@
     .login h1{font-size:20px}
     .pub-wrap{padding:16px 12px}
     .toolbar .search{flex:1 1 100%}
+    /* ปุ่มเข้าสู่ระบบ: เลิกลอยทับหัวข้อ ให้มาอยู่ในแนวปกติด้านบน */
+    .pub-top{padding:16px 16px 30px}
+    .pub-login-top{position:static;display:flex;width:100%;justify-content:center;margin:0 0 16px;top:auto;right:auto}
+    .pub-hero{gap:14px}
   }
   @media(max-width:480px){
     .login{padding:14px}
@@ -387,11 +391,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=48"></script>
+<script src="config.js?v=49"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=48"></script>
+<script src="app.js?v=49"></script>
 </body>
 </html>
