@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='30';
+const APP_VERSION='31';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -51,7 +51,7 @@ let sb = null;
 function hideAll(){['public','login','resetpw'].forEach(id=>$(id).classList.add('hidden'));$('app').classList.remove('ready');}
 function showLogin(){hideAll();$('login').classList.remove('hidden');}
 function gotoLogin(){showLogin();}
-function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();startRealtime();logAction('login','auth',user&&user.email);}
+function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();loadMyProfile();startRealtime();logAction('login','auth',user&&user.email);}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
 
 window.onload = async function(){
@@ -101,6 +101,8 @@ function applyRoleUI(){
 }
 // ===== บันทึกการใช้งานระบบ =====
 async function logAction(action,entity,detail){try{if(sb&&user)await sb.from('audit_log').insert({action:action,entity:entity||null,detail:detail?String(detail).slice(0,500):null});}catch(e){}}
+// โหลดชื่อที่แสดงของผู้ใช้ปัจจุบัน (ใช้เป็นชื่อในระบบ + ลงท้ายอีเมล)
+async function loadMyProfile(){try{const {data}=await sb.from('profiles').select('display_name').eq('email',user.email).maybeSingle();if(data&&data.display_name){user.displayName=data.display_name;hydrateUser();}}catch(e){}}
 
 // ---------- จัดการรหัสผ่าน ----------
 function showResetPw(){hideAll();$('resetpw').classList.remove('hidden');}
@@ -410,14 +412,15 @@ async function renderUsers(){
     $('content').innerHTML='<div class="panel"><div class="panel-title">จัดการผู้ใช้ระบบ</div><div class="empty" style="text-align:left;line-height:1.7">เรียกใช้ Edge Function ไม่สำเร็จ<br><b>'+esc(r.error)+'</b><br><br>ตรวจว่า:<br>1) deploy ฟังก์ชัน <code>admin-users</code> แล้ว<br>2) ตั้งความลับ <code>ADMIN_EMAILS="'+esc(user.email)+'"</code><br>ดูรายละเอียดในไฟล์ USER-MANAGEMENT.md</div></div>';return;
   }
   const users=(r.data&&r.data.users)||[];
+  let pmap={};try{const {data:profs}=await sb.from('profiles').select('email,display_name');(profs||[]).forEach(p=>pmap[p.email]=p.display_name||'');}catch(e){}
   const roleSel=(id,r)=>'<select onchange="setUserRole(\''+id+'\',this.value)" class="input" style="min-height:34px;width:auto;padding:4px 10px">'+['admin','senior','manager'].map(x=>'<option value="'+x+'"'+(x===r?' selected':'')+'>'+x+'</option>').join('')+'</select>';
   $('content').innerHTML=
     '<div class="panel"><div class="panel-head"><div><div class="panel-title">เพิ่มผู้ใช้ใหม่</div><div class="mini">สร้างบัญชีล็อกอิน + กำหนดสิทธิ์ (admin มีสิทธิ์จัดการผู้ใช้ / senior, manager ไม่มี)</div></div></div>'+
     '<div class="form-grid"><div class="field"><label class="label">Email</label><input class="input" id="nuEmail" type="email" placeholder="user@example.com"></div><div class="field"><label class="label">รหัสผ่าน</label><input class="input" id="nuPass" type="text" placeholder="เช่น Onsite@2026"></div></div>'+
     '<div class="mini" style="background:#f2f7ff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-top:8px;line-height:1.7">📌 <b>ข้อกำหนดรหัสผ่าน</b><br>• อย่างน้อย 6 ตัวอักษร<br>• ควรผสม <b>ตัวอักษร (a-z, A-Z)</b> กับ <b>ตัวเลข</b> และมีสัญลักษณ์จะยิ่งดี<br>• หลีกเลี่ยง<b>ตัวเลขล้วน</b>หรือรหัสที่เดาง่าย — ระบบความปลอดภัยของ Supabase อาจปฏิเสธ<br>• ตัวอย่างที่ใช้ได้: <code>Onsite@2026</code>, <code>Imm2026!ok</code></div>'+
     '<div style="display:flex;gap:10px;align-items:flex-end;margin-top:12px"><div class="field" style="margin:0"><label class="label">สิทธิ์</label><select class="input" id="nuRole" style="width:auto"><option value="senior">senior</option><option value="manager">manager</option><option value="admin">admin</option></select></div><button class="btn primary" onclick="addUser()">+ เพิ่มผู้ใช้</button></div></div>'+
-    '<div class="panel" style="margin-top:16px"><div class="panel-title">ผู้ใช้ทั้งหมด ('+users.length+')</div><div class="table-wrap"><table><thead><tr><th>Email</th><th>สิทธิ์</th><th>เข้าระบบล่าสุด</th><th></th></tr></thead><tbody>'+
-    (users.map(u=>'<tr><td><b>'+esc(u.email)+'</b>'+(u.email===user.email?' <span class="tag neutral">คุณ</span>':'')+'</td><td>'+roleSel(u.id,u.role)+'</td><td class="nowrap">'+esc(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('th-TH'):'-')+'</td><td class="nowrap">'+(u.email===user.email?'':'<button class="btn danger sm" onclick="deleteUser(\''+u.id+'\',\''+js(u.email)+'\')">ลบ</button>')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">ไม่มีผู้ใช้</td></tr>')+
+    '<div class="panel" style="margin-top:16px"><div class="panel-title">ผู้ใช้ทั้งหมด ('+users.length+')</div><div class="mini" style="margin-bottom:8px">แก้ "ชื่อที่แสดง" แล้วคลิกออกจากช่อง = บันทึกอัตโนมัติ (ใช้เป็นชื่อในระบบ + ลงท้ายอีเมลรายงาน)</div><div class="table-wrap"><table><thead><tr><th>Email</th><th>ชื่อที่แสดง</th><th>สิทธิ์</th><th>เข้าระบบล่าสุด</th><th></th></tr></thead><tbody>'+
+    (users.map(u=>'<tr><td><b>'+esc(u.email)+'</b>'+(u.email===user.email?' <span class="tag neutral">คุณ</span>':'')+'</td><td><input class="input" style="min-height:32px;width:180px" value="'+esc(pmap[u.email]||'')+'" placeholder="เช่น นางสาวณัฏฐา ..." onchange="setDisplayName(\''+js(u.email)+'\',this.value)"></td><td>'+roleSel(u.id,u.role)+'</td><td class="nowrap">'+esc(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('th-TH'):'-')+'</td><td class="nowrap">'+(u.email===user.email?'':'<button class="btn danger sm" onclick="deleteUser(\''+u.id+'\',\''+js(u.email)+'\')">ลบ</button>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">ไม่มีผู้ใช้</td></tr>')+
     '</tbody></table></div></div>';
 }
 async function addUser(){
@@ -445,6 +448,14 @@ async function deleteUser(id,email){
   if(r.error)return toast('ลบไม่สำเร็จ: '+r.error,true);
   logAction('user_delete','user',email);
   toast('ลบผู้ใช้แล้ว');renderUsers();
+}
+async function setDisplayName(email,name){
+  name=(name||'').trim();
+  const {error}=await sb.from('profiles').upsert({email:email,display_name:name||null,updated_at:new Date().toISOString()},{onConflict:'email'});
+  if(error)return toast('บันทึกชื่อไม่สำเร็จ: '+error.message,true);
+  logAction('update','user','ชื่อที่แสดง: '+email+' = '+(name||'(ลบ)'));
+  toast('บันทึกชื่อที่แสดงแล้ว');
+  if(email===user.email){user.displayName=name||user.email;hydrateUser();}
 }
 // ===== หน้าบันทึกการใช้งานระบบ (Audit Log) — admin =====
 async function renderAudit(){
@@ -727,13 +738,15 @@ async function emailReportPDF(start,end,word,label,suffix){
   const to=list.join(',');
   if(typeof html2pdf==='undefined')return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
   await ensureFresh();toast('กำลังสร้าง PDF...');
-  const wrap=document.createElement('div');wrap.style.cssText='position:absolute;left:-10000px;top:0;width:780px;background:#fff';
-  wrap.innerHTML=reportStyles()+'<div class="rpt">'+buildReportInner(start,end,word,label)+'</div>';
-  document.body.appendChild(wrap);
-  await new Promise(r=>setTimeout(r,120));
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;padding:10px';
+  ov.innerHTML=reportStyles()+'<div style="text-align:center;color:#2563eb;font-weight:700;padding:6px">กำลังสร้าง PDF...</div><div class="rpt" id="rptTarget" style="max-width:780px;margin:0 auto">'+buildReportInner(start,end,word,label)+'</div>';
+  document.body.appendChild(ov);
+  await new Promise(r=>setTimeout(r,250));
   try{
-    const opt={margin:8,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:820},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
-    const durl=await html2pdf().set(opt).from(wrap).outputPdf('datauristring');
+    const target=ov.querySelector('#rptTarget');
+    const opt={margin:8,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
+    const durl=await html2pdf().set(opt).from(target).outputPdf('datauristring');
     const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
     toast('กำลังส่งอีเมล...');
     // สรุปผลแบบอ่านง่ายในเนื้อหาอีเมล
@@ -754,7 +767,7 @@ async function emailReportPDF(start,end,word,label,suffix){
     if(r.error)return toast('ส่งไม่สำเร็จ: '+r.error,true);
     logAction('email','report',to+' / '+label);toast('ส่งอีเมลแล้ว → '+to);closeReport();
   }catch(e){toast('สร้าง/ส่ง PDF ไม่สำเร็จ: '+((e&&e.message)||e),true);}
-  finally{document.body.removeChild(wrap);}
+  finally{document.body.removeChild(ov);}
 }
 
 /* ============================================================

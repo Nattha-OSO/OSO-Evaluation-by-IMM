@@ -138,6 +138,22 @@ do $$ begin
 end $$;
 
 -- ============================================================
+--  ชื่อที่แสดงของผู้ใช้ (Display name) — ทุกคนอ่านได้ admin แก้ได้
+-- ============================================================
+create table if not exists public.profiles (
+  email        text primary key,
+  display_name text,
+  updated_at   timestamptz not null default now()
+);
+alter table public.profiles enable row level security;
+drop policy if exists "profiles read authed" on public.profiles;
+create policy "profiles read authed" on public.profiles for select to authenticated using (true);
+drop policy if exists "profiles write admin" on public.profiles;
+create policy "profiles write admin" on public.profiles for all to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+-- ============================================================
 --  ตั้งให้บัญชี admin เริ่มต้นมี role=admin ใน app_metadata (ให้ RLS ด้านบนทำงาน)
 --  *** เปลี่ยนอีเมลให้ตรงกับ admin ของคุณ แล้วให้ admin ออก-เข้าระบบใหม่ 1 ครั้ง ***
 -- ============================================================
