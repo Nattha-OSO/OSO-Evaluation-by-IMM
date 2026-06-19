@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='40';
+const APP_VERSION='41';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -196,6 +196,7 @@ async function doRegister(e){
   if(!name)return showRegError('กรุณากรอกชื่อ-นามสกุล');
   if(!/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(email))return showRegError('รูปแบบอีเมลไม่ถูกต้อง: '+(email||'(ว่าง)'));
   if(pass.length<6)return showRegError('รหัสผ่านอย่างน้อย 6 ตัวอักษร');
+  if(!/[A-Za-z]/.test(pass)||!/[0-9]/.test(pass))return showRegError('รหัสผ่านต้องมีทั้งตัวอักษร (a-z, A-Z) และตัวเลข เพื่อความปลอดภัย');
   const b=$('regBtn');b.disabled=true;b.textContent='กำลังส่งคำขอ...';
   try{
     const {data,error}=await sb.functions.invoke('register',{body:{email,password:pass,full_name:name,reason}});

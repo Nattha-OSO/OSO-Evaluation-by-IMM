@@ -208,7 +208,8 @@
     <div id="regInfo" class="hidden" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5">หลังส่งคำขอ บัญชีจะอยู่สถานะ "รออนุมัติ" จนกว่าผู้ดูแลระบบจะอนุมัติ จึงเข้าสู่ระบบได้</div>
     <div class="field"><label class="label">ชื่อ-นามสกุล (ชื่อในระบบ)</label><input class="input" id="regName" type="text" placeholder="เช่น นางสาวณัฏฐา ..."></div>
     <div class="field"><label class="label">Email</label><input class="input" id="regEmail" type="email" autocomplete="email" placeholder="user@example.com"></div>
-    <div class="field"><label class="label">ตั้งรหัสผ่าน (อย่างน้อย 6 ตัว)</label><input class="input" id="regPass" type="password" autocomplete="new-password" placeholder="เช่น Onsite@2026"></div>
+    <div class="field"><label class="label">ตั้งรหัสผ่าน</label><input class="input" id="regPass" type="password" autocomplete="new-password" placeholder="เช่น Onsite@2026"></div>
+    <div class="mini" style="background:#f2f7ff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin:-4px 0 12px;line-height:1.7;text-align:left">📌 <b>ข้อกำหนดรหัสผ่าน</b><br>• อย่างน้อย <b>6 ตัวอักษร</b><br>• ต้องมีทั้ง <b>ตัวอักษร (a-z, A-Z)</b> และ <b>ตัวเลข</b> และมีสัญลักษณ์ (เช่น @ ! #) จะยิ่งดี<br>• หลีกเลี่ยง<b>ตัวเลขล้วน</b>หรือรหัสที่เดาง่าย — ระบบความปลอดภัยอาจปฏิเสธ<br>• ตัวอย่างที่ใช้ได้: <code>Onsite@2026</code>, <code>Imm2026!ok</code></div>
     <div class="field"><label class="label">เหตุผล / หน่วยงาน (ไม่บังคับ)</label><input class="input" id="regReason" type="text" placeholder="เช่น Senior ทีม Onsite ด่าน ..."></div>
     <div id="regError" class="hidden" style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
     <button class="btn primary" id="regBtn" style="width:100%" type="submit">ส่งคำขอลงทะเบียน</button>
@@ -307,11 +308,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=40"></script>
+<script src="config.js?v=41"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=40"></script>
+<script src="app.js?v=41"></script>
 </body>
 </html>
