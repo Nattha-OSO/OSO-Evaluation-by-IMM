@@ -18,7 +18,8 @@
   .login{min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:22px;position:relative;overflow-x:hidden;overflow-y:auto;background:linear-gradient(135deg,#0d2f63 0%,#143d82 46%,#1657c8 100%)}
   .login-card{position:relative;width:420px;max-width:100%;margin:auto;background:rgba(255,255,255,.97);border-radius:18px;box-shadow:0 30px 70px rgba(4,16,40,.45);padding:34px 30px}
   .mark{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--navy),var(--primary));display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;margin-bottom:18px}
-  .login h1{font-size:23px;margin:0 0 6px;color:var(--navy);font-weight:800}
+  .login h1{font-size:23px;margin:0 0 6px;color:var(--navy);font-weight:800;line-height:1.32;text-wrap:balance}
+  .login h1 .login-sub{display:block;font-size:.64em;font-weight:600;color:#3f5a8a;margin-top:7px;line-height:1.35}
   .muted{color:var(--muted)}.mini{font-size:12px;color:var(--muted)}
   .field{margin-bottom:14px}.label{font-size:12px;font-weight:600;color:#42577a;margin-bottom:6px;display:block}
   .input,select,textarea{width:100%;min-height:42px;border:1px solid var(--line2);background:#fff;color:var(--text);border-radius:10px;outline:0;padding:10px 13px;transition:.15s}
@@ -237,7 +238,7 @@
       <div class="login-logo-card"><img src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></div>
       <div class="login-logo-card"><img src="assets/logo-sosky.png" alt="SO SKY Consortium"></div>
     </div>
-    <h1>ระบบประเมิน<span style="white-space:nowrap">เจ้าหน้าที่ Onsite Support</span> สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</h1>
+    <h1>ระบบประเมิน<span style="white-space:nowrap">เจ้าหน้าที่ Onsite Support</span><span class="login-sub">สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</span></h1>
     <p class="muted">สำหรับ Senior / ผู้บริหาร (Supabase Auth)</p>
     <div id="loginInfo" class="hidden" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5"></div>
     <div class="field"><label class="label">Email</label><input class="input" id="loginUser" type="email" autocomplete="username"></div>
@@ -262,7 +263,7 @@
       <div class="login-logo-card"><img src="assets/logo-immigration.png" alt="สำนักงานตรวจคนเข้าเมือง"></div>
       <div class="login-logo-card"><img src="assets/logo-sosky.png" alt="SO SKY Consortium"></div>
     </div>
-    <h1>ระบบประเมิน<span style="white-space:nowrap">เจ้าหน้าที่ Onsite Support</span> สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</h1>
+    <h1>ระบบประเมิน<span style="white-space:nowrap">เจ้าหน้าที่ Onsite Support</span><span class="login-sub">สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง</span></h1>
     <p class="muted">สำหรับลงทะเบียนเฉพาะ Senior / Manager</p>
     <div id="regInfo" class="hidden" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.5">หลังส่งคำขอ บัญชีจะอยู่สถานะ "รออนุมัติ" จนกว่าผู้ดูแลระบบจะอนุมัติ จึงเข้าสู่ระบบได้</div>
     <div class="field"><label class="label">ชื่อ-นามสกุล (ชื่อในระบบ)</label><input class="input" id="regName" type="text" placeholder="เช่น นางสาวณัฏฐา ..."></div>
@@ -391,11 +392,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=52"></script>
+<script src="config.js?v=53"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=52"></script>
+<script src="app.js?v=53"></script>
 </body>
 </html>
