@@ -1,13 +1,12 @@
 // ============================================================
 //  Edge Function: send-report
-//  ส่งอีเมลแนบไฟล์รายงาน PDF ผ่าน SMTP (ผู้เรียกต้องล็อกอินแล้ว)
+//  ส่งอีเมลแนบไฟล์รายงาน PDF ผ่าน Brevo HTTP API (ผู้เรียกต้องล็อกอินแล้ว)
+//  รองรับภาษาไทย + ไฟล์แนบถูกต้อง 100%
 //  Deploy:  supabase functions deploy send-report
-//  ตั้งความลับ SMTP:
-//    supabase secrets set SMTP_HOST="smtp.gmail.com" SMTP_PORT="465" \
-//      SMTP_USER="you@gmail.com" SMTP_PASS="app-password" SMTP_FROM="you@gmail.com"
+//  ตั้งความลับ:
+//    supabase secrets set BREVO_API_KEY="xkeysib-..." \
+//      SENDER_EMAIL="nattha.b@somapait.com" SENDER_NAME="OSO Evaluation by IMM"
 // ============================================================
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
-
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -15,6 +14,9 @@ const cors = {
 };
 function json(o: unknown, s = 200) {
   return new Response(JSON.stringify(o), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+}
+function esc(s: string) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 Deno.serve(async (req) => {
@@ -34,28 +36,29 @@ Deno.serve(async (req) => {
     const recipients = String(to).split(/[,;]/).map((s) => s.trim()).filter(Boolean);
     if (!recipients.length) return json({ error: "ไม่มีอีเมลผู้รับ" }, 400);
 
-    const host = Deno.env.get("SMTP_HOST");
-    const port = Number(Deno.env.get("SMTP_PORT") || "465");
-    const username = Deno.env.get("SMTP_USER");
-    const password = Deno.env.get("SMTP_PASS");
-    const from = Deno.env.get("SMTP_FROM") || username;
-    if (!host || !username || !password) {
-      return json({ error: "ยังไม่ได้ตั้งค่า SMTP — ตั้ง secrets SMTP_HOST / SMTP_USER / SMTP_PASS (ดู SEND-EMAIL.md)" }, 500);
+    const apiKey = Deno.env.get("BREVO_API_KEY");
+    const senderEmail = Deno.env.get("SENDER_EMAIL");
+    const senderName = Deno.env.get("SENDER_NAME") || "OSO Evaluation by IMM";
+    if (!apiKey || !senderEmail) {
+      return json({ error: "ยังไม่ได้ตั้งค่า BREVO_API_KEY / SENDER_EMAIL (ดู SEND-EMAIL.md)" }, 500);
     }
 
-    const client = new SMTPClient({
-      connection: { hostname: host, port, tls: port === 465, auth: { username, password } },
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": apiKey, "Content-Type": "application/json", "accept": "application/json" },
+      body: JSON.stringify({
+        sender: { email: senderEmail, name: senderName },
+        to: recipients.map((e) => ({ email: e })),
+        subject: subject || "รายงานประเมินเจ้าหน้าที่ Onsite Support",
+        textContent: message || "แนบรายงาน PDF",
+        htmlContent: '<div style="font-family:Tahoma,Arial,sans-serif;white-space:pre-line;font-size:14px;color:#1f2937;line-height:1.6">' + esc(message || "แนบรายงาน PDF") + "</div>",
+        attachment: [{ content: pdfBase64, name: filename || "report.pdf" }],
+      }),
     });
-    await client.send({
-      from: from!,
-      to: recipients,
-      subject: subject || "รายงานประเมินเจ้าหน้าที่ Onsite Support",
-      content: (message || "แนบรายงาน PDF") + "",
-      html: '<div style="font-family:Tahoma,sans-serif;white-space:pre-line;font-size:14px;color:#1f2937">' +
-        String(message || "แนบรายงาน PDF").replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</div>",
-      attachments: [{ filename: filename || "report.pdf", encoding: "base64", content: pdfBase64, contentType: "application/pdf" }],
-    });
-    await client.close();
+    if (!res.ok) {
+      const t = await res.text();
+      return json({ error: "Brevo ปฏิเสธ: " + t.slice(0, 300) }, 500);
+    }
     return json({ ok: true, sent: recipients.length });
   } catch (e) {
     return json({ error: "ส่งอีเมลไม่สำเร็จ: " + String((e as any)?.message || e) }, 500);
