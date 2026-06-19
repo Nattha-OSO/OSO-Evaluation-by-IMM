@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='29';
+const APP_VERSION='30';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -692,7 +692,7 @@ function periodData(start,end){
   const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
   return {records,people,s:summarizeOverall(records,people)};
 }
-function reportStyles(){return '<style>*{box-sizing:border-box}body{font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;margin:0;padding:24px}h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}table{border-collapse:collapse;width:100%;margin:6px 0;font-size:15px}th,td{border:1px solid #d0d7e5;padding:6px 9px;text-align:left;vertical-align:top}thead th{background:#e8f0fc;color:#0b2f6b}.meta th{width:130px;background:#f2f7ff}.kpis{display:flex;gap:10px;margin:8px 0}.kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}ul{margin:6px 0;padding-left:20px}li{margin-bottom:6px}@media print{.noprint{display:none}body{padding:10mm}}</style>';}
+function reportStyles(){return '<style>.rpt{box-sizing:border-box;font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;background:#fff;padding:16px}.rpt *{box-sizing:border-box}.rpt h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.rpt .sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}.rpt h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}.rpt table{border-collapse:collapse;width:100%;margin:6px 0;font-size:15px}.rpt th,.rpt td{border:1px solid #d0d7e5;padding:6px 9px;text-align:left;vertical-align:top}.rpt thead th{background:#e8f0fc;color:#0b2f6b}.rpt .meta th{width:130px;background:#f2f7ff}.rpt .kpis{display:flex;gap:10px;margin:8px 0}.rpt .kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.rpt .kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}.rpt ul{margin:6px 0;padding-left:20px}.rpt li{margin-bottom:6px}.rpt img{max-width:100%;display:block;margin:0 auto}body{margin:0}@media print{.noprint{display:none}}</style>';}
 function buildReportInner(start,end,word,label){
   const {records,people,s}=periodData(start,end);
   const weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
@@ -716,7 +716,7 @@ function buildReportInner(start,end,word,label){
 async function previewReportPDF(start,end,word,label){
   await ensureFresh();
   const w=window.open('','_blank');if(!w)return toast('เบราว์เซอร์บล็อก popup',true);
-  const html='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ตัวอย่างรายงาน</title>'+reportStyles()+'</head><body><div style="max-width:820px;margin:0 auto">'+buildReportInner(start,end,word,label)+'<div class="noprint" style="text-align:center;margin:22px 0"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;background:#2563eb;color:#fff;border:0;border-radius:8px;cursor:pointer">🖨 พิมพ์ / บันทึกเป็น PDF</button></div></div></body></html>';
+  const html='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ตัวอย่างรายงาน</title>'+reportStyles()+'</head><body><div class="rpt" style="max-width:820px;margin:0 auto">'+buildReportInner(start,end,word,label)+'<div class="noprint" style="text-align:center;margin:22px 0"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;background:#2563eb;color:#fff;border:0;border-radius:8px;cursor:pointer">🖨 พิมพ์ / บันทึกเป็น PDF</button></div></div></body></html>';
   w.document.write(html);w.document.close();
 }
 async function emailReportPDF(start,end,word,label,suffix){
@@ -727,11 +727,12 @@ async function emailReportPDF(start,end,word,label,suffix){
   const to=list.join(',');
   if(typeof html2pdf==='undefined')return toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรช',true);
   await ensureFresh();toast('กำลังสร้าง PDF...');
-  const wrap=document.createElement('div');wrap.style.cssText='position:fixed;left:-9999px;top:0;width:820px;background:#fff';
-  wrap.innerHTML=reportStyles()+'<div>'+buildReportInner(start,end,word,label)+'</div>';
+  const wrap=document.createElement('div');wrap.style.cssText='position:absolute;left:-10000px;top:0;width:780px;background:#fff';
+  wrap.innerHTML=reportStyles()+'<div class="rpt">'+buildReportInner(start,end,word,label)+'</div>';
   document.body.appendChild(wrap);
+  await new Promise(r=>setTimeout(r,120));
   try{
-    const opt={margin:8,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}};
+    const opt={margin:8,image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:820},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
     const durl=await html2pdf().set(opt).from(wrap).outputPdf('datauristring');
     const b64=durl.split(',')[1],fname='OSO_Evaluation_'+suffix+'.pdf';
     toast('กำลังส่งอีเมล...');
