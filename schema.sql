@@ -132,6 +132,11 @@ create policy "settings write admin" on public.app_settings for all to authentic
   using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
   with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
+-- ให้ตัวจับเวลา (GitHub Actions) อ่าน "ตารางเวลาส่งรายงาน" แบบ anon ได้ (เฉพาะ key นี้ ไม่มีอีเมลผู้รับ)
+drop policy if exists "sched anon read" on public.app_settings;
+create policy "sched anon read" on public.app_settings for select to anon
+  using (key = 'auto_report_sched');
+
 -- เปิด Realtime ให้ app_settings → ผู้ใช้ที่ออนไลน์อยู่จะได้สิทธิ์ใหม่ทันทีเมื่อ admin บันทึก
 do $$ begin
   begin alter publication supabase_realtime add table public.app_settings; exception when duplicate_object then null; end;

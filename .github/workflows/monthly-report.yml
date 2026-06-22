@@ -1,12 +1,14 @@
 name: Monthly Report (Auto Email)
 
-# ส่งรายงานรายเดือนอัตโนมัติทุกวันที่ 1
-#  - ช่วงข้อมูล: วันที่ 1 ถึงสิ้นเดือนของ "เดือนก่อนหน้า" (คำนวณในเว็บแอป)
-#  - รันเบราว์เซอร์จริง (Chromium headless) เปิดเว็บ -> ล็อกอินบัญชีบอท -> เรียกสร้าง+ส่งรายงาน (DOCX มีกราฟ)
+# ส่งรายงานรายเดือนอัตโนมัติ ตามวัน+เวลาที่ admin ตั้งในเว็บ (เมนู "ตั้งค่าส่งอีเมลอัตโนมัติ")
+#  - ตัวจับเวลาทำงานทุกชั่วโมง แล้วมี "ด่านเช็ก" เบาๆ ก่อน
+#    ถ้ายังไม่ถึงวัน/เวลาที่ตั้งไว้ จะข้าม (ไม่เปิดเบราว์เซอร์ ไม่เปลืองเวลา)
+#  - เมื่อถึงกำหนด: เปิด Chromium จริง -> ล็อกอินบอท -> สร้าง+ส่งรายงาน (DOCX มีกราฟ)
+#  - ข้อมูล: วันที่ 1 ถึงสิ้นเดือนของเดือนก่อนหน้า
 on:
   schedule:
-    - cron: '0 1 1 * *'      # ทุกวันที่ 1 เวลา 01:00 UTC = 08:00 ตามเวลาไทย
-  workflow_dispatch: {}        # กดรันเองได้จากแท็บ Actions (ไว้ทดสอบ)
+    - cron: '0 * * * *'      # ทุกต้นชั่วโมง (UTC) — ด่านเช็กจะกรองตามเวลาไทยที่ตั้งไว้เอง
+  workflow_dispatch: {}        # กดรันเอง = ส่งทันที (ข้ามการเช็กเวลา) ไว้ทดสอบ
 
 jobs:
   send-report:
@@ -20,13 +22,21 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Check schedule
+        id: gate
+        env:
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: node .github/scripts/check-schedule.mjs
+
       - name: Install Playwright (Chromium)
+        if: steps.gate.outputs.go == 'true'
         run: |
           npm init -y
           npm i -D playwright
           npx playwright install --with-deps chromium
 
       - name: Send monthly report
+        if: steps.gate.outputs.go == 'true'
         env:
           APP_URL: ${{ vars.APP_URL || 'https://nattha-oso.github.io/OSO-Evaluation-by-IMM/' }}
           BOT_EMAIL: ${{ secrets.REPORT_BOT_EMAIL }}
