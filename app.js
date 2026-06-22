@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='59';
+const APP_VERSION='60';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -727,19 +727,23 @@ function dKpiCards(cards){
   return '<w:tbl><w:tblPr><w:tblW w:w="'+(w*cards.length)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DCE5F2"/><w:left w:val="single" w:sz="4" w:color="DCE5F2"/><w:bottom w:val="single" w:sz="4" w:color="DCE5F2"/><w:right w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideH w:val="single" w:sz="4" w:color="DCE5F2"/><w:insideV w:val="single" w:sz="4" w:color="DCE5F2"/></w:tblBorders></w:tblPr>'+grid+mk(rows[0],{sz:18,color:'6a7d9b',align:'center'})+mk(rows[1],{sz:34,bold:true,color:'0b2f6b',align:'center'})+mk(rows[2],{sz:18,color:'6a7d9b',align:'center'})+'</w:tbl>'+dPar('',{after:80});
 }
 function chartCanvas(criteriaAvg){
-  const cv=document.createElement('canvas');cv.width=620;cv.height=300;const g=cv.getContext('2d');
+  const cv=document.createElement('canvas');cv.width=620;cv.height=336;const g=cv.getContext('2d');
   g.fillStyle='#ffffff';g.fillRect(0,0,cv.width,cv.height);
-  const pad=44,baseY=250,h=190,bw=70,gap=(cv.width-pad*2-bw*criteria.length)/(criteria.length-1);
-  g.strokeStyle='#e2e8f0';g.fillStyle='#94a3b8';g.font='11px Tahoma';
+  const pad=44,baseY=242,h=188,bw=70,gap=(cv.width-pad*2-bw*criteria.length)/(criteria.length-1);
+  g.strokeStyle='#e2e8f0';g.fillStyle='#94a3b8';g.font='11px Tahoma';g.textAlign='left';
   for(let i=0;i<=5;i++){const y=baseY-h*i/5;g.beginPath();g.moveTo(pad,y);g.lineTo(cv.width-pad,y);g.stroke();g.fillText(String(i),pad-18,y+4);}
+  // ตัดบรรทัดชื่อหัวข้อให้พอดีความกว้างแท่ง (ภาษาไทยตัดตามอักขระ, มีช่องว่างตัดตามคำ) สูงสุด 2 บรรทัด
+  const wrapLabel=(text,maxW)=>{const sp=text.indexOf(' ')>=0;const parts=sp?text.split(/\s+/):text.split('');const sep=sp?' ':'';const lines=[];let cur='';for(const w of parts){const t=cur?cur+sep+w:w;if(g.measureText(t).width<=maxW||!cur)cur=t;else{lines.push(cur);cur=w;}}if(cur)lines.push(cur);if(lines.length>2){let two=lines[1];while(g.measureText(two+'…').width>maxW&&two.length>1)two=two.slice(0,-1);return [lines[0],two+'…'];}return lines;};
   criteria.forEach((c,i)=>{const v=num(criteriaAvg[c.key]);const x=pad+i*(bw+gap);const bh=h*v/5;
     g.fillStyle=c.color;g.fillRect(x,baseY-bh,bw,bh);
     g.fillStyle='#0b2f6b';g.font='bold 13px Tahoma';g.textAlign='center';g.fillText(v.toFixed(2),x+bw/2,baseY-bh-6);
-    g.fillStyle='#475569';g.font='12px Tahoma';g.fillText(String(c.no),x+bw/2,baseY+18);g.textAlign='left';});
+    g.fillStyle='#334155';g.font='11px Tahoma';
+    wrapLabel(c.shortTitle,bw+gap-4).forEach((ln,li)=>g.fillText(ln,x+bw/2,baseY+18+li*14));});
+  g.textAlign='left';
   return cv;
 }
 function chartPng(criteriaAvg){const b64=chartCanvas(criteriaAvg).toDataURL('image/png').split(',')[1];const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr;}
-function dImage(){const cx=620*9525,cy=300*9525;return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="1" name="chart"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="chart.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';}
+function dImage(){const cx=620*9525,cy=336*9525;return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="1" name="chart"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="chart.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';}
 
 function reportPeriod(ym){const now=new Date();const m=String(ym||'').match(/^(\d{4})-(\d{1,2})$/);const year=m?Number(m[1]):now.getFullYear();const month=m?Number(m[2])-1:now.getMonth();const start=new Date(year,month,1),end=new Date(year,month+1,1);return {start,end,label:THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543),fileKey:year+'-'+String(month+1).padStart(2,'0')};}
 
