@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='56';
+const APP_VERSION='57';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -150,7 +150,7 @@ async function loadPerms(notify){
 }
 function applyRoleUI(){
   const show=(id,ok)=>{const n=$(id);if(n)n.classList.toggle('hidden',!ok);};
-  show('navUsers',user.isAdmin); show('navPerms',user.isAdmin); show('navAudit',user.isAdmin);
+  show('navUsers',user.isAdmin); show('navPerms',user.isAdmin); show('navAudit',user.isAdmin); show('navAutoReport',user.isAdmin);
   show('navDirectory',user.isAdmin||can('manage_directory'));
   show('btnReportTop',can('view_reports')); show('btnReportNav',can('view_reports')); show('btnCsvNav',can('view_reports'));
   if($('userRole'))$('userRole').textContent=user.role||'-';
@@ -369,13 +369,13 @@ function startRealtime(){
 function liveRefresh(){clearTimeout(liveT);liveT=setTimeout(async()=>{try{data=await loadData();if(['dashboard','evaluations','people','insights'].indexOf(view)>=0)render();toast('อัปเดตข้อมูลล่าสุดแล้ว');}catch(e){}},800);}
 function hydrateUser(){$('userName').textContent=user.displayName||user.email;$('userRole').textContent=user.role;$('avatar').textContent=(user.displayName||'U').slice(0,1).toUpperCase();if($('appVer'))$('appVer').textContent='เวอร์ชัน '+APP_VERSION;}
 function showView(v,btn){
-  if((v==='users'||v==='perms'||v==='audit')&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}
+  if((v==='users'||v==='perms'||v==='audit'||v==='autoreport')&&!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin) เท่านั้น',true);return;}
   if(v==='directory'&&!(user.isAdmin||can('manage_directory'))){toast('คุณไม่มีสิทธิ์จัดการรายชื่อ',true);return;}
   view=v;document.querySelectorAll('.nav button[data-view]').forEach(b=>b.classList.toggle('active',b===btn));closeSide();render();
 }
 function toggleSide(){const open=$('side').classList.toggle('open');const b=$('sideBackdrop');if(b)b.classList.toggle('open',open);}
 function closeSide(){$('side').classList.remove('open');const b=$('sideBackdrop');if(b)b.classList.remove('open');}
-function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ',perms:'จัดการสิทธิ์',audit:'บันทึกการใช้งานระบบ',help:'คู่มือการใช้งาน'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers,perms:renderPerms,audit:renderAudit,help:renderHelp}[view]||renderDashboard)();}
+function render(){const t={dashboard:'แดชบอร์ด',evaluations:'รายการประเมิน',people:'สรุปรายเจ้าหน้าที่',insights:'วิเคราะห์ภาพรวม',directory:'จัดการรายชื่อ',users:'จัดการผู้ใช้ระบบ',perms:'จัดการสิทธิ์',audit:'บันทึกการใช้งานระบบ',autoreport:'ตั้งค่าส่งอีเมลอัตโนมัติ',help:'คู่มือการใช้งาน'};$('pageTitle').textContent=t[view]||'แดชบอร์ด';({dashboard:renderDashboard,evaluations:renderEvaluations,people:renderPeople,insights:renderInsights,directory:renderDirectory,users:renderUsers,perms:renderPerms,audit:renderAudit,autoreport:renderAutoReport,help:renderHelp}[view]||renderDashboard)();}
 function stat(a,b,c,color){return '<div class="stat"><div class="stat-label">'+a+'</div><div class="stat-num" style="color:'+color+'">'+b+'</div><div class="mini">'+(c||'')+'</div></div>';}
 
 // ---------- แดชบอร์ด ----------
@@ -932,21 +932,70 @@ async function emailReportPDF(start,end,word,label,suffix){
 async function sendAutoMonthly(recipientsCsv){
   try{
     if(!sb)return {ok:false,error:'ยังไม่ได้ตั้งค่า Supabase'};
+    const cfg=await loadAutoReport();
+    if(cfg.enabled!==true)return {ok:true,skipped:true,message:'ปิดการส่งอัตโนมัติอยู่ (เปิดได้ที่เมนู "ตั้งค่าส่งอีเมลอัตโนมัติ")'};
     const now=new Date();
     const start=new Date(now.getFullYear(),now.getMonth()-1,1);   // วันที่ 1 เดือนก่อนหน้า
     const end=new Date(now.getFullYear(),now.getMonth(),1);       // วันที่ 1 เดือนปัจจุบัน (ไม่รวม)
     const word='ประจำเดือน';
     const label=THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543);
     const suffix=start.getFullYear()+'-'+String(start.getMonth()+1).padStart(2,'0');
-    const list=String(recipientsCsv||'').normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase().split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+    // ใช้ผู้รับจากการตั้งค่าในเว็บก่อน ถ้าไม่มีจึงใช้ค่าที่ส่งมา (secret REPORT_RECIPIENTS)
+    const src=((cfg.recipients||'').trim())||String(recipientsCsv||'');
+    const list=src.normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase().split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
     const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
     const valid=list.filter(e=>reMail.test(e));
-    if(!valid.length)return {ok:false,error:'ไม่มีอีเมลผู้รับที่ถูกต้อง'};
+    if(!valid.length)return {ok:false,error:'ไม่มีอีเมลผู้รับที่ถูกต้อง (ตั้งในเมนู "ตั้งค่าส่งอีเมลอัตโนมัติ" หรือ secret REPORT_RECIPIENTS)'};
     const r=await emailReport(valid.join(','),start,end,word,label,suffix);
     return Object.assign({period:label,recipients:valid},r);
   }catch(e){return {ok:false,error:String((e&&e.message)||e)};}
 }
 window.sendAutoMonthly=sendAutoMonthly;
+// ---------- ตั้งค่าส่งอีเมลอัตโนมัติ (เฉพาะ admin) ----------
+async function loadAutoReport(){
+  try{const {data}=await sb.from('app_settings').select('value').eq('key','auto_report').maybeSingle();return (data&&data.value)||{};}catch(e){return {};}
+}
+async function renderAutoReport(){
+  if(!user.isAdmin){toast('เฉพาะผู้ดูแลระบบ (admin)',true);view='dashboard';return render();}
+  $('content').innerHTML=LOADING;
+  const cfg=await loadAutoReport();
+  const enabled=cfg.enabled===true;
+  const recipients=esc(cfg.recipients||'');
+  $('content').innerHTML=
+    '<div class="panel"><div class="panel-title">ตั้งค่าส่งรายงานรายเดือนอัตโนมัติ</div>'+
+    '<div class="mini" style="margin:6px 0 14px;line-height:1.7">ระบบจะส่งรายงาน <b>DOCX พร้อมกราฟ</b> ทางอีเมลอัตโนมัติ <b>ทุกวันที่ 1 ของเดือน (~08:00 น.)</b> โดยใช้ข้อมูล <b>วันที่ 1 ถึงสิ้นเดือนของเดือนก่อนหน้า</b></div>'+
+    '<label style="display:flex;align-items:center;gap:10px;background:#f2f7ff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;margin-bottom:14px">'+
+      '<input type="checkbox" id="arEnabled" '+(enabled?'checked':'')+' style="width:20px;height:20px;cursor:pointer"><span><b>เปิดการส่งอัตโนมัติ</b> — เมื่อปิด ระบบจะไม่ส่งรายงานประจำเดือน</span></label>'+
+    '<div class="field"><label class="label">อีเมลผู้รับรายงาน (หลายคนคั่นด้วย , )</label><textarea class="input" id="arRecipients" style="min-height:80px" placeholder="name@example.com, name2@example.com">'+recipients+'</textarea></div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px"><button class="btn primary" onclick="saveAutoReport()">บันทึกการตั้งค่า</button><button class="btn" onclick="testAutoReport()">✉ ทดสอบส่งทันที (เดือนก่อนหน้า)</button></div>'+
+    '<div class="mini" style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 13px;line-height:1.7">📌 ต้องตั้งค่า <b>GitHub Secrets</b> (บัญชีบอท) และ <b>Brevo</b> ให้เรียบร้อยก่อน ดูขั้นตอนใน <code>AUTO-REPORT.md</code><br>• ผู้รับที่ตั้งในหน้านี้จะ<b>ถูกใช้ก่อน</b> ค่าใน secret REPORT_RECIPIENTS<br>• เปลี่ยนวัน/เวลา ส่ง แก้ที่ไฟล์ <code>.github/workflows/monthly-report.yml</code></div>'+
+    '</div>';
+}
+async function saveAutoReport(){
+  const enabled=$('arEnabled').checked;
+  const recipients=($('arRecipients').value||'').trim();
+  const {error}=await sb.from('app_settings').upsert({key:'auto_report',value:{enabled,recipients},updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(error)return toast('บันทึกไม่สำเร็จ: '+error.message,true);
+  logAction('update','auto_report',(enabled?'เปิด':'ปิด')+' · '+recipients);
+  toast('บันทึกการตั้งค่าแล้ว');
+}
+async function testAutoReport(){
+  const recipients=($('arRecipients').value||'').trim();
+  if(!recipients)return toast('กรุณากรอกอีเมลผู้รับก่อนทดสอบ',true);
+  const now=new Date();
+  const start=new Date(now.getFullYear(),now.getMonth()-1,1),end=new Date(now.getFullYear(),now.getMonth(),1);
+  const label=THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543);
+  if(!confirm('ส่งรายงานทดสอบ ('+label+') ไปยัง:\n'+recipients+' ?'))return;
+  const suffix=start.getFullYear()+'-'+String(start.getMonth()+1).padStart(2,'0');
+  const list=recipients.normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase().split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+  const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+  const valid=list.filter(e=>reMail.test(e));
+  if(!valid.length)return toast('อีเมลผู้รับไม่ถูกต้อง',true);
+  toast('กำลังส่งรายงานทดสอบ...');
+  const r=await emailReport(valid.join(','),start,end,'ประจำเดือน',label,suffix);
+  if(!r.ok)return toast('ส่งไม่สำเร็จ: '+(r.error||''),true);
+  toast('ส่งรายงานทดสอบแล้ว → '+valid.join(', '));
+}
 
 /* ============================================================
    รายงานรายเจ้าหน้าที่ (PDF ผ่านการพิมพ์ของเบราว์เซอร์)

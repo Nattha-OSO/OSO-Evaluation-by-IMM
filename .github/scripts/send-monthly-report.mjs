@@ -41,7 +41,8 @@ try {
   console.log('ผลลัพธ์:', JSON.stringify(result));
 
   if (!result || !result.ok) fail('ส่งรายงานไม่สำเร็จ: ' + (result && result.error || 'unknown'));
-  console.log('✅ ส่งรายงาน ' + (result.period || '') + ' ไปยัง: ' + (result.recipients || []).join(', '));
+  if (result.skipped) console.log('⏭️ ข้ามการส่ง: ' + (result.message || 'ปิดอยู่'));
+  else console.log('✅ ส่งรายงาน ' + (result.period || '') + ' ไปยัง: ' + (result.recipients || []).join(', '));
 } catch (e) {
   fail(String(e && e.message || e));
 } finally {
