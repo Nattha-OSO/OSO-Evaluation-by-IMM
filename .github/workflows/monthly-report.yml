@@ -1,0 +1,35 @@
+name: Monthly Report (Auto Email)
+
+# ส่งรายงานรายเดือนอัตโนมัติทุกวันที่ 1
+#  - ช่วงข้อมูล: วันที่ 1 ถึงสิ้นเดือนของ "เดือนก่อนหน้า" (คำนวณในเว็บแอป)
+#  - รันเบราว์เซอร์จริง (Chromium headless) เปิดเว็บ -> ล็อกอินบัญชีบอท -> เรียกสร้าง+ส่งรายงาน (DOCX มีกราฟ)
+on:
+  schedule:
+    - cron: '0 1 1 * *'      # ทุกวันที่ 1 เวลา 01:00 UTC = 08:00 ตามเวลาไทย
+  workflow_dispatch: {}        # กดรันเองได้จากแท็บ Actions (ไว้ทดสอบ)
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright (Chromium)
+        run: |
+          npm init -y
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+
+      - name: Send monthly report
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://nattha-oso.github.io/OSO-Evaluation-by-IMM/' }}
+          BOT_EMAIL: ${{ secrets.REPORT_BOT_EMAIL }}
+          BOT_PASSWORD: ${{ secrets.REPORT_BOT_PASSWORD }}
+          REPORT_RECIPIENTS: ${{ secrets.REPORT_RECIPIENTS }}
+        run: node .github/scripts/send-monthly-report.mjs

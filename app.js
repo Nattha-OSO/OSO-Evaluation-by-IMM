@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='55';
+const APP_VERSION='56';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -889,40 +889,64 @@ async function previewReportPDF(start,end,word,label){
   const html='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ตัวอย่างรายงาน</title>'+reportStyles()+'</head><body><div class="rpt" style="max-width:820px;margin:0 auto">'+buildReportInner(start,end,word,label)+'<div class="noprint" style="text-align:center;margin:22px 0"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;background:#2563eb;color:#fff;border:0;border-radius:8px;cursor:pointer">🖨 พิมพ์ / บันทึกเป็น PDF</button></div></div></body></html>';
   w.document.write(html);w.document.close();
 }
+// แกนกลางสร้าง DOCX + ส่งอีเมล (ใช้ทั้งกดเอง และส่งอัตโนมัติ) — คืน {ok,sent}/{ok:false,error}
+async function emailReport(to,start,end,word,label,suffix){
+  await ensureFresh();
+  const dblob=await buildReportDocxBlob(start,end,word,label);
+  if(!dblob)return {ok:false,error:'สร้างไฟล์ DOCX ไม่สำเร็จ'};
+  const docxB64=await blobToB64(dblob);
+  if(!docxB64)return {ok:false,error:'แปลงไฟล์ DOCX ไม่สำเร็จ'};
+  const pd=periodData(start,end),s=pd.s,weak=criteria.find(c=>c.key===s.lowestKey);
+  const wd=pd.people.filter(p=>p.count),maxAvg=wd.length?Math.max.apply(null,wd.map(p=>p.avg)):0,stars=wd.filter(p=>Math.abs(p.avg-maxAvg)<0.005).map(p=>p.name);
+  const signer=user.displayName||user.email;
+  const subject='รายงานประเมิน Onsite Support '+word+' '+label;
+  const msg='เรียน ผู้เกี่ยวข้อง\n\n'+
+    'สรุปผลการประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label+'\n'+
+    '• จำนวนการประเมิน: '+s.total+' รายการ\n'+
+    '• เจ้าหน้าที่ที่ถูกประเมิน: '+s.evaluated+' คน\n'+
+    '• คะแนนเฉลี่ยรวม: '+fmt(s.avgScore)+' / 5 (ระดับ '+s.band+')\n'+
+    '• หัวข้อที่ควรติดตาม: '+(weak?weak.shortTitle:'-')+'\n'+
+    (stars.length?'• เจ้าหน้าที่ต้นแบบ: '+stars.join(', ')+' (คะแนน '+fmt(maxAvg)+')\n':'')+
+    '\nรายละเอียดทั้งหมดอยู่ในไฟล์ DOCX ที่แนบมาพร้อมอีเมลนี้\n\n'+
+    'ขอแสดงความนับถือ\n'+signer;
+  const atts=[{content:docxB64,name:'OSO_Evaluation_'+suffix+'.docx'}];
+  const r=await callFn('send-report',{to:to,subject:subject,attachments:atts,message:msg});
+  if(r.error)return {ok:false,error:r.error};
+  logAction('email','report',to+' / '+label+' (DOCX)');
+  return {ok:true,sent:to};
+}
 async function emailReportPDF(start,end,word,label,suffix){
   // กรองอักขระซ่อน/ที่ไม่ใช่ ASCII ออก แล้วตรวจรูปแบบอีเมลแต่ละตัว
   const list=($('rptEmail').value||'').normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase().split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
   const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
   if(!list.length||!list.every(e=>reMail.test(e)))return toast('อีเมลผู้รับไม่ถูกต้อง: '+(list.join(', ')||'(ว่าง)'),true);
   const to=list.join(',');
-  await ensureFresh();toast('กำลังสร้างรายงาน DOCX...');
+  toast('กำลังสร้างรายงาน DOCX...');
   try{
-    // แนบเฉพาะ DOCX (ตัด PDF ออกตามที่กำหนด)
-    const dblob=await buildReportDocxBlob(start,end,word,label);
-    if(!dblob)return toast('สร้างไฟล์ DOCX ไม่สำเร็จ',true);
-    const docxB64=await blobToB64(dblob);
-    if(!docxB64)return toast('แปลงไฟล์ DOCX ไม่สำเร็จ',true);
-    toast('กำลังส่งอีเมล...');
-    // สรุปผลแบบอ่านง่ายในเนื้อหาอีเมล
-    const pd=periodData(start,end),s=pd.s,weak=criteria.find(c=>c.key===s.lowestKey);
-    const wd=pd.people.filter(p=>p.count),maxAvg=wd.length?Math.max.apply(null,wd.map(p=>p.avg)):0,stars=wd.filter(p=>Math.abs(p.avg-maxAvg)<0.005).map(p=>p.name);
-    const signer=user.displayName||user.email;
-    const subject='รายงานประเมิน Onsite Support '+word+' '+label;
-    const msg='เรียน ผู้เกี่ยวข้อง\n\n'+
-      'สรุปผลการประเมินเจ้าหน้าที่ Onsite Support '+word+' '+label+'\n'+
-      '• จำนวนการประเมิน: '+s.total+' รายการ\n'+
-      '• เจ้าหน้าที่ที่ถูกประเมิน: '+s.evaluated+' คน\n'+
-      '• คะแนนเฉลี่ยรวม: '+fmt(s.avgScore)+' / 5 (ระดับ '+s.band+')\n'+
-      '• หัวข้อที่ควรติดตาม: '+(weak?weak.shortTitle:'-')+'\n'+
-      (stars.length?'• เจ้าหน้าที่ต้นแบบ: '+stars.join(', ')+' (คะแนน '+fmt(maxAvg)+')\n':'')+
-      '\nรายละเอียดทั้งหมดอยู่ในไฟล์ DOCX ที่แนบมาพร้อมอีเมลนี้\n\n'+
-      'ขอแสดงความนับถือ\n'+signer;
-    const atts=[{content:docxB64,name:'OSO_Evaluation_'+suffix+'.docx'}];
-    const r=await callFn('send-report',{to:to,subject:subject,attachments:atts,message:msg});
-    if(r.error)return toast('ส่งไม่สำเร็จ: '+r.error,true);
-    logAction('email','report',to+' / '+label+' (DOCX)');toast('ส่งอีเมลแล้ว (DOCX) → '+to);closeReport();
+    const r=await emailReport(to,start,end,word,label,suffix);
+    if(!r.ok)return toast('ส่งไม่สำเร็จ: '+(r.error||''),true);
+    toast('ส่งอีเมลแล้ว (DOCX) → '+to);closeReport();
   }catch(e){toast('สร้าง/ส่งรายงานไม่สำเร็จ: '+((e&&e.message)||e),true);}
 }
+// ส่งรายงานรายเดือนอัตโนมัติ (ช่วงวันที่ 1 ถึงสิ้นเดือนของเดือนก่อนหน้า) — เรียกจาก GitHub Actions
+async function sendAutoMonthly(recipientsCsv){
+  try{
+    if(!sb)return {ok:false,error:'ยังไม่ได้ตั้งค่า Supabase'};
+    const now=new Date();
+    const start=new Date(now.getFullYear(),now.getMonth()-1,1);   // วันที่ 1 เดือนก่อนหน้า
+    const end=new Date(now.getFullYear(),now.getMonth(),1);       // วันที่ 1 เดือนปัจจุบัน (ไม่รวม)
+    const word='ประจำเดือน';
+    const label=THAI_MONTHS[start.getMonth()]+' '+(start.getFullYear()+543);
+    const suffix=start.getFullYear()+'-'+String(start.getMonth()+1).padStart(2,'0');
+    const list=String(recipientsCsv||'').normalize('NFKC').replace(/[^\x21-\x7E]/g,'').toLowerCase().split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+    const reMail=/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+    const valid=list.filter(e=>reMail.test(e));
+    if(!valid.length)return {ok:false,error:'ไม่มีอีเมลผู้รับที่ถูกต้อง'};
+    const r=await emailReport(valid.join(','),start,end,word,label,suffix);
+    return Object.assign({period:label,recipients:valid},r);
+  }catch(e){return {ok:false,error:String((e&&e.message)||e)};}
+}
+window.sendAutoMonthly=sendAutoMonthly;
 
 /* ============================================================
    รายงานรายเจ้าหน้าที่ (PDF ผ่านการพิมพ์ของเบราว์เซอร์)
