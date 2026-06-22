@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='58';
+const APP_VERSION='59';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -784,7 +784,7 @@ async function buildReportDocxBlob(startDate,endDate,periodWord,periodLabel){
   body+=pr.length?dTable([['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ร้อยละ','ระดับ']].concat(pr),[700,3000,1200,1300,1300,1500]):dPar('ไม่มีข้อมูลรายบุคคลในรอบรายงานนี้',{color:'6a7d9b'});
   body+=dHeading('ข้อเสนอแนะทั้งหมดในรอบรายงาน');
   const cm=records.filter(r=>r.comment);
-  if(cm.length)cm.forEach(r=>{body+=dPar(r.staff+' ('+r.evaluator+') — '+r.timestamp,{sz:18,bold:true,color:'0b2f6b',before:80,after:20});body+=dPar(r.comment,{fill:'F4F6F9'});});
+  if(cm.length)cm.forEach(r=>{body+=dPar(r.staff,{sz:18,bold:true,color:'0b2f6b',before:80,after:20});body+=dPar(r.comment,{fill:'F4F6F9'});});
   else body+=dPar('ไม่มีข้อเสนอแนะในรอบรายงานนี้',{color:'6a7d9b'});
 
   const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'+body+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="900" w:bottom="900" w:left="900"/></w:sectPr></w:body></w:document>';
@@ -881,7 +881,7 @@ function buildReportInner(start,end,word,label){
   h+='<h2>ข้อเสนอแนะเชิงบริหาร</h2><ol>'+recHtml.map(x=>'<li>'+x+'</li>').join('')+'</ol>';
   h+='<h2>รายละเอียดสรุปรายบุคคล</h2>'+tbl(['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ร้อยละ','ระดับ'],people.filter(p=>p.count).map((p,i)=>[i+1,esc(p.name),p.count,fmt(p.avg),pctTxt(p.avg),esc(p.band)]),['7%','34%','13%','16%','15%','15%']);
   const cm=records.filter(r=>r.comment);
-  h+='<h2>ข้อเสนอแนะทั้งหมดในรอบรายงาน</h2>'+(cm.length?'<ul>'+cm.map(r=>'<li><b>'+esc(r.staff)+'</b> ('+esc(r.evaluator)+') — '+esc(r.timestamp)+'<br>'+esc(r.comment)+'</li>').join('')+'</ul>':'<p style="color:#888">ไม่มีข้อเสนอแนะในรอบรายงานนี้</p>');
+  h+='<h2>ข้อเสนอแนะทั้งหมดในรอบรายงาน</h2>'+(cm.length?'<ul>'+cm.map(r=>'<li><b>'+esc(r.staff)+'</b><br>'+esc(r.comment)+'</li>').join('')+'</ul>':'<p style="color:#888">ไม่มีข้อเสนอแนะในรอบรายงานนี้</p>');
   return h;
 }
 async function previewReportPDF(start,end,word,label){
