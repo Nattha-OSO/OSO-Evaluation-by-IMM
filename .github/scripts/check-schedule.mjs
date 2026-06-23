@@ -30,7 +30,10 @@ try {
 
   const th = new Date(Date.now() + 7 * 3600 * 1000);  // เวลาไทย (UTC+7)
   const day = th.getUTCDate(), hour = th.getUTCHours();
-  const wantDay = Number(cfg.day || 1), wantHour = (cfg.hour != null ? Number(cfg.hour) : 8);
+  // จำนวนวันของเดือนนี้ (ตามเวลาไทย) — ถ้าตั้ง 29–31 แต่เดือนสั้นกว่า ให้ใช้วันสุดท้ายของเดือน
+  const daysInMonth = new Date(Date.UTC(th.getUTCFullYear(), th.getUTCMonth() + 1, 0)).getUTCDate();
+  let wantDay = Number(cfg.day || 1); if (wantDay > daysInMonth) wantDay = daysInMonth;
+  const wantHour = (cfg.hour != null ? Number(cfg.hour) : 8);
   const nowStr = 'วันที่ ' + day + ' ' + String(hour).padStart(2, '0') + ':00';
   const wantStr = 'วันที่ ' + wantDay + ' ' + String(wantHour).padStart(2, '0') + ':00';
   if (day === wantDay && hour === wantHour) setOut(true, 'ถึงกำหนดส่ง (' + wantStr + ' ไทย)');

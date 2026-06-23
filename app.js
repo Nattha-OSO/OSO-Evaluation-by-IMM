@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='61';
+const APP_VERSION='62';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -967,7 +967,7 @@ async function renderAutoReport(){
   const enabled=cfg.enabled===true;
   const recipients=esc(cfg.recipients||'');
   const day=Number(cfg.day||1),hour=(cfg.hour!=null?Number(cfg.hour):8);
-  const dayOpts=Array.from({length:28},(_,i)=>i+1).map(d=>'<option value="'+d+'"'+(d===day?' selected':'')+'>'+d+'</option>').join('');
+  const dayOpts=Array.from({length:31},(_,i)=>i+1).map(d=>'<option value="'+d+'"'+(d===day?' selected':'')+'>'+d+(d>=29?' (หรือวันสุดท้ายของเดือน)':'')+'</option>').join('');
   const hourOpts=Array.from({length:24},(_,i)=>i).map(hh=>'<option value="'+hh+'"'+(hh===hour?' selected':'')+'>'+String(hh).padStart(2,'0')+':00 น.</option>').join('');
   $('content').innerHTML=
     '<div class="panel"><div class="panel-title">ตั้งค่าส่งรายงานรายเดือนอัตโนมัติ</div>'+
@@ -976,6 +976,7 @@ async function renderAutoReport(){
       '<input type="checkbox" id="arEnabled" '+(enabled?'checked':'')+' style="width:20px;height:20px;cursor:pointer"><span><b>เปิดการส่งอัตโนมัติ</b> — เมื่อปิด ระบบจะไม่ส่งรายงานประจำเดือน</span></label>'+
     '<div class="form-grid"><div class="field"><label class="label">ส่งทุกวันที่ (ของเดือน)</label><select class="input" id="arDay">'+dayOpts+'</select></div>'+
       '<div class="field"><label class="label">เวลาที่ส่ง (เวลาไทย)</label><select class="input" id="arHour">'+hourOpts+'</select></div></div>'+
+    '<div class="mini" style="margin:-6px 0 10px">เลือกวันที่ 29–31 ได้ — เดือนที่ไม่มีวันนั้น ระบบจะส่งใน<b>วันสุดท้ายของเดือน</b>ให้อัตโนมัติ</div>'+
     '<div class="field"><label class="label">อีเมลผู้รับรายงาน (หลายคนคั่นด้วย , )</label><textarea class="input" id="arRecipients" style="min-height:80px" placeholder="name@example.com, name2@example.com">'+recipients+'</textarea></div>'+
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px"><button class="btn primary" onclick="saveAutoReport()">บันทึกการตั้งค่า</button><button class="btn" onclick="testAutoReport()">✉ ทดสอบส่งทันที (เดือนก่อนหน้า)</button></div>'+
     '<div class="mini" style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 13px;line-height:1.7">📌 ต้องตั้งค่า <b>GitHub Secrets</b> (บัญชีบอท) และ <b>Brevo</b> ให้เรียบร้อยก่อน ดูขั้นตอนใน <code>AUTO-REPORT.md</code><br>• ตัวจับเวลา (GitHub Actions) ทำงานทุกชั่วโมง แล้วส่งเมื่อถึง <b>วันและเวลา</b> ที่ตั้งไว้ (นาทีเป็น :00 เสมอ)<br>• ผู้รับที่ตั้งในหน้านี้จะ<b>ถูกใช้ก่อน</b> ค่าใน secret REPORT_RECIPIENTS</div>'+
