@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='69';
+const APP_VERSION='70';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -1004,6 +1004,14 @@ async function sendAutoMonthly(recipientsCsv,force){
     const valid=list.filter(e=>reMail.test(e));
     if(!valid.length)return {ok:false,error:'ไม่มีอีเมลผู้รับที่ถูกต้อง (ตั้งในเมนู "ตั้งค่าส่งอีเมลอัตโนมัติ" หรือ secret REPORT_RECIPIENTS)'};
     const r=await emailReport(valid.join(','),start,end,word,label,suffix);
+    // บันทึกว่า "ส่งของเดือนนี้แล้ว" เฉพาะรอบอัตโนมัติ (ไม่ใช่กดทดสอบ force) — กันส่งซ้ำในเดือนเดียวกัน
+    if(r&&r.ok&&!force){
+      try{
+        const thNow=new Date(Date.now()+7*3600*1000);
+        const monthKey=thNow.getUTCFullYear()+'-'+String(thNow.getUTCMonth()+1).padStart(2,'0');
+        await sb.from('app_settings').update({value:{enabled:cfg.enabled,day:cfg.day,hour:cfg.hour,lastSent:monthKey},updated_at:new Date().toISOString()}).eq('key','auto_report_sched');
+      }catch(e){}
+    }
     return Object.assign({period:label,recipients:valid},r);
   }catch(e){return {ok:false,error:String((e&&e.message)||e)};}
 }
@@ -1039,10 +1047,12 @@ async function saveAutoReport(){
   const recipients=($('arRecipients').value||'').trim();
   const day=Number($('arDay').value)||1, hour=Number($('arHour').value)||0;
   const ts=new Date().toISOString();
+  // คงค่า "ส่งแล้วเดือนไหน" (lastSent) ไว้ เพื่อไม่ให้บันทึกตั้งค่าทำให้ส่งซ้ำในเดือนเดียวกัน
+  let lastSent=null;try{const {data:pv}=await sb.from('app_settings').select('value').eq('key','auto_report_sched').maybeSingle();lastSent=(pv&&pv.value&&pv.value.lastSent)||null;}catch(e){}
   // เก็บค่าเต็ม (รวมอีเมล) — อ่านได้เฉพาะผู้ล็อกอิน
   const r1=await sb.from('app_settings').upsert({key:'auto_report',value:{enabled,recipients,day,hour},updated_at:ts},{onConflict:'key'});
   // เก็บเฉพาะตารางเวลา (ไม่มีอีเมล) — ให้ตัวจับเวลาอ่านแบบ anon ได้
-  const r2=await sb.from('app_settings').upsert({key:'auto_report_sched',value:{enabled,day,hour},updated_at:ts},{onConflict:'key'});
+  const r2=await sb.from('app_settings').upsert({key:'auto_report_sched',value:{enabled,day,hour,lastSent},updated_at:ts},{onConflict:'key'});
   if(r1.error||r2.error)return toast('บันทึกไม่สำเร็จ: '+((r1.error||r2.error).message),true);
   logAction('update','auto_report',(enabled?'เปิด':'ปิด')+' · วันที่ '+day+' '+String(hour).padStart(2,'0')+':00 · '+recipients);
   toast('บันทึกการตั้งค่าแล้ว');

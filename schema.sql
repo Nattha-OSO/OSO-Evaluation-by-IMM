@@ -151,6 +151,12 @@ drop policy if exists "sched anon read" on public.app_settings;
 create policy "sched anon read" on public.app_settings for select to anon
   using (key = 'auto_report_sched');
 
+-- ให้บัญชีบอท (role ที่อนุมัติ) อัปเดต "ส่งแล้วเดือนไหน" (lastSent) ได้ เฉพาะ key ตารางเวลา
+drop policy if exists "sched role write" on public.app_settings;
+create policy "sched role write" on public.app_settings for update to authenticated
+  using (key = 'auto_report_sched' and (auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'))
+  with check (key = 'auto_report_sched' and (auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','senior','manager'));
+
 -- เปิด Realtime ให้ app_settings → ผู้ใช้ที่ออนไลน์อยู่จะได้สิทธิ์ใหม่ทันทีเมื่อ admin บันทึก
 do $$ begin
   begin alter publication supabase_realtime add table public.app_settings; exception when duplicate_object then null; end;
