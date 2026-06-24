@@ -67,14 +67,11 @@ drop policy if exists "authed write shifts" on public.shifts;
 create policy "authed write shifts" on public.shifts for all to authenticated using (true) with check (true);
 
 -- ============================================================
---  ข้อมูลตัวอย่างเริ่มต้น (ลบออกได้ตามต้องการ)
+--  (เอาออกแล้ว) ข้อมูลตัวอย่างเริ่มต้น
+--  เดิมมี insert ชื่อตัวอย่าง (ผลัด A/B/C, สมชาย/สมหญิง/อนุชา) ซึ่งทำให้
+--  ทุกครั้งที่รัน schema.sql ซ้ำ ชื่อตัวอย่างจะกลับมาอีก — จึงลบบล็อกนี้ออก
+--  ถ้าต้องการข้อมูลตัวอย่าง ให้เพิ่มเองในเมนู "จัดการรายชื่อ"
 -- ============================================================
-insert into public.shifts (name) values ('ผลัด A'), ('ผลัด B'), ('ผลัด C')
-  on conflict (name) do nothing;
-
-insert into public.staff (name) values
-  ('สมชาย ใจดี'), ('สมหญิง รักงาน'), ('อนุชา ตั้งใจ')
-  on conflict (name) do nothing;
 
 -- ============================================================
 --  (ทางเลือก) กันชื่อซ้ำที่ระดับฐานข้อมูล — เทียบแบบ normalize

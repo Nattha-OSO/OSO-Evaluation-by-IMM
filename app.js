@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='72';
+const APP_VERSION='73';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -325,21 +325,18 @@ function summarizePerson(name,records){
   const latestTime=latestRow?new Date(latestRow.timestampRaw).getTime()||0:0;
   return {name,count:rows.length,avg,band:scoreBand(avg),criteria:crit,latest:latestRow?latestRow.timestamp:'',latestTime,trend:last-first,lastComment:latestRow?latestRow.comment:''};
 }
-// คะแนนจัดอันดับ (ถ่วงน้ำหนักจำนวนครั้ง แบบ Bayesian): ประเมินหลายครั้ง+คะแนนสูง = อันดับดีกว่าประเมินครั้งเดียว
-// คนยังไม่มีการประเมิน (count=0) ให้อยู่ท้ายสุด
-function rankScoreOf(p,m){if(!p||!p.count)return -1;const C=5;return (C*m + p.avg*p.count)/(C+p.count);}
-// จัดอันดับรายคน: ติด _rank ให้ทุกคน แล้วเรียง rank มาก->น้อย, เท่ากันเรียงจากเวลาประเมินล่าสุด (ใหม่ก่อน), แล้วชื่อ
+// จัดอันดับรายคนแบบเข้าใจง่าย:
+//  1) คะแนนเฉลี่ยมาก -> น้อย  2) คะแนนเท่ากัน คนประเมินมากกว่าอยู่บน  3) เท่ากันอีก เรียงจากเวลาประเมินล่าสุด  4) ชื่อ
+//  (คนยังไม่มีการประเมิน count=0 จะมี avg=0 จึงอยู่ท้ายสุดเอง)
 function rankPeople(people,records){
-  const m=records.length?avgArr(records.map(r=>r.avg)):0;
-  people.forEach(p=>{p._rank=rankScoreOf(p,m);});
-  return people.sort((a,b)=>(b._rank-a._rank)||((b.latestTime||0)-(a.latestTime||0))||a.name.localeCompare(b.name,'th'));
+  return people.sort((a,b)=>(b.avg-a.avg)||(b.count-a.count)||((b.latestTime||0)-(a.latestTime||0))||a.name.localeCompare(b.name,'th'));
 }
 function summarizeOverall(records,people){
   const total=records.length,evaluated=people.filter(p=>p.count).length,avgScore=total?avgArr(records.map(r=>r.avg)):0,criteriaAvg={};
   criteria.forEach(c=>criteriaAvg[c.key]=avgArr(records.map(r=>r.scores[c.key].value).filter(Number))||0);
   const lowest=criteria.slice().sort((a,b)=>(criteriaAvg[a.key]||0)-(criteriaAvg[b.key]||0))[0];
   const top=people.filter(p=>p.count).slice(0,5);
-  const risks=people.filter(p=>p.count&&p.avg<3.5).slice().sort((a,b)=>((a._rank||0)-(b._rank||0))||((b.latestTime||0)-(a.latestTime||0))).slice(0,5);
+  const risks=people.filter(p=>p.count&&p.avg<3.5).slice().sort((a,b)=>(a.avg-b.avg)||(b.count-a.count)).slice(0,5);
   const evaluators={};records.forEach(r=>evaluators[r.evaluator]=(evaluators[r.evaluator]||0)+1);
   return {total,evaluated,avgScore,band:scoreBand(avgScore),criteriaAvg,lowestKey:lowest?lowest.key:'',top,risks,evaluators};
 }
@@ -441,7 +438,7 @@ function renderHelp(){
     '<b>5 หัวข้อการประเมิน:</b>'+ul(critList)+
     '<br><b>ระดับคะแนนแต่ละหัวข้อ:</b> '+scoreLines+
     '<br><b>ระดับผลรวม (เฉลี่ย):</b> ≥4.60 ดีเยี่ยม · ≥3.80 ดี · ≥3.00 พอใช้ · ≥2.00 ต้องปรับปรุง · ต่ำกว่า 2.00 ไม่ผ่าน'+
-    '<br><b>การจัดอันดับ:</b> ถ่วงน้ำหนัก<b>จำนวนครั้งที่ถูกประเมิน</b> — คะแนนสูง+ประเมินหลายครั้ง อยู่อันดับดีกว่าประเมินครั้งเดียว · อันดับเท่ากันเรียงตาม<b>เวลาประเมินล่าสุด</b> · ทุกคะแนนแสดงเป็น<b>เปอร์เซ็นต์</b> (คะแนน÷5×100) ด้วย');
+    '<br><b>การจัดอันดับ:</b> เรียงตาม<b>คะแนนเฉลี่ย</b> (มาก→น้อย) · คะแนนเท่ากัน <b>คนที่ถูกประเมินมากกว่า</b>อยู่อันดับสูงกว่า · เท่ากันอีกเรียงตาม<b>เวลาประเมินล่าสุด</b> · ทุกคะแนนแสดงเป็น<b>เปอร์เซ็นต์</b> (คะแนน÷5×100) ด้วย');
   h+=sec('A. สำหรับผู้ประเมิน (เจ้าหน้าที่ ตม. — หน้าสาธารณะ ไม่ต้องล็อกอิน)',
     ol([
       'เปิดลิงก์ระบบ จะเข้าหน้าแบบประเมินทันที',
