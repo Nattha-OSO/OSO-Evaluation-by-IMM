@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='71';
+const APP_VERSION='72';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -373,7 +373,7 @@ function startRealtime(){
       .on('postgres_changes',{event:'*',schema:'public',table:'evaluations'},liveRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'staff'},liveRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'shifts'},liveRefresh)
-      .on('postgres_changes',{event:'*',schema:'public',table:'app_settings'},()=>loadPerms(true))
+      .on('postgres_changes',{event:'*',schema:'public',table:'app_settings'},(p)=>{const k=(p&&p.new&&p.new.key)||(p&&p.old&&p.old.key);if(k==='permissions')loadPerms(true);})
       .subscribe();
   }catch(e){}
 }
