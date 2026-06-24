@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='65';
+const APP_VERSION='66';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -36,7 +36,7 @@ const tone = v => v>=4.6?'excellent':v>=3.8?'good':v>=3?'fair':v>=2?'weak':'crit
 const scoreColor = v => v>=5?'#bef264':v>=4?'#99f6e4':v>=3?'#fcd34d':v>=2?'#fecdd3':'#fca5a5';
 function js(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]/g,' ');}
 function scoreBand(score){if(!score)return 'ยังไม่มีข้อมูล';if(score>=4.6)return 'ดีเยี่ยม';if(score>=3.8)return 'ดี';if(score>=3.0)return 'พอใช้';if(score>=2.0)return 'ต้องปรับปรุง';return 'ไม่ผ่าน';}
-function fmtDateTime(v){if(!v)return '';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});}catch(e){return String(v);}}
+function fmtDateTime(v){if(!v)return '';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'medium'});}catch(e){return String(v);}}
 let tt;function toast(m,err){const e=$('toast');e.textContent=m;e.className='toast show'+(err?' err':'');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2800);}
 
 // ---------- Supabase client ----------
@@ -685,7 +685,8 @@ async function importCSV(){
 function isTemplateRow(ev,st){
   const n=s=>String(s||'').toLowerCase().replace(/[\s. ]/g,'');
   const ph=['ชื่อเจ้าหน้าที่onsitesupport','เจ้าหน้าที่onsitesupport','เจ้าหน้าที่onsitesupportที่รับการประเมิน','ผลัดของเจ้าหน้าที่ตม','ผลัด/ชื่อเจ้าหน้าที่ตม','ผลัด/ชื่อเจ้าหน้าที่ตม(ผู้ประเมิน)'];
-  return ph.indexOf(n(st))>=0||ph.indexOf(n(ev))>=0;
+  const has=(x,arr)=>arr.some(k=>x.indexOf(k)>=0);
+  return has(n(st),['ชื่อเจ้าหน้าที่','onsitesupport'])||has(n(ev),['ผลัดของเจ้าหน้าที่','ชื่อเจ้าหน้าที่ตม','ผู้ประเมิน']);
 }
 // คีย์เปรียบเทียบรายการประเมินว่า "ตรงกันทุกช่อง" (เวลา/ผู้ประเมิน/เจ้าหน้าที่/คะแนน 5 ข้อ/ข้อเสนอแนะ)
 function evalKey(r){return [new Date(r.created_at).toISOString(),(r.evaluator||'').trim(),(r.staff||'').trim(),r.speed,r.problem_solving,r.communication,r.service_mind,r.satisfaction,(r.comment||'').trim()].join('||');}
