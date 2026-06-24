@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='64';
+const APP_VERSION='65';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -659,7 +659,7 @@ async function importCSV(){
   const toScore=v=>{v=String(v||'').trim();if(LABEL2NUM[v]!=null)return LABEL2NUM[v];const n=parseInt(v,10);return (n>=1&&n<=5)?n:null;};
   if(toScore(rows[0][3])==null)rows=rows.slice(1);
   const recs=[];let skipped=0;
-  for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}const dd=parseImportDate(r[0]);const rec={created_at:(dd||new Date()).toISOString(),evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};recs.push(rec);}
+  for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}if(isTemplateRow(ev,st)){skipped++;continue;}const dd=parseImportDate(r[0]);const rec={created_at:(dd||new Date()).toISOString(),evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};recs.push(rec);}
   if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
   // กันซ้ำ: ตัดรายการที่ตรงกันทุกช่อง ทั้งซ้ำกันเองในไฟล์ และที่มีอยู่แล้วในฐานข้อมูล
   let existKeys=new Set();
@@ -681,22 +681,28 @@ async function importCSV(){
   logAction('import','evaluation',ok+' รายการ'+(dup?(' (ข้ามซ้ำ '+dup+')'):''));
   toast('นำเข้าสำเร็จ '+ok+' รายการ'+(dup?(' · ข้ามรายการซ้ำ '+dup):'')+(skipped?(' · ข้ามไม่ถูกต้อง '+skipped):''));refresh();
 }
+// แถวตัวอย่าง/หัวคอลัมน์ในไฟล์ CSV (ชื่อ/ผลัด เป็นข้อความ placeholder) — ไม่นำเข้า
+function isTemplateRow(ev,st){
+  const n=s=>String(s||'').toLowerCase().replace(/[\s. ]/g,'');
+  const ph=['ชื่อเจ้าหน้าที่onsitesupport','เจ้าหน้าที่onsitesupport','เจ้าหน้าที่onsitesupportที่รับการประเมิน','ผลัดของเจ้าหน้าที่ตม','ผลัด/ชื่อเจ้าหน้าที่ตม','ผลัด/ชื่อเจ้าหน้าที่ตม(ผู้ประเมิน)'];
+  return ph.indexOf(n(st))>=0||ph.indexOf(n(ev))>=0;
+}
 // คีย์เปรียบเทียบรายการประเมินว่า "ตรงกันทุกช่อง" (เวลา/ผู้ประเมิน/เจ้าหน้าที่/คะแนน 5 ข้อ/ข้อเสนอแนะ)
 function evalKey(r){return [new Date(r.created_at).toISOString(),(r.evaluator||'').trim(),(r.staff||'').trim(),r.speed,r.problem_solving,r.communication,r.service_mind,r.satisfaction,(r.comment||'').trim()].join('||');}
 // ลบรายการประเมินที่ซ้ำกันทุกช่อง โดยเก็บไว้รายการเดียว (id น้อยสุด)
 async function dedupEvaluations(){
   if(!(can('delete_eval')||user.isAdmin))return toast('คุณไม่มีสิทธิ์ลบรายการประเมิน',true);
-  if(!confirm('ค้นหาและลบ "รายการประเมินที่ซ้ำกันทุกช่อง" (เวลา / ชื่อเจ้าหน้าที่ / คะแนน / ข้อเสนอแนะ) โดยเก็บไว้รายการเดียว?\nการลบนี้ย้อนกลับไม่ได้'))return;
+  if(!confirm('ค้นหาและลบ "รายการประเมินที่ซ้ำกันทุกช่อง" + "แถวตัวอย่าง/หัวคอลัมน์" ออก โดยเก็บรายการจริงไว้รายการเดียว?\nการลบนี้ย้อนกลับไม่ได้'))return;
   toast('กำลังตรวจรายการซ้ำ...');
   const {data,error}=await sb.from('evaluations').select('id,created_at,evaluator,staff,speed,problem_solving,communication,service_mind,satisfaction,comment').order('id');
   if(error)return toast('อ่านข้อมูลไม่สำเร็จ: '+error.message,true);
   const seen=new Set(),dupIds=[];
-  (data||[]).forEach(r=>{const k=evalKey(r);if(seen.has(k))dupIds.push(r.id);else seen.add(k);});
-  if(!dupIds.length)return toast('ไม่พบรายการประเมินที่ซ้ำกัน');
+  (data||[]).forEach(r=>{if(isTemplateRow(r.evaluator,r.staff)){dupIds.push(r.id);return;}const k=evalKey(r);if(seen.has(k))dupIds.push(r.id);else seen.add(k);});
+  if(!dupIds.length)return toast('ไม่พบรายการซ้ำหรือแถวตัวอย่าง');
   let removed=0;
   for(let i=0;i<dupIds.length;i+=200){const {error:de}=await sb.from('evaluations').delete().in('id',dupIds.slice(i,i+200));if(de)return toast('ลบไม่สำเร็จ: '+de.message,true);removed+=Math.min(200,dupIds.length-i);}
   logAction('dedup','evaluation',removed+' รายการ');
-  toast('ลบรายการซ้ำแล้ว '+removed+' รายการ');refresh();
+  toast('ลบรายการซ้ำ/แถวตัวอย่างแล้ว '+removed+' รายการ');refresh();
 }
 function dirPanel(title,type,items){return '<div class="panel"><div class="panel-head"><div><div class="panel-title">'+esc(title)+'</div><div class="mini">'+items.length+' รายชื่อ</div></div></div><div class="dir-add"><input class="input" id="add_'+type+'" placeholder="พิมพ์ชื่อแล้วกดเพิ่ม" onkeydown="if(event.key===\'Enter\')addDir(\''+type+'\')"><button class="btn primary" onclick="addDir(\''+type+'\')">เพิ่ม</button></div><div class="dir-list">'+(items.map(it=>'<div class="dir-item"><span>'+esc(it.name)+'</span><button class="btn icon danger" title="ลบ" onclick="delDir(\''+type+'\','+it.id+')">x</button></div>').join('')||'<div class="empty">ยังไม่มีรายชื่อ</div>')+'</div></div>';}
 async function addDir(type){const el=$('add_'+type),name=normName(el.value);if(!name)return toast('กรุณากรอกชื่อ',true);const {data:ex}=await sb.from(type).select('name');if((ex||[]).some(x=>nkey(x.name)===nkey(name)))return toast('มีรายชื่อ "'+name+'" อยู่แล้ว (ถือว่าซ้ำ)',true);const {error}=await sb.from(type).insert({name});if(error)return toast('เพิ่มไม่สำเร็จ: '+error.message,true);el.value='';logAction('create',type,name);toast('เพิ่มแล้ว');renderDirectory();}
