@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='67';
+const APP_VERSION='68';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -976,11 +976,11 @@ async function emailReportPDF(start,end,word,label,suffix){
   }catch(e){toast('สร้าง/ส่งรายงานไม่สำเร็จ: '+((e&&e.message)||e),true);}
 }
 // ส่งรายงานรายเดือนอัตโนมัติ (ช่วงวันที่ 1 ถึงสิ้นเดือนของเดือนก่อนหน้า) — เรียกจาก GitHub Actions
-async function sendAutoMonthly(recipientsCsv){
+async function sendAutoMonthly(recipientsCsv,force){
   try{
     if(!sb)return {ok:false,error:'ยังไม่ได้ตั้งค่า Supabase'};
     const cfg=await loadAutoReport();
-    if(cfg.enabled!==true)return {ok:true,skipped:true,message:'ปิดการส่งอัตโนมัติอยู่ (เปิดได้ที่เมนู "ตั้งค่าส่งอีเมลอัตโนมัติ")'};
+    if(!force&&cfg.enabled!==true)return {ok:true,skipped:true,message:'ปิดการส่งอัตโนมัติอยู่ (เปิดได้ที่เมนู "ตั้งค่าส่งอีเมลอัตโนมัติ")'};
     const now=new Date();
     const start=new Date(now.getFullYear(),now.getMonth()-1,1);   // วันที่ 1 เดือนก่อนหน้า
     const end=new Date(now.getFullYear(),now.getMonth(),1);       // วันที่ 1 เดือนปัจจุบัน (ไม่รวม)

@@ -42,4 +42,5 @@ jobs:
           BOT_EMAIL: ${{ secrets.REPORT_BOT_EMAIL }}
           BOT_PASSWORD: ${{ secrets.REPORT_BOT_PASSWORD }}
           REPORT_RECIPIENTS: ${{ secrets.REPORT_RECIPIENTS }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
         run: node .github/scripts/send-monthly-report.mjs

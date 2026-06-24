@@ -6,12 +6,11 @@ import { chromium } from 'playwright';
 const APP_URL = process.env.APP_URL;
 const email = process.env.BOT_EMAIL;
 const password = process.env.BOT_PASSWORD;
-const recipients = process.env.REPORT_RECIPIENTS;
+const recipients = process.env.REPORT_RECIPIENTS || '';   // ไม่บังคับ — ปกติตั้งผู้รับในเมนูเว็บ
 
 function fail(msg) { console.error('❌ ' + msg); process.exit(1); }
 if (!APP_URL) fail('ไม่ได้ตั้ง APP_URL');
 if (!email || !password) fail('ไม่ได้ตั้ง REPORT_BOT_EMAIL / REPORT_BOT_PASSWORD (GitHub Secrets)');
-if (!recipients) fail('ไม่ได้ตั้ง REPORT_RECIPIENTS (GitHub Secrets)');
 
 const url = APP_URL + (APP_URL.includes('?') ? '&' : '?') + 'v=auto' + Date.now();
 console.log('เปิด', url);
@@ -36,8 +35,9 @@ try {
   await page.waitForSelector('.app.ready', { timeout: 60000 });
   console.log('✓ ล็อกอินบัญชีบอทสำเร็จ');
 
-  // เรียกสร้าง + ส่งรายงานรายเดือน (เดือนก่อนหน้า)
-  const result = await page.evaluate(async (r) => await window.sendAutoMonthly(r), recipients);
+  // เรียกสร้าง + ส่งรายงานรายเดือน (เดือนก่อนหน้า) — กดรันเอง (FORCE) จะส่งแม้สวิตช์ยังปิด
+  const force = process.env.FORCE === 'true';
+  const result = await page.evaluate(async ({ r, f }) => await window.sendAutoMonthly(r, f), { r: recipients, f: force });
   console.log('ผลลัพธ์:', JSON.stringify(result));
 
   if (!result || !result.ok) fail('ส่งรายงานไม่สำเร็จ: ' + (result && result.error || 'unknown'));
