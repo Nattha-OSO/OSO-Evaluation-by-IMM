@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='66';
+const APP_VERSION='67';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -311,7 +311,7 @@ function rowToRecord(r){
   const scores={};criteria.forEach(c=>{const v=Number(r[c.key]||0);scores[c.key]={value:v,label:LABEL_MAP[v]||''};});
   const vals=criteria.map(c=>scores[c.key].value).filter(Number);
   const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
-  return {rowNumber:r.id,id:r.id,timestampRaw:r.created_at,timestamp:fmtDateTime(r.created_at),evaluator:r.evaluator||'',staff:r.staff||'',scores,avg,band:scoreBand(avg),comment:r.comment||''};
+  return {rowNumber:r.id,id:r.id,timestampRaw:r.created_at,timestamp:fmtDateTime(r.created_at),evaluator:normName(r.evaluator),staff:normName(r.staff),scores,avg,band:scoreBand(avg),comment:r.comment||''};
 }
 function avgArr(a){return a.length?a.reduce((x,y)=>x+Number(y||0),0)/a.length:0;}
 function uniqueSort(arr){return Array.from(new Set(arr.map(s=>String(s||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'th'));}
@@ -341,10 +341,10 @@ async function loadData(){
   ]);
   if(ev.error)throw ev.error;
   const records=(ev.data||[]).map(rowToRecord);
-  const staffNames=uniqueSort(records.map(r=>r.staff).concat((st.data||[]).map(x=>x.name)));
+  const staffNames=uniqueSort(records.map(r=>r.staff).concat((st.data||[]).map(x=>normName(x.name)))).filter(n=>!isTemplateRow('',n));
   const people=staffNames.map(n=>summarizePerson(n,records)).filter(Boolean).sort((a,b)=>b.avg-a.avg||a.name.localeCompare(b.name,'th'));
   const summary=summarizeOverall(records,people);
-  const shiftNames=uniqueSort(records.map(r=>r.evaluator).concat((sh.data||[]).map(x=>x.name)));
+  const shiftNames=uniqueSort(records.map(r=>r.evaluator).concat((sh.data||[]).map(x=>normName(x.name)))).filter(n=>!isTemplateRow(n,''));
   return {records,people,staffNames,shiftNames,summary};
 }
 async function refresh(){
@@ -489,17 +489,20 @@ async function renderDirectory(){
   if(s.error||sh.error){$('content').innerHTML='<div class="empty">โหลดรายชื่อไม่สำเร็จ</div>';return;}
   $('content').innerHTML='<div class="toolbar"><button class="btn" onclick="dedupNames()">🧹 ล้างชื่อซ้ำ</button><span class="mini">รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว</span></div><div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+(can('import_csv')?importPanel():'');
 }
+const SAMPLE_NAMES=new Set(['ผลัด a','ผลัด b','ผลัด c','สมชาย ใจดี','สมหญิง รักงาน','อนุชา ตั้งใจ'].map(nkey));
 async function dedupNames(){
-  if(!confirm('ล้างชื่อซ้ำในตารางรายชื่อ (staff และ shifts)?\nจะรวมชื่อที่เหมือนกันให้เหลือรายการเดียว'))return;
+  if(!confirm('ล้างรายชื่อ (staff และ shifts)?\n• รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว\n• ลบรายการตัวอย่าง/หัวคอลัมน์ (ผลัด A/B/C, ผลัดของเจ้าหน้าที่ตม., ชื่อเจ้าหน้าที่ Onsite Support ฯลฯ)'))return;
   let removed=0;
   for(const table of ['staff','shifts']){
     const {data,error}=await sb.from(table).select('id,name').order('id');
     if(error)continue;
     const seen=new Set(),dupIds=[];
-    (data||[]).forEach(r=>{const k=nkey(r.name);if(seen.has(k))dupIds.push(r.id);else seen.add(k);});
+    (data||[]).forEach(r=>{const k=nkey(r.name);
+      const isSample=SAMPLE_NAMES.has(k)||(table==='shifts'?isTemplateRow(r.name,''):isTemplateRow('',r.name));
+      if(seen.has(k)||isSample)dupIds.push(r.id);else seen.add(k);});
     if(dupIds.length){const {error:de}=await sb.from(table).delete().in('id',dupIds);if(!de)removed+=dupIds.length;}
   }
-  toast(removed?('ล้างชื่อซ้ำแล้ว '+removed+' รายการ'):'ไม่พบชื่อซ้ำ');
+  toast(removed?('ล้างรายชื่อแล้ว '+removed+' รายการ (ซ้ำ/ตัวอย่าง)'):'ไม่พบชื่อซ้ำหรือรายการตัวอย่าง');
   renderDirectory();
 }
 
@@ -659,7 +662,7 @@ async function importCSV(){
   const toScore=v=>{v=String(v||'').trim();if(LABEL2NUM[v]!=null)return LABEL2NUM[v];const n=parseInt(v,10);return (n>=1&&n<=5)?n:null;};
   if(toScore(rows[0][3])==null)rows=rows.slice(1);
   const recs=[];let skipped=0;
-  for(const r of rows){const ev=(r[1]||'').trim(),st=(r[2]||'').trim();const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}if(isTemplateRow(ev,st)){skipped++;continue;}const dd=parseImportDate(r[0]);const rec={created_at:(dd||new Date()).toISOString(),evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};recs.push(rec);}
+  for(const r of rows){const ev=normName(r[1]),st=normName(r[2]);const sc=[toScore(r[3]),toScore(r[4]),toScore(r[5]),toScore(r[6]),toScore(r[7])];if(!ev||!st||sc.some(x=>x==null)){skipped++;continue;}if(isTemplateRow(ev,st)){skipped++;continue;}const dd=parseImportDate(r[0]);const rec={created_at:(dd||new Date()).toISOString(),evaluator:ev,staff:st,speed:sc[0],problem_solving:sc[1],communication:sc[2],service_mind:sc[3],satisfaction:sc[4],comment:(r[8]||'').trim()||null};recs.push(rec);}
   if(!recs.length)return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+skipped+')',true);
   // กันซ้ำ: ตัดรายการที่ตรงกันทุกช่อง ทั้งซ้ำกันเองในไฟล์ และที่มีอยู่แล้วในฐานข้อมูล
   let existKeys=new Set();
