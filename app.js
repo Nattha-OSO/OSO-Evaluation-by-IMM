@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='68';
+const APP_VERSION='69';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -317,19 +317,29 @@ function avgArr(a){return a.length?a.reduce((x,y)=>x+Number(y||0),0)/a.length:0;
 function uniqueSort(arr){return Array.from(new Set(arr.map(s=>String(s||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'th'));}
 function summarizePerson(name,records){
   const rows=records.filter(r=>r.staff===name);
-  if(!rows.length)return {name,count:0,avg:0,band:'ยังไม่มีข้อมูล',criteria:{},latest:'',trend:0,lastComment:''};
+  if(!rows.length)return {name,count:0,avg:0,band:'ยังไม่มีข้อมูล',criteria:{},latest:'',latestTime:0,trend:0,lastComment:''};
   const crit={};criteria.forEach(c=>{const v=rows.map(r=>r.scores[c.key].value).filter(Number);crit[c.key]=v.length?avgArr(v):0;});
   const avg=avgArr(rows.map(r=>r.avg).filter(Number));
   const chrono=rows.slice().sort((a,b)=>new Date(a.timestampRaw)-new Date(b.timestampRaw));
   const first=chrono[0]?chrono[0].avg:avg,last=chrono[chrono.length-1]?chrono[chrono.length-1].avg:avg,latestRow=chrono[chrono.length-1];
-  return {name,count:rows.length,avg,band:scoreBand(avg),criteria:crit,latest:latestRow?latestRow.timestamp:'',trend:last-first,lastComment:latestRow?latestRow.comment:''};
+  const latestTime=latestRow?new Date(latestRow.timestampRaw).getTime()||0:0;
+  return {name,count:rows.length,avg,band:scoreBand(avg),criteria:crit,latest:latestRow?latestRow.timestamp:'',latestTime,trend:last-first,lastComment:latestRow?latestRow.comment:''};
+}
+// คะแนนจัดอันดับ (ถ่วงน้ำหนักจำนวนครั้ง แบบ Bayesian): ประเมินหลายครั้ง+คะแนนสูง = อันดับดีกว่าประเมินครั้งเดียว
+// คนยังไม่มีการประเมิน (count=0) ให้อยู่ท้ายสุด
+function rankScoreOf(p,m){if(!p||!p.count)return -1;const C=5;return (C*m + p.avg*p.count)/(C+p.count);}
+// จัดอันดับรายคน: ติด _rank ให้ทุกคน แล้วเรียง rank มาก->น้อย, เท่ากันเรียงจากเวลาประเมินล่าสุด (ใหม่ก่อน), แล้วชื่อ
+function rankPeople(people,records){
+  const m=records.length?avgArr(records.map(r=>r.avg)):0;
+  people.forEach(p=>{p._rank=rankScoreOf(p,m);});
+  return people.sort((a,b)=>(b._rank-a._rank)||((b.latestTime||0)-(a.latestTime||0))||a.name.localeCompare(b.name,'th'));
 }
 function summarizeOverall(records,people){
   const total=records.length,evaluated=people.filter(p=>p.count).length,avgScore=total?avgArr(records.map(r=>r.avg)):0,criteriaAvg={};
   criteria.forEach(c=>criteriaAvg[c.key]=avgArr(records.map(r=>r.scores[c.key].value).filter(Number))||0);
   const lowest=criteria.slice().sort((a,b)=>(criteriaAvg[a.key]||0)-(criteriaAvg[b.key]||0))[0];
   const top=people.filter(p=>p.count).slice(0,5);
-  const risks=people.filter(p=>p.count&&p.avg<3.5).sort((a,b)=>a.avg-b.avg).slice(0,5);
+  const risks=people.filter(p=>p.count&&p.avg<3.5).slice().sort((a,b)=>((a._rank||0)-(b._rank||0))||((b.latestTime||0)-(a.latestTime||0))).slice(0,5);
   const evaluators={};records.forEach(r=>evaluators[r.evaluator]=(evaluators[r.evaluator]||0)+1);
   return {total,evaluated,avgScore,band:scoreBand(avgScore),criteriaAvg,lowestKey:lowest?lowest.key:'',top,risks,evaluators};
 }
@@ -342,7 +352,7 @@ async function loadData(){
   if(ev.error)throw ev.error;
   const records=(ev.data||[]).map(rowToRecord);
   const staffNames=uniqueSort(records.map(r=>r.staff).concat((st.data||[]).map(x=>normName(x.name)))).filter(n=>!isTemplateRow('',n));
-  const people=staffNames.map(n=>summarizePerson(n,records)).filter(Boolean).sort((a,b)=>b.avg-a.avg||a.name.localeCompare(b.name,'th'));
+  const people=rankPeople(staffNames.map(n=>summarizePerson(n,records)).filter(Boolean),records);
   const summary=summarizeOverall(records,people);
   const shiftNames=uniqueSort(records.map(r=>r.evaluator).concat((sh.data||[]).map(x=>normName(x.name)))).filter(n=>!isTemplateRow(n,''));
   return {records,people,staffNames,shiftNames,summary};
@@ -795,7 +805,7 @@ async function buildReportDocxBlob(startDate,endDate,periodWord,periodLabel){
   const now=new Date();
   await ensureFresh();
   const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=startDate&&d<endDate;});
-  const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
+  const people=rankPeople(uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)),records);
   const s=summarizeOverall(records,people),weak=criteria.find(c=>c.key===s.lowestKey),best=s.top&&s.top[0],risk=(s.risks||[])[0];
   toast('กำลังสร้าง DOCX...');
   let body='';
@@ -896,7 +906,7 @@ async function callFn(name,body){
 // สร้างเนื้อหารายงานเป็น HTML (ใช้ทั้งพรีวิวและสร้าง PDF)
 function periodData(start,end){
   const records=data.records.filter(r=>{const d=new Date(r.timestampRaw);return d>=start&&d<end;});
-  const people=uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)).sort((a,b)=>b.avg-a.avg);
+  const people=rankPeople(uniqueSort(records.map(r=>r.staff)).map(n=>summarizePerson(n,records)),records);
   return {records,people,s:summarizeOverall(records,people)};
 }
 function reportStyles(){return '<style>.rpt{box-sizing:border-box;font-family:"TH Sarabun New","Sarabun",Tahoma,sans-serif;color:#1f2937;font-size:16px;line-height:1.5;background:#fff;padding:16px}.rpt *{box-sizing:border-box}.rpt h1{color:#1749c4;font-size:25px;text-align:center;margin:0 0 4px}.rpt .sub{text-align:center;color:#374151;margin:0 0 16px;font-size:15px}.rpt h2{color:#0b2f6b;font-size:18px;border-bottom:2px solid #e8f0fc;padding-bottom:4px;margin:18px 0 8px}.rpt table{border-collapse:collapse;width:100%;max-width:100%;margin:6px 0;font-size:14px;table-layout:fixed}.rpt th,.rpt td{border:1px solid #d0d7e5;padding:5px 7px;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}.rpt thead th{background:#e8f0fc;color:#0b2f6b}.rpt .meta th{width:130px;background:#f2f7ff}.rpt .kpis{display:flex;gap:10px;margin:8px 0}.rpt .kpi{flex:1;border:1px solid #dce5f2;border-radius:8px;padding:10px;text-align:center;background:#f8fbff}.rpt .kpi .n{font-size:22px;font-weight:700;color:#0b2f6b}.rpt ul{margin:6px 0;padding-left:20px}.rpt li{margin-bottom:6px}.rpt img{max-width:100%;display:block;margin:0 auto}body{margin:0}@media print{.noprint{display:none}}</style>';}
