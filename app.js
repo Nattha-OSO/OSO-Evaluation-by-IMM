@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='63';
+const APP_VERSION='64';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -667,7 +667,16 @@ async function importCSV(){
   const seen=new Set();let dup=0;
   const recsU=recs.filter(r=>{const k=evalKey(r);if(existKeys.has(k)||seen.has(k)){dup++;return false;}seen.add(k);return true;});
   if(!recsU.length)return toast('ทุกแถวซ้ำกับข้อมูลที่มีอยู่แล้ว (ข้ามซ้ำ '+dup+', ข้ามไม่ถูกต้อง '+skipped+')',true);
-  let ok=0;for(let j=0;j<recsU.length;j+=200){const {error}=await sb.from('evaluations').insert(recsU.slice(j,j+200));if(error){toast('นำเข้าผิดพลาด: '+error.message,true);return;}ok+=Math.min(200,recsU.length-j);}
+  const isDupErr=e=>e&&(String(e.code)==='23505'||/duplicate key|already exists/i.test(e.message||''));
+  let ok=0;
+  for(let j=0;j<recsU.length;j+=200){
+    const batch=recsU.slice(j,j+200);
+    const {error}=await sb.from('evaluations').insert(batch);
+    if(!error){ok+=batch.length;continue;}
+    if(!isDupErr(error)){toast('นำเข้าผิดพลาด: '+error.message,true);return;}
+    // ชน unique index (กันซ้ำระดับฐานข้อมูล) -> นำเข้าทีละแถว ข้ามที่ซ้ำ
+    for(const row of batch){const {error:e2}=await sb.from('evaluations').insert(row);if(!e2)ok++;else if(isDupErr(e2))dup++;else{toast('นำเข้าผิดพลาด: '+e2.message,true);return;}}
+  }
   await syncDirectories(recsU.map(r=>r.staff),recsU.map(r=>r.evaluator));
   logAction('import','evaluation',ok+' รายการ'+(dup?(' (ข้ามซ้ำ '+dup+')'):''));
   toast('นำเข้าสำเร็จ '+ok+' รายการ'+(dup?(' · ข้ามรายการซ้ำ '+dup):'')+(skipped?(' · ข้ามไม่ถูกต้อง '+skipped):''));refresh();
