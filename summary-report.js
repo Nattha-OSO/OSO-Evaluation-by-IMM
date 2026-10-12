@@ -47,11 +47,14 @@ function lighten(hex,t){ t=t==null?.45:t; const n=parseInt(hex.slice(1),16), r=n
 function fitText(g,text,maxW){ text=String(text==null?'':text); if(g.measureText(text).width<=maxW) return text; while(text.length>1&&g.measureText(text+'…').width>maxW) text=text.slice(0,-1); return text+'…'; }
 // ตัดบรรทัดไทย: มีช่องว่างตัดตามคำ ไม่มีตัดตามอักขระ · จำกัดจำนวนบรรทัด
 function wrapTH(g,text,maxW,maxLines){
-  text=String(text==null?'':text); const sp=text.indexOf(' ')>=0, parts=sp?text.split(/\s+/):text.split(''), sep=sp?' ':'', lines=[]; let cur='';
-  for(const p of parts){ const t=cur?cur+sep+p:p; if(g.measureText(t).width<=maxW||!cur) cur=t; else { lines.push(cur); cur=p; } }
+  text=String(text==null?'':text).trim();
+  // แตกคำที่ยาวเกินความกว้างเป็นอักขระ (ภาษาไทยไม่มีช่องว่างคั่นคำ) เพื่อไม่ให้ล้นไปทับแท่งกราฟ
+  const toks=[]; text.split(/\s+/).forEach(w=>{ if(g.measureText(w).width<=maxW) toks.push(w); else { let cur=''; for(const ch of w){ if(cur&&g.measureText(cur+ch).width>maxW){ toks.push(cur); cur=ch; } else cur+=ch; } if(cur) toks.push(cur); } });
+  const lines=[]; let cur='';
+  toks.forEach(t=>{ const cand=cur?cur+' '+t:t; if(g.measureText(cand).width<=maxW||!cur) cur=cand; else { lines.push(cur); cur=t; } });
   if(cur) lines.push(cur);
-  if(lines.length>maxLines){ const keep=lines.slice(0,maxLines-1), rest=lines.slice(maxLines-1).join(sep); keep.push(fitText(g,rest,maxW)); return keep; }
-  return lines;
+  if(lines.length>maxLines){ const keep=lines.slice(0,maxLines-1); keep.push(fitText(g,lines.slice(maxLines-1).join(' '),maxW)); return keep; }
+  return lines.map(l=>fitText(g,l,maxW));
 }
 function chartTitle(g,t,x,y){ if(!t) return; g.font='bold 14px '+FONT; g.fillStyle=NAVY; g.textAlign='left'; g.textBaseline='alphabetic'; g.fillText(t,x,y); }
 
@@ -95,7 +98,8 @@ function chDonut(items,o){
 }
 // แท่งแนวนอนมุมโค้งไล่สี  items:[{label,value,color,text}]
 function chHBars(items,o){
-  o=o||{}; const w=o.w||620, rowH=o.rowH||38, padT=o.title?36:10, h=padT+items.length*rowH+10, {c,g}=mk(w,h);
+  o=o||{}; if(o.stack) return chHBarsStacked(items,o);
+  const w=o.w||620, rowH=o.rowH||38, padT=o.title?36:10, h=padT+items.length*rowH+10, {c,g}=mk(w,h);
   chartTitle(g,o.title,14,24);
   const labW=o.labW||200, x0=14+labW, x1=w-14-62, bh=14, max=o.max||5;
   items.forEach((it,i)=>{ const cy=padT+i*rowH+rowH/2;
@@ -105,6 +109,25 @@ function chHBars(items,o){
     const frac=Math.max(0,Math.min(1,(Number(it.value)||0)/max));
     if(frac>0){ const bw=Math.max(bh,(x1-x0)*frac), gr=g.createLinearGradient(x0,0,x0+bw,0); gr.addColorStop(0,lighten(it.color)); gr.addColorStop(1,it.color); rr(g,x0,cy-bh/2,bw,bh,bh/2); g.fillStyle=gr; g.fill(); }
     g.textAlign='right'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText(it.text!=null?it.text:String(it.value),w-14,cy); });
+  return c;
+}
+// แท่งแนวนอนแบบ "ป้ายชื่อเต็มความกว้างอยู่เหนือแท่ง" — สำหรับหัวข้อยาว ไม่ตัดคำ ไม่ทับแท่ง
+function chHBarsStacked(items,o){
+  const w=o.w||620, padT=o.title?40:12, max=o.max||5, bh=14, x0=14, x1=w-14-62;
+  const {c:probe,g:pg}=mk(w,10); pg.font='12px '+FONT;
+  const lay=items.map(it=>wrapTH(pg,it.label,w-28,2));
+  const h=padT+lay.reduce((a,l)=>a+l.length*15+bh+22,0)+6, {c,g}=mk(w,h);
+  chartTitle(g,o.title,14,24);
+  let y=padT;
+  items.forEach((it,i)=>{
+    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle='#334155';
+    lay[i].forEach((ln,li)=>g.fillText(ln,x0,y+12+li*15));
+    const by=y+lay[i].length*15+4;
+    rr(g,x0,by,x1-x0,bh,bh/2); g.fillStyle='#eaf0fb'; g.fill();
+    const frac=Math.max(0,Math.min(1,(Number(it.value)||0)/max));
+    if(frac>0){ const bw=Math.max(bh,(x1-x0)*frac), gr=g.createLinearGradient(x0,0,x0+bw,0); gr.addColorStop(0,lighten(it.color)); gr.addColorStop(1,it.color); rr(g,x0,by,bw,bh,bh/2); g.fillStyle=gr; g.fill(); }
+    g.textAlign='right'; g.textBaseline='middle'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText(it.text!=null?it.text:String(it.value),w-14,by+bh/2);
+    y=by+bh+18; });
   return c;
 }
 // เส้นแนวโน้ม + พื้นที่ไล่สี  pts:[{label,value}]
@@ -132,18 +155,23 @@ function chTrend(pts,o){
 }
 // แท่งซ้อน 100% ของ 4 ระดับความพึงพอใจ  items:[{label,counts:{4,3,2,1}}] · scale:[{label,value,color}]
 function chStacked(items,scale,o){
-  const w=620,rowH=46,padT=o.title?66:40,h=padT+items.length*rowH+8,{c,g}=mk(w,h); chartTitle(g,o.title,14,24);
+  const w=620, padT=o.title?66:40, x0=14, x1=w-14, bh=18;
+  const {g:pg}=mk(w,10); pg.font='12px '+FONT;
+  const lay=items.map(it=>wrapTH(pg,it.label,w-28,2));
+  const h=padT+lay.reduce((a,l)=>a+l.length*15+bh+16,0)+4, {c,g}=mk(w,h); chartTitle(g,o.title,14,24);
   let lx=14; g.font='11px '+FONT; g.textBaseline='middle';
   scale.forEach(s=>{ g.fillStyle=s.color; rr(g,lx,o.title?42:16,12,12,3); g.fill(); g.fillStyle='#475569'; g.textAlign='left'; g.fillText(s.label,lx+17,(o.title?42:16)+6); lx+=17+g.measureText(s.label).width+20; });
-  const x0=14,x1=w-14;
-  items.forEach((it,i)=>{ const y=padT+i*rowH;
-    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle='#334155'; g.fillText(fitText(g,it.label,w-28),x0,y+12);
-    const tot=scale.reduce((a,s)=>a+(it.counts[s.value]||0),0), by=y+18, bh=18;
+  let y=padT;
+  items.forEach((it,i)=>{
+    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle='#334155';
+    lay[i].forEach((ln,li)=>g.fillText(ln,x0,y+12+li*15));
+    const by=y+lay[i].length*15+4, tot=scale.reduce((a,s)=>a+(it.counts[s.value]||0),0);
     rr(g,x0,by,x1-x0,bh,9); g.fillStyle='#eaf0fb'; g.fill();
     if(tot){ g.save(); rr(g,x0,by,x1-x0,bh,9); g.clip(); let x=x0; const pc=pctSplit(scale.map(s=>it.counts[s.value]||0));
       scale.forEach((s,si)=>{ const n=it.counts[s.value]||0; if(!n) return; const sw=(x1-x0)*n/tot; g.fillStyle=s.color; g.fillRect(x,by,sw,bh);
         if(sw>30){ g.fillStyle=(s.color==='#f59e0b')?'#1f2937':'#fff'; g.font='bold 11px '+FONT; g.textAlign='center'; g.textBaseline='middle'; g.fillText(pc[si]+'%',x+sw/2,by+bh/2+.5); } x+=sw; });
-      g.restore(); } });
+      g.restore(); }
+    y=by+bh+12; });
   return c;
 }
 // แบ่งร้อยละให้ผลรวมเท่ากับ 100 เสมอ (largest remainder)
@@ -199,13 +227,13 @@ function appsCharts(m){
   const durColors=['#06b6d4','#2563eb','#8b5cf6','#14b8a6'];
   const dur=chDonut(api.DURATIONS.map((d,i)=>({label:d,value:s.durCounts[d]||0,color:durColors[i%4]})),{title:'ระยะเวลาการใช้งานระบบ APPS',center:s.n,centerSub:'ราย'});
   const mkPct=arr=>arr.map(x=>({label:x.crit.no+'. '+x.crit.title,value:x.pct,color:api.bandColor(x.pct),text:f1(x.pct)+'%'}));
-  const s1p=chHBars(mkPct(s.sec1),{title:'ร้อยละความพึงพอใจ — ส่วนที่ 1 เจ้าหน้าที่ที่ให้การสนับสนุน',max:100,labW:250,rowH:42});
-  const s2p=chHBars(mkPct(s.sec2),{title:'ร้อยละความพึงพอใจ — ส่วนที่ 2 ระบบ APPS และ Service Desk',max:100,labW:250,rowH:42});
+  const s1p=chHBars(mkPct(s.sec1),{title:'ร้อยละความพึงพอใจ — ส่วนที่ 1 เจ้าหน้าที่ที่ให้การสนับสนุน',max:100,stack:true});
+  const s2p=chHBars(mkPct(s.sec2),{title:'ร้อยละความพึงพอใจ — ส่วนที่ 2 ระบบ APPS และ Service Desk',max:100,stack:true});
   const mkSt=arr=>arr.map(x=>({label:x.crit.no+'. '+x.crit.title,counts:x.counts}));
   const s1d=chStacked(mkSt(s.sec1),api.SCALE,{title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 1'});
   const s2d=chStacked(mkSt(s.sec2),api.SCALE,{title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 2'});
   const ag=m.agencies.slice(0,8);
-  const agBars=ag.length?chHBars(ag.map((x,i)=>({label:x.label,value:x.value,color:['#2563eb','#06b6d4','#14b8a6','#8b5cf6','#f59e0b','#ef4444','#64748b','#0ea5e9'][i%8],text:String(x.value)})),{title:'จำนวนผู้ประเมินตามหน่วยงาน',max:Math.max(1,ag[0].value),labW:250,rowH:38}):null;
+  const agBars=ag.length?chHBars(ag.map((x,i)=>({label:x.label,value:x.value,color:['#2563eb','#06b6d4','#14b8a6','#8b5cf6','#f59e0b','#ef4444','#64748b','#0ea5e9'][i%8],text:String(x.value)})),{title:'จำนวนผู้ประเมินตามหน่วยงาน',max:Math.max(1,ag[0].value),stack:true}):null;
   const trend=m.monthly.length>=2?chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{title:'แนวโน้มความพึงพอใจภาพรวมรายเดือน (%)',yMin:0,yMax:100,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'}):null;
   return {gauge,dur,s1p,s2p,s1d,s2d,agBars,trend};
 }
@@ -450,5 +478,5 @@ window.render=function(){
   return _render.apply(this,arguments);
 };
 // ให้ vm harness เรียกฟังก์ชันภายในได้
-window.__sumTest={onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
+window.__sumTest={wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();

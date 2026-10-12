@@ -73,6 +73,11 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     ok(dl.suggestedFilename().startsWith('OSO_Summary_'+name+'_'),'download name '+dl.suggestedFilename());
     ok(fs.statSync(f).size>20000,name+' docx size '+fs.statSync(f).size);
   }
+  // ป้ายชื่อยาวต้องไม่ล้นความกว้าง (ไม่ทับแท่งกราฟ)
+  const wr=await pg.evaluate(()=>{ const {g}=__sumTest.mk(620,10); g.font='12px Tahoma, "Noto Sans Thai", sans-serif';
+    const T=['2. ระบบมีประโยชน์สามารถช่วยสนับสนุนภารกิจของหน่วยงานได้','4. คู่มือการใช้งานช่วยเพิ่มความเข้าใจในการใช้งานระบบให้กับเจ้าหน้าที่','7. การแจ้งข้อมูลข่าวสารการ Upgrade ระบบ (วิธีการ / ความชัดเจน / เข้าใจง่าย)','ก'.repeat(300)];
+    return T.map(t=>{ const L=__sumTest.wrapTH(g,t,200,2); return {n:L.length,max:Math.max(...L.map(l=>g.measureText(l).width))}; }); });
+  ok(wr.every(x=>x.n<=2&&x.max<=200.5),'wrapTH never exceeds width/lines '+JSON.stringify(wr));
   // ช่วงเดือน + ว่างเปล่า
   const emptyOk=await pg.evaluate(async()=>{ const r=await __sumTest.buildOnsiteDocx('2020-01'); const r2=await __sumTest.buildAppsDocx('2020-01'); return !!r&&!!r2; });
   ok(emptyOk,'docx builds with empty period (onsite+apps)');
