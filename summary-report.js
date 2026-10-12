@@ -293,6 +293,7 @@ function renderOnsite(){
   h+='<div style="'+GRID+'">'+chartPanel('sumOn_g')+chartPanel('sumOn_d')+'</div>';
   h+=chartPanel('sumOn_c')+'<div style="height:16px"></div>';
   h+=chartPanel('sumOn_t')+'<div style="height:16px"></div>'+chartPanel('sumOn_s')+'<div style="height:16px"></div>'+chartPanel('sumOn_tr');
+  h+='<div style="height:16px"></div>'+sectionsHtml(onsiteSections(m));
   c.innerHTML=h;
   BG=null; const ch=onsiteCharts(m);
   mount('sumOn_g',ch.gauge); mount('sumOn_d',ch.donut); mount('sumOn_c',ch.crit);
@@ -318,6 +319,7 @@ async function renderApps(){
   h+=chartPanel('sumAp_1p')+'<div style="height:16px"></div>'+chartPanel('sumAp_1d')+'<div style="height:16px"></div>';
   h+=chartPanel('sumAp_2p')+'<div style="height:16px"></div>'+chartPanel('sumAp_2d')+'<div style="height:16px"></div>';
   h+=chartPanel('sumAp_ag')+'<div style="height:16px"></div>'+chartPanel('sumAp_tr');
+  h+='<div style="height:16px"></div>'+sectionsHtml(appsSections(m));
   c.innerHTML=h;
   BG=null; const ch=appsCharts(m);
   mount('sumAp_g',ch.gauge); mount('sumAp_d',ch.dur); mount('sumAp_1p',ch.s1p); mount('sumAp_1d',ch.s1d); mount('sumAp_2p',ch.s2p); mount('sumAp_2d',ch.s2d);
@@ -388,60 +390,148 @@ async function assemble(body,media){
 }
 function who(){ return (typeof user!=='undefined'&&user&&(user.displayName||user.email))||'-'; }
 
+/* ============================================================
+   ส่วนเนื้อหาเชิงรายงาน (ประเด็นที่ควรติดตาม · การกระจาย · ข้อเสนอแนะเชิงบริหาร · รายละเอียด · ข้อเสนอแนะทั้งหมด)
+   สร้างครั้งเดียวเป็นโครงข้อมูล แล้วใช้ร่วมกันทั้งหน้าจอและ DOCX
+   ============================================================ */
+const BAND_HEX={'ดีเยี่ยม':'2563EB','ดี':'16A34A','พอใช้':'D97706','ปานกลาง':'D97706','ต้องปรับปรุง':'EA580C','ควรปรับปรุง':'EA580C','ไม่ผ่าน':'DC2626'};
+const pcTxt=(n,t)=>t?f1(n/t*100)+'%':'-';
+function onsiteSections(m){
+  const s=m.s, weak=criteria.find(c=>c.key===s.lowestKey), best=s.top&&s.top[0], risk=(s.risks||[])[0];
+  const follow={title:'ประเด็นที่ควรติดตาม',head:['ลำดับ','ชื่อเจ้าหน้าที่','คะแนนเฉลี่ย','ร้อยละ','ระดับ'],rows:(s.risks||[]).map((p,i)=>[String(i+1),p.name,f2(p.avg),pctTxt(p.avg),p.band]),widths:[800,4400,1600,1600,1700],center:[0,2,3,4],levelCol:4,empty:'ไม่พบเจ้าหน้าที่ที่มีคะแนนเฉลี่ยต่ำกว่าเกณฑ์ติดตาม (3.50) ในรอบรายงานนี้'};
+  const ev=Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]);
+  const dists=[{title:'จำนวนรายการประเมินตามผลัด',head:['ลำดับ','ผลัดของเจ้าหน้าที่ ตม.','จำนวนรายการ','ร้อยละ'],rows:ev.map((x,i)=>[String(i+1),x[0]||'-',String(x[1]),pcTxt(x[1],s.total)]),widths:[800,5400,2000,1900],center:[0,2,3],empty:'ไม่มีข้อมูลผลัดในรอบรายงานนี้'}];
+  const stars=m.people.filter(p=>p.count&&p.avg>=4.995).map(p=>p.name);
+  const recs=[
+    {text:s.total?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ'},
+    {text:weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน ('+f2(s.criteriaAvg[weak.key]||0)+')':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม'}
+  ];
+  if(stars.length>1) recs.push({text:'นำแนวปฏิบัติของเจ้าหน้าที่ที่ได้คะแนนเต็ม 5.00 มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม ได้แก่',subs:stars});
+  else if(stars.length===1) recs.push({text:'นำแนวปฏิบัติของ '+stars[0]+' (คะแนนเต็ม 5.00) มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม'});
+  else if(best) recs.push({text:'นำแนวปฏิบัติของ '+best.name+' มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม'});
+  recs.push({text:risk?'จัดทำแผนติดตามรายบุคคลสำหรับ '+risk.name+' พร้อมกำหนดเป้าหมายการปรับปรุงในรอบถัดไป':'คงการติดตามตามรอบปกติ และเน้นรักษามาตรฐานบริการให้สม่ำเสมอ'});
+  const detail={title:'รายละเอียดสรุปรายบุคคล',head:['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ร้อยละ','ระดับ'],rows:m.people.filter(p=>p.count).map((p,i)=>[String(i+1),p.name,String(p.count),f2(p.avg),pctTxt(p.avg),p.band]),widths:[800,3700,1300,1500,1400,1400],center:[0,2,3,4,5],levelCol:5,empty:'ไม่มีข้อมูลรายบุคคลในรอบรายงานนี้'};
+  const comments={title:'ข้อเสนอแนะทั้งหมดในรอบรายงาน',items:m.recs.filter(r=>r.comment).map(r=>({who:r.staff,text:r.comment})),empty:'ไม่มีข้อเสนอแนะในรอบรายงานนี้'};
+  return {follow,dists,recs,detail,comments};
+}
+function appsSections(m){
+  const api=window.appsSummaryApi, s=m.s;
+  const all=s.sec1.map(x=>Object.assign({sec:'ส่วนที่ 1'},x)).concat(s.sec2.map(x=>Object.assign({sec:'ส่วนที่ 2'},x))).filter(x=>x.n);
+  const asc=all.slice().sort((a,b)=>a.pct-b.pct), low=asc.filter(x=>x.pct<60), lo=asc[0], hi=asc[asc.length-1];
+  const follow={title:'ประเด็นที่ควรติดตาม',head:['ลำดับ','ส่วน','หัวข้อประเมิน','ร้อยละ','ระดับ'],rows:low.map((x,i)=>[String(i+1),x.sec+' ข้อ '+x.crit.no,x.crit.title,f1(x.pct),api.band(x.pct)]),widths:[700,1500,5300,1200,1400],center:[0,1,3,4],levelCol:4,empty:'ไม่พบหัวข้อที่ความพึงพอใจต่ำกว่า 60% ในรอบรายงานนี้'};
+  const ag=m.agencies;
+  const dists=[
+    {title:'ระยะเวลาการใช้งานระบบ APPS ของผู้ประเมิน',head:['ลำดับ','ระยะเวลาการใช้งาน','จำนวน (ราย)','ร้อยละ'],rows:api.DURATIONS.map((d,i)=>[String(i+1),d,String(s.durCounts[d]||0),pcTxt(s.durCounts[d]||0,s.n)]),widths:[800,5400,2000,1900],center:[0,2,3],empty:'ไม่มีข้อมูล'},
+    {title:'จำนวนผู้ประเมินตามหน่วยงาน',head:['ลำดับ','หน่วยงาน','จำนวน (ราย)','ร้อยละ'],rows:ag.map((x,i)=>[String(i+1),x.label||'-',String(x.value),pcTxt(x.value,s.n)]),widths:[800,5400,2000,1900],center:[0,2,3],empty:'ไม่มีข้อมูลหน่วยงานในรอบรายงานนี้'}];
+  const agRows=ag.map(x=>{ const t=api.summarize(m.rs.filter(r=>r.agency===x.label)); return {name:x.label||'-',n:x.value,p1:t.sec1Pct,p2:t.sec2Pct,po:t.overallPct}; });
+  const detail={title:'รายละเอียดสรุปรายหน่วยงาน',head:['ลำดับ','หน่วยงาน','ผู้ประเมิน','ส่วนที่ 1 (%)','ส่วนที่ 2 (%)','ภาพรวม (%)','ระดับ'],rows:agRows.map((r,i)=>[String(i+1),r.name,String(r.n),f1(r.p1),f1(r.p2),f1(r.po),api.band(r.po)]),widths:[700,3500,1000,1200,1200,1200,1200],center:[0,2,3,4,5,6],levelCol:6,empty:'ไม่มีข้อมูลรายหน่วยงานในรอบรายงานนี้'};
+  const recs=[{text:'ส่งเสริมให้ผู้ใช้งานตอบแบบประเมินอย่างต่อเนื่องทุกเดือน (รอบนี้มีผู้ประเมิน '+s.n+' ราย) เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มและเปรียบเทียบรายหน่วยงาน'}];
+  if(low.length){ recs.push({text:'จัดทำแผนปรับปรุงหัวข้อที่ความพึงพอใจต่ำกว่า 60% พร้อมแจ้งผลต่อผู้เกี่ยวข้อง โดยเรียงจากต่ำสุด ได้แก่',subs:low.map(x=>x.sec+' ข้อ '+x.crit.no+' '+x.crit.title+' ('+f1(x.pct)+'%)')}); }
+  else if(lo) recs.push({text:'ทุกหัวข้ออยู่ในระดับ "ดี" ขึ้นไป ให้คงการติดตามตามรอบปกติ และเฝ้าระวังหัวข้อที่ต่ำที่สุดคือ "'+lo.crit.title+'" ('+f1(lo.pct)+'%)'});
+  if(hi) recs.push({text:'รักษามาตรฐานและถอดบทเรียนจากหัวข้อ "'+hi.crit.title+'" ซึ่งมีความพึงพอใจสูงสุด ('+f1(hi.pct)+'%) เพื่อขยายผลไปยังหัวข้ออื่น'});
+  const lowAg=agRows.filter(r=>r.po<60);
+  if(lowAg.length) recs.push({text:'ติดตามหน่วยงานที่ความพึงพอใจภาพรวมต่ำกว่า 60% เป็นรายหน่วยงาน ได้แก่',subs:lowAg.map(r=>r.name+' ('+f1(r.po)+'%)')});
+  recs.push({text:s.sug.length?'ทบทวนข้อเสนอแนะเพิ่มเติมจำนวน '+s.sug.length+' รายการ และมอบหมายผู้รับผิดชอบพร้อมกำหนดเวลาดำเนินการ':'รอบรายงานนี้ไม่มีข้อเสนอแนะเพิ่มเติม ควรส่งเสริมให้ผู้ใช้งานแสดงความคิดเห็นเพื่อการปรับปรุงระบบ'});
+  const comments={title:'ข้อเสนอแนะเพิ่มเติม',items:s.sug.map(x=>({who:x.agency,text:x.text})),empty:'ไม่มีข้อเสนอแนะเพิ่มเติม'};
+  return {follow,dists,recs,detail,comments};
+}
+/* ---- หน้าจอ ---- */
+function htmlTable(t){
+  if(!t.rows.length) return '<div class="mini">'+esc(t.empty)+'</div>';
+  return '<div class="table-wrap"><table style="min-width:520px"><thead><tr>'+t.head.map((h,i)=>'<th'+(t.center.indexOf(i)>=0?' style="text-align:center"':'')+'>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+
+    t.rows.map(r=>'<tr>'+r.map((c,i)=>{ const lv=t.levelCol===i&&BAND_HEX[c]?';font-weight:800;color:#'+BAND_HEX[c]:''; return '<td style="'+(t.center.indexOf(i)>=0?'text-align:center':'')+lv+'">'+esc(c)+'</td>'; }).join('')+'</tr>').join('')+'</tbody></table></div>';
+}
+function panel(title,inner){ return '<div class="panel" style="margin-bottom:16px"><div class="panel-title" style="margin-bottom:12px">'+esc(title)+'</div>'+inner+'</div>'; }
+function sectionsHtml(sec){
+  let h=panel(sec.follow.title,htmlTable(sec.follow));
+  sec.dists.forEach(d=>{ h+=panel(d.title,htmlTable(d)); });
+  h+=panel('ข้อเสนอแนะเชิงบริหาร','<ol style="margin:0;padding-left:22px;line-height:1.9">'+sec.recs.map(r=>'<li>'+esc(r.text)+(r.subs?'<ul style="margin:2px 0 6px;padding-left:20px">'+r.subs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+'</li>').join('')+'</ol>');
+  h+=panel(sec.detail.title,htmlTable(sec.detail));
+  h+=panel(sec.comments.title+' ('+sec.comments.items.length+')',sec.comments.items.length?'<div class="insight">'+sec.comments.items.map(x=>'<div class="insight-card"><b>'+esc(x.who)+'</b>'+esc(x.text)+'</div>').join('')+'</div>':'<div class="mini">'+esc(sec.comments.empty)+'</div>');
+  return h;
+}
+/* ---- DOCX ---- */
+function kvTable(pairs){
+  const widths=fitW([2600,7400],DW), bd='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="E3E8F2"/><w:insideV w:val="single" w:sz="4" w:color="E3E8F2"/></w:tblBorders>';
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+bd+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+
+   pairs.map((p,ri)=>'<w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="'+widths[0]+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EAF1FF"/><w:vAlign w:val="center"/></w:tcPr>'+cellP(p[0],{sz:20,bold:true,color:'0b2f6b',keep:ri<pairs.length-1})+'</w:tc><w:tc><w:tcPr><w:tcW w:w="'+widths[1]+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/><w:vAlign w:val="center"/></w:tcPr>'+cellP(p[1],{sz:20,keep:ri<pairs.length-1})+'</w:tc></w:tr>').join('')+'</w:tbl>'+spacer();
+}
+function docxTable(t){
+  if(!t.rows.length) return para(t.empty,{color:'6a7d9b',fill:'F4F7FD',indent:120,after:80});
+  return table([t.head].concat(t.rows),t.widths,{center:t.center,colorCol:t.levelCol==null?-1:t.levelCol,colorFn:(ri,c)=>BAND_HEX[c]||'1f2937'});
+}
+// ข้อเสนอแนะเชิงบริหาร: การ์ดมีเลขลำดับสีน้ำเงิน + ข้อความ (รายการย่อยอยู่ในการ์ดเดียวกัน)
+function docxRecs(items){
+  const widths=fitW([650,9350],DW);
+  const rows=items.map((r,i)=>{
+    const body=cellP(r.text,{sz:21,keep:!!r.subs,before:50,after:r.subs?20:50})+(r.subs||[]).map((x,k)=>cellP('•  '+x,{sz:20,color:'374151',before:0,after:k===r.subs.length-1?60:10})).join('');
+    return '<w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="'+widths[0]+'" w:type="dxa"/><w:tcBorders><w:bottom w:val="single" w:sz="24" w:color="FFFFFF"/></w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>'+cellP(String(i+1),{sz:30,bold:true,color:'FFFFFF',align:'center'})+'</w:tc><w:tc><w:tcPr><w:tcW w:w="'+widths[1]+'" w:type="dxa"/><w:tcBorders><w:bottom w:val="single" w:sz="24" w:color="FFFFFF"/></w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="F4F7FD"/><w:vAlign w:val="center"/></w:tcPr>'+body+'</w:tc></w:tr>'; }).join('');
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="140" w:type="dxa"/><w:right w:w="140" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+rows+'</w:tbl>'+spacer();
+}
+function docxComments(c){
+  if(!c.items.length) return para(c.empty,{color:'6a7d9b',fill:'F4F7FD',indent:120});
+  return c.items.map(x=>para(x.who,{sz:18,bold:true,color:'0b2f6b',before:80,after:20,keep:true})+para(x.text,{fill:'F4F6F9',after:40,border:{color:'93C5FD',sz:18}})).join('');
+}
+function metaPairs(label,now,extra){ return [['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',who()]].concat(extra||[]); }
+
 async function buildOnsiteDocx(period){
-  BG='#ffffff'; const m=onsiteCompute(period), s=m.s, ch=onsiteCharts(m), md=newMedia(), label=periodLabel(period), now=new Date();
+  BG='#ffffff'; const m=onsiteCompute(period), s=m.s, ch=onsiteCharts(m), sec=onsiteSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   const weak=criteria.slice().sort((a,b)=>(s.criteriaAvg[a.key]||0)-(s.criteriaAvg[b.key]||0))[0];
+  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner('รายงานสรุปผลการประเมินเจ้าหน้าที่ Onsite Support','โดยเจ้าหน้าที่ตรวจคนเข้าเมือง · '+label,'จัดทำเมื่อ '+now.toLocaleString('th-TH')+' · โดย '+who());
+  b+=banner('รายงานสรุปผลการประเมินเจ้าหน้าที่ Onsite Support','สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง · '+label,'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
+  b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation (Supabase)']]));
+  b+=H('Dashboard Summary');
   b+=kpiRow([
     {label:'จำนวนประเมิน',value:String(s.total),sub:'รายการ',color:'#0b2f6b'},
     {label:'เจ้าหน้าที่ที่ถูกประเมิน',value:String(s.evaluated),sub:'คน',color:'#0ea5e9'},
     {label:'คะแนนเฉลี่ย',value:f2(s.avgScore),sub:pctTxt(s.avgScore)+' · '+s.band,color:toneColorAvg(s.avgScore)},
-    {label:'หัวข้อที่ควรโฟกัส',value:weak?weak.shortTitle:'-',sub:weak?f2(s.criteriaAvg[weak.key]||0)+' / 5':'',color:'#f59e0b'}]);
-  b+=heading('1. สรุปประเด็นสำคัญ'); b+=bullets(onsiteInsights(m));
+    {label:'หัวข้อที่ควรโฟกัส',value:weak?weak.shortTitle:'-',sub:weak?f2(s.criteriaAvg[weak.key]||0)+' · '+pctTxt(s.criteriaAvg[weak.key]||0):'',color:'#f59e0b'}]);
+  b+=H('สรุปประเด็นสำคัญ','0EA5E9'); b+=bullets(onsiteInsights(m));
   if(s.total){
-    b+=heading('2. ภาพรวมผลการประเมิน','0EA5E9'); b+=md.add(sideBySide(ch.gauge,ch.donut,20),IMG_MAX);
-    b+=heading('3. คะแนนเฉลี่ยรายหัวข้อ','14B8A6'); b+=md.add(ch.crit,IMG_MAX);
-    b+=table([['ลำดับ','หัวข้อประเมิน','คะแนนเฉลี่ย','ร้อยละ','ระดับ']].concat(criteria.map(c=>{const a=s.criteriaAvg[c.key]||0; return [String(c.no),c.title,f2(a),pctTxt(a),scoreBand(a)];})),[800,4200,1500,1500,2000],{center:[0,2,3,4]});
-    if(ch.trend){ b+=heading('4. แนวโน้มรายเดือน','8B5CF6'); b+=md.add(ch.trend,IMG_MAX); }
-    b+=heading('5. เจ้าหน้าที่และผลัด','F59E0B');
-    if(ch.topBars) b+=md.add(ch.topBars,IMG_MAX);
-    if(ch.shiftBars) b+=md.add(ch.shiftBars,IMG_MAX);
-    b+=subHeading('สรุปรายบุคคล (เรียงตามคะแนนเฉลี่ย)');
-    const pr=m.people.filter(p=>p.count).map((p,i)=>[String(i+1),p.name,String(p.count),f2(p.avg),pctTxt(p.avg),p.band]);
-    b+=table([['ลำดับ','ชื่อเจ้าหน้าที่','จำนวนครั้ง','คะแนนเฉลี่ย','ร้อยละ','ระดับ']].concat(pr),[800,3500,1300,1500,1400,1500],{center:[0,2,3,4,5]});
-    const cm=m.recs.filter(r=>r.comment);
-    b+=heading('6. ข้อเสนอแนะในรอบรายงาน','EF4444');
-    if(cm.length) cm.forEach(r=>{ b+=para(r.staff,{sz:18,bold:true,color:'0b2f6b',before:80,after:20,keep:true}); b+=para(r.comment,{fill:'F4F6F9',after:40}); });
-    else b+=para('ไม่มีข้อเสนอแนะในรอบรายงานนี้',{color:'6a7d9b'});
-  } else b+=para('ไม่มีข้อมูลการประเมินในช่วงที่เลือก',{color:'6a7d9b'});
+    b+=H('ภาพรวมผลการประเมิน','0EA5E9'); b+=md.add(sideBySide(ch.gauge,ch.donut,20),IMG_MAX);
+    b+=H('กราฟและคะแนนเฉลี่ยรายหัวข้อ','14B8A6'); b+=md.add(ch.crit,IMG_MAX);
+    b+=table([['ลำดับ','หัวข้อประเมิน','คะแนนเฉลี่ย','ร้อยละ','ระดับ']].concat(criteria.map(c=>{const a=s.criteriaAvg[c.key]||0; return [String(c.no),c.title,f2(a),pctTxt(a),scoreBand(a)];})),[800,4200,1500,1500,2000],{center:[0,2,3,4],colorCol:4,colorFn:(ri,c)=>BAND_HEX[c]||'1f2937'});
+    if(ch.trend){ b+=H('แนวโน้มรายเดือน','8B5CF6'); b+=md.add(ch.trend,IMG_MAX); }
+  }
+  b+=H(sec.follow.title,'EF4444'); b+=docxTable(sec.follow);
+  if(s.total){
+    b+=H(sec.dists[0].title,'F59E0B'); if(ch.shiftBars) b+=md.add(ch.shiftBars,IMG_MAX); b+=docxTable(sec.dists[0]);
+  }
+  b+=H('ข้อเสนอแนะเชิงบริหาร','2563EB'); b+=docxRecs(sec.recs);
+  b+=H(sec.detail.title,'14B8A6'); if(ch.topBars) b+=md.add(ch.topBars,IMG_MAX); b+=docxTable(sec.detail);
+  b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
   b+=para('เกณฑ์ระดับคะแนน: ดีเยี่ยม ≥ 4.60 · ดี ≥ 3.80 · พอใช้ ≥ 3.00 · ต้องปรับปรุง ≥ 2.00 · ไม่ผ่าน < 2.00   |   แหล่งข้อมูล: OSO Evaluation (Supabase)',{sz:16,color:'94a3b8',before:200,align:'center'});
   return assemble(b,md);
 }
 async function buildAppsDocx(period){
-  BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), md=newMedia(), label=periodLabel(period), now=new Date();
+  BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
+  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner('รายงานสรุปความพึงพอใจต่อการให้บริการระบบ APPS','ระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า · Service Desk · '+label,'จัดทำเมื่อ '+now.toLocaleString('th-TH')+' · โดย '+who());
+  b+=banner('รายงานสรุปความพึงพอใจต่อการให้บริการระบบ APPS','ระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า · Service Desk · '+label,'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
+  b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation — APPS Survey (Supabase)'],['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
+  b+=H('Dashboard Summary');
   b+=kpiRow([
     {label:'ผู้ประเมิน',value:String(s.n),sub:'ราย',color:'#0b2f6b'},
     {label:'ส่วนที่ 1 เจ้าหน้าที่',value:f1(s.sec1Pct)+'%',sub:api.band(s.sec1Pct),color:api.bandColor(s.sec1Pct)},
     {label:'ส่วนที่ 2 ระบบ/Service Desk',value:f1(s.sec2Pct)+'%',sub:api.band(s.sec2Pct),color:api.bandColor(s.sec2Pct)},
     {label:'ภาพรวมทั้งหมด',value:f1(s.overallPct)+'%',sub:api.band(s.overallPct),color:api.bandColor(s.overallPct)}]);
-  b+=heading('1. สรุปประเด็นสำคัญ'); b+=bullets(appsInsights(m));
+  b+=H('สรุปประเด็นสำคัญ','0EA5E9'); b+=bullets(appsInsights(m));
   if(s.n){
-    b+=heading('2. ภาพรวมความพึงพอใจและระยะเวลาการใช้งาน','0EA5E9'); b+=md.add(sideBySide(ch.gauge,ch.dur,20),IMG_MAX);
-    if(ch.agBars){ b+=subHeading('ผู้ประเมินตามหน่วยงาน'); b+=md.add(ch.agBars,IMG_MAX); }
-    if(ch.trend){ b+=heading('3. แนวโน้มรายเดือน','8B5CF6'); b+=md.add(ch.trend,IMG_MAX); }
-    const sec=(no,title,pctC,dC,arr,color)=>{
-      let x=heading(no+'. '+title,color); x+=md.add(pctC,IMG_MAX); x+=md.add(dC,IMG_MAX);
-      x+=table([['ข้อ','หัวข้อประเมิน'].concat(api.SCALE.map(o=>o.label)).concat(['ร้อยละ','ระดับ'])].concat(arr.map(a=>[String(a.crit.no),a.crit.title].concat(api.SCALE.map(o=>String(a.counts[o.value]))).concat([f1(a.pct),api.band(a.pct)]))),[500,3300,800,700,900,1000,900,1100],{center:[0,2,3,4,5,6,7]});
+    b+=H('ภาพรวมความพึงพอใจและระยะเวลาการใช้งาน','0EA5E9'); b+=md.add(sideBySide(ch.gauge,ch.dur,20),IMG_MAX); b+=docxTable(sec.dists[0]);
+    if(ch.trend){ b+=H('แนวโน้มรายเดือน','8B5CF6'); b+=md.add(ch.trend,IMG_MAX); }
+    const part=(title,pctC,dC,arr,color)=>{
+      let x=H(title,color); x+=md.add(pctC,IMG_MAX); x+=md.add(dC,IMG_MAX);
+      x+=table([['ข้อ','หัวข้อประเมิน'].concat(api.SCALE.map(o=>o.label)).concat(['ร้อยละ','ระดับ'])].concat(arr.map(a=>[String(a.crit.no),a.crit.title].concat(api.SCALE.map(o=>String(a.counts[o.value]))).concat([f1(a.pct),api.band(a.pct)]))),[500,3300,800,700,900,1000,900,1100],{center:[0,2,3,4,5,6,7],colorCol:7,colorFn:(ri,c)=>BAND_HEX[c]||'1f2937'});
       return x; };
-    b+=sec(4,'ส่วนที่ 1 : เจ้าหน้าที่ที่ให้การสนับสนุนการใช้งานระบบประจำท่าอากาศยาน',ch.s1p,ch.s1d,s.sec1,'14B8A6');
-    b+=sec(5,'ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',ch.s2p,ch.s2d,s.sec2,'F59E0B');
-    b+=heading('6. ข้อเสนอแนะเพิ่มเติม ('+s.sug.length+' รายการ)','EF4444');
-    if(s.sug.length) s.sug.forEach(x=>{ b+=para(x.agency,{sz:18,bold:true,color:'0b2f6b',before:80,after:20,keep:true}); b+=para(x.text,{fill:'F4F6F9',after:40}); });
-    else b+=para('- ไม่มี',{color:'6a7d9b'});
-  } else b+=para('ไม่มีข้อมูลการประเมินในช่วงที่เลือก',{color:'6a7d9b'});
+    b+=part('ส่วนที่ 1 : เจ้าหน้าที่ที่ให้การสนับสนุนการใช้งานระบบประจำท่าอากาศยาน',ch.s1p,ch.s1d,s.sec1,'14B8A6');
+    b+=part('ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',ch.s2p,ch.s2d,s.sec2,'F59E0B');
+  }
+  b+=H(sec.follow.title,'EF4444'); b+=docxTable(sec.follow);
+  if(s.n){ b+=H(sec.dists[1].title,'0EA5E9'); if(ch.agBars) b+=md.add(ch.agBars,IMG_MAX); b+=docxTable(sec.dists[1]); }
+  b+=H('ข้อเสนอแนะเชิงบริหาร','2563EB'); b+=docxRecs(sec.recs);
+  b+=H(sec.detail.title,'14B8A6'); b+=docxTable(sec.detail);
+  b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
   b+=para('เกณฑ์: ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง   |   แหล่งข้อมูล: OSO Evaluation — APPS Survey (Supabase)',{sz:16,color:'94a3b8',before:200,align:'center'});
   return assemble(b,md);
 }
@@ -481,5 +571,5 @@ window.render=function(){
   return _render.apply(this,arguments);
 };
 // ให้ vm harness เรียกฟังก์ชันภายในได้
-window.__sumTest={wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
+window.__sumTest={onsiteSections,appsSections,wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();

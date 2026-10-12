@@ -77,6 +77,8 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
       ok(tbls.every(t=>/<w:tblW w:w="10106" w:type="dxa"\/><w:jc w:val="center"\/>/.test(t)),name+' every table is 10106 wide + centred');
       ok(tbls.every(t=>{ const g=[...t.matchAll(/<w:gridCol w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0); return g===10106; }),name+' every grid sums to 10106');
       ok(tbls.every(t=>{ const rows=t.split('<w:tr>').slice(1); return rows.every(r=>[...r.matchAll(/<w:tcW w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0)===10106); }),name+' every row of cells sums to 10106');
+      { const txt=d.replace(/<[^>]+>/g,'|'); const need=['รอบรายงาน','วันที่จัดทำ','จัดทำโดย','แหล่งข้อมูล','Dashboard Summary','ประเด็นที่ควรติดตาม','ข้อเสนอแนะเชิงบริหาร',name==='APPS'?'รายละเอียดสรุปรายหน่วยงาน':'รายละเอียดสรุปรายบุคคล',name==='APPS'?'จำนวนผู้ประเมินตามหน่วยงาน':'จำนวนรายการประเมินตามผลัด','ข้อเสนอแนะ'];
+        need.forEach(k=>ok(txt.includes(k),name+' docx has section/field: '+k)); }
       ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525),name+' every image is full content width (673px)');
       ok(!/<w:pgMar[^>]*w:left="(?!900)/.test(d)&&/w:pgSz w:w="11906"/.test(d)&&/w:left="900"/.test(d)&&/w:right="900"/.test(d),name+' page 11906 - 2x900 margins = 10106'); }
     ok(fs.statSync(f).size>20000,name+' docx size '+fs.statSync(f).size);
@@ -86,6 +88,9 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const T=['2. ระบบมีประโยชน์สามารถช่วยสนับสนุนภารกิจของหน่วยงานได้','4. คู่มือการใช้งานช่วยเพิ่มความเข้าใจในการใช้งานระบบให้กับเจ้าหน้าที่','7. การแจ้งข้อมูลข่าวสารการ Upgrade ระบบ (วิธีการ / ความชัดเจน / เข้าใจง่าย)','ก'.repeat(300)];
     return T.map(t=>{ const L=__sumTest.wrapTH(g,t,200,2); return {n:L.length,max:Math.max(...L.map(l=>g.measureText(l).width))}; }); });
   ok(wr.every(x=>x.n<=2&&x.max<=200.5),'wrapTH never exceeds width/lines '+JSON.stringify(wr));
+  // ข้อเสนอแนะเชิงบริหาร: หลายคนได้ 5.00 → รายชื่อย่อย; ไม่มีใครต่ำกว่าเกณฑ์ → ข้อความคงมาตรฐาน
+  const rec=await pg.evaluate(()=>{ const mk=(avg)=>({recs:[],people:[{name:'A',count:1,avg},{name:'B',count:2,avg},{name:'C',count:1,avg}],s:{total:4,evaluated:3,avgScore:avg,band:'x',criteriaAvg:{},lowestKey:'speed',top:[{name:'A',avg}],risks:[],evaluators:{}}}); const r=__sumTest.onsiteSections(mk(5)); return {subs:(r.recs.find(x=>x.subs)||{}).subs, last:r.recs[r.recs.length-1].text, followEmpty:r.follow.rows.length}; });
+  ok(rec.subs&&rec.subs.length===3,'recs list all 5.00 staff as sub-bullets'); ok(rec.last.includes('คงการติดตามตามรอบปกติ')&&rec.followEmpty===0,'no risks -> keep-standard recommendation');
   // ช่วงเดือน + ว่างเปล่า
   const emptyOk=await pg.evaluate(async()=>{ const r=await __sumTest.buildOnsiteDocx('2020-01'); const r2=await __sumTest.buildAppsDocx('2020-01'); return !!r&&!!r2; });
   ok(emptyOk,'docx builds with empty period (onsite+apps)');
