@@ -328,8 +328,11 @@ async function renderApps(){
 /* ============================================================
    DOCX
    ============================================================ */
-const DW = 10000;                       // ความกว้างเนื้อหา (twips) บน A4 ขอบ 900
-const IMG_MAX = 620;                    // px
+const DW = 10106;                       // ความกว้างเนื้อหา (twips) = A4 11906 − ขอบซ้าย/ขวา 900+900 → ตารางทุกตารางกว้างเท่านี้พอดีขอบ
+// ปรับความกว้างคอลัมน์ให้ผลรวม = total เป๊ะ (สัดส่วนเดิม) — กันตารางล้น/สั้นกว่าขอบกระดาษ
+function fitW(widths,total){ total=total||DW; const sum=widths.reduce((a,b)=>a+b,0), out=widths.map(w=>Math.floor(w*total/sum)); out[out.length-1]+=total-out.reduce((a,b)=>a+b,0); return out; }
+const TBL_JC='<w:jc w:val="center"/>';
+const IMG_MAX = 673;                    // px = ความกว้างเนื้อหา 10106 twips (96 dpi) → รูปกว้างเท่าตาราง
 function xr(text,o){ return dRun(text,o); }
 function cellP(text,o){
   o=o||{};
@@ -344,29 +347,29 @@ function subHeading(text){ return para(text,{sz:22,bold:true,color:'16438f',keep
 function spacer(){ return para('',{after:60}); }
 function banner(title,sub,meta){
   const cell=(t,o)=>'<w:tc><w:tcPr><w:tcW w:w="'+DW+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="0B2F6B"/></w:tcPr>'+t+'</w:tc>';
-  return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="'+DW+'"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>'+
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+'<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="'+DW+'"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>'+
     cell(cellP(title,{sz:36,bold:true,color:'FFFFFF',align:'center',before:200,after:40})+cellP(sub,{sz:22,color:'CFE0FF',align:'center',before:0,after:40})+cellP(meta,{sz:18,color:'9FB8E8',align:'center',before:0,after:200}))+'</w:tr></w:tbl>'+spacer();
 }
 function kpiRow(cards){
-  const w=Math.floor(DW/cards.length), bd='<w:left w:val="single" w:sz="36" w:color="FFFFFF"/><w:right w:val="single" w:sz="36" w:color="FFFFFF"/>';
-  const tc=(cd)=>'<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="30" w:color="'+cd.color.replace('#','')+'"/>'+bd+'</w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/></w:tcPr>'+
+  const ws=fitW(cards.map(()=>1),DW), bd='<w:left w:val="single" w:sz="36" w:color="FFFFFF"/><w:right w:val="single" w:sz="36" w:color="FFFFFF"/>';
+  const tc=(cd,ci)=>'<w:tc><w:tcPr><w:tcW w:w="'+ws[ci]+'" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="30" w:color="'+cd.color.replace('#','')+'"/>'+bd+'</w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="F2F7FF"/></w:tcPr>'+
     cellP(cd.label,{sz:18,color:'64748b',align:'center',keep:true,before:80})+cellP(cd.value,{sz:38,bold:true,color:cd.color.replace('#',''),align:'center',keep:true,before:0,after:0})+cellP(cd.sub,{sz:17,color:'64748b',align:'center',before:0,after:80})+'</w:tc>';
-  return '<w:tbl><w:tblPr><w:tblW w:w="'+(w*cards.length)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>'+cards.map(()=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>'+cards.map(tc).join('')+'</w:tr></w:tbl>'+spacer();
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+'<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>'+ws.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>'+cards.map(tc).join('')+'</w:tr></w:tbl>'+spacer();
 }
 // ตารางสไตล์สมัยใหม่: หัวตารางสีน้ำเงิน, แถวสลับสี, แถวไม่ถูกตัดข้ามหน้า, ตารางเล็กอยู่หน้าเดียวกัน
 function table(rows,widths,o){
-  o=o||{}; const center=o.center||[], keepAll=rows.length<=14;
+  o=o||{}; widths=fitW(widths,DW); const center=o.center||[], keepAll=rows.length<=14;
   const bd='<w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D7E5"/><w:left w:val="single" w:sz="4" w:color="D0D7E5"/><w:bottom w:val="single" w:sz="4" w:color="D0D7E5"/><w:right w:val="single" w:sz="4" w:color="D0D7E5"/><w:insideH w:val="single" w:sz="4" w:color="E3E8F2"/><w:insideV w:val="single" w:sz="4" w:color="E3E8F2"/></w:tblBorders>';
   const trs=rows.map((cells,ri)=>{ const head=ri===0, last=ri===rows.length-1, fill=head?'0B2F6B':(ri%2===0?'F6F9FF':'FFFFFF');
     return '<w:tr><w:trPr><w:cantSplit/>'+(head?'<w:tblHeader/>':'')+'</w:trPr>'+cells.map((cell,ci)=>{
       const col=(!head&&o.colorCol===ci&&o.colorFn)?o.colorFn(ri,cell):(head?'FFFFFF':'1f2937');
       return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/><w:vAlign w:val="center"/></w:tcPr>'+cellP(cell,{sz:20,bold:head||(o.colorCol===ci),color:col,align:center.indexOf(ci)>=0?'center':null,keep:keepAll&&!last})+'</w:tc>'; }).join('')+'</w:tr>'; }).join('');
-  return '<w:tbl><w:tblPr><w:tblW w:w="'+widths.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/>'+bd+'<w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+trs+'</w:tbl>'+spacer();
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+bd+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+trs+'</w:tbl>'+spacer();
 }
 function bullets(items){ return items.map(t=>para('•  '+t,{sz:21,fill:'F4F7FD',indent:240,after:30,border:{color:'2563EB',sz:24}})).join(''); }
 function metaTable(pairs){ return table([['รายการ','รายละเอียด']].concat(pairs),[2600,7400]); }
 
-function newMedia(){ const list=[]; return {list, add(cv,maxpx){ const id=list.length+1, m={rel:'rIdImg'+id,name:'chart'+id+'.png',bytes:canvasBytes(cv),id}; list.push(m); const w=Math.min(cv._w,maxpx||IMG_MAX), h=Math.round(cv._h*w/cv._w); return img(m,w,h); }}; }
+function newMedia(){ const list=[]; return {list, add(cv,maxpx){ const id=list.length+1, m={rel:'rIdImg'+id,name:'chart'+id+'.png',bytes:canvasBytes(cv),id}; list.push(m); const w=maxpx||IMG_MAX, h=Math.round(cv._h*w/cv._w); /* ขยายเต็มความกว้างเนื้อหา (กราฟวาด 2x จึงยังคมชัด) */ return img(m,w,h); }}; }
 function img(m,wpx,hpx){
   const cx=Math.round(wpx*9525), cy=Math.round(hpx*9525);
   return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'+m.id+'" name="'+m.name+'"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'+m.id+'" name="'+m.name+'"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'+m.rel+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';

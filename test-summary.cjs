@@ -71,6 +71,14 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#sumExportBtn_'+kind)]);
     const f=path.join(OUT,'OSO_Summary_'+name+'.docx'); await dl.saveAs(f);
     ok(dl.suggestedFilename().startsWith('OSO_Summary_'+name+'_'),'download name '+dl.suggestedFilename());
+    { const JSZip=require('jszip'); const z=await JSZip.loadAsync(fs.readFileSync(f)); const d=await z.file('word/document.xml').async('string');
+      const tbls=d.split('<w:tbl>').slice(1).map(x=>x.split('</w:tbl>')[0]);
+      ok(tbls.length>=3,name+' tables '+tbls.length);
+      ok(tbls.every(t=>/<w:tblW w:w="10106" w:type="dxa"\/><w:jc w:val="center"\/>/.test(t)),name+' every table is 10106 wide + centred');
+      ok(tbls.every(t=>{ const g=[...t.matchAll(/<w:gridCol w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0); return g===10106; }),name+' every grid sums to 10106');
+      ok(tbls.every(t=>{ const rows=t.split('<w:tr>').slice(1); return rows.every(r=>[...r.matchAll(/<w:tcW w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0)===10106); }),name+' every row of cells sums to 10106');
+      ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525),name+' every image is full content width (673px)');
+      ok(!/<w:pgMar[^>]*w:left="(?!900)/.test(d)&&/w:pgSz w:w="11906"/.test(d)&&/w:left="900"/.test(d)&&/w:right="900"/.test(d),name+' page 11906 - 2x900 margins = 10106'); }
     ok(fs.statSync(f).size>20000,name+' docx size '+fs.statSync(f).size);
   }
   // ป้ายชื่อยาวต้องไม่ล้นความกว้าง (ไม่ทับแท่งกราฟ)
