@@ -319,12 +319,13 @@ async function renderDashboard(){
   const OC=window.osoCharts;
   if(OC){
     OC.setBG(null); const mb=OC.appsBuilders(OC.appsModel(rs));
-    h+=OC.cardsRow(['appsC_g','appsC_d'])+OC.cardsRow(['appsC_1p','appsC_1d'])+sectionTable('ร้อยละความพึงพอใจ — ส่วนที่ 1 : เจ้าหน้าที่ที่ให้การสนับสนุน',s.sec1)+OC.cardsRow(['appsC_2p','appsC_2d'])+sectionTable('ร้อยละความพึงพอใจ — ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',s.sec2);
+    const trB=OC.appsTrendAll(rows);
+    h+=OC.cardsRow(['appsC_g','appsC_d'])+OC.cardsRow([trB&&'appsC_tr'])+OC.cardsRow(['appsC_1p','appsC_1d'])+sectionTable('ร้อยละความพึงพอใจ — ส่วนที่ 1 : เจ้าหน้าที่ที่ให้การสนับสนุน',s.sec1)+OC.cardsRow(['appsC_2p','appsC_2d'])+sectionTable('ร้อยละความพึงพอใจ — ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',s.sec2);
     h+='<div class="panel"><div class="panel-title" style="margin-bottom:10px">ส่วนที่ 3 : ข้อเสนอแนะเพิ่มเติม ('+s.sug.length+')</div>';
     if(s.sug.length) h+='<div class="insight">'+s.sug.map(x=>'<div class="insight-card"><b>'+gesc(x.agency)+'</b>'+gesc(x.text)+'</div>').join('')+'</div>'; else h+='<div class="mini">— ไม่มี —</div>';
     h+='</div>';
     c.innerHTML=h;
-    OC.fill([['appsC_g',mb.gauge],['appsC_d',mb.dur],['appsC_1p',mb.s1p],['appsC_1d',mb.s1d],['appsC_2p',mb.s2p],['appsC_2d',mb.s2d]]);
+    OC.fill([['appsC_g',mb.gauge],['appsC_d',mb.dur],['appsC_tr',trB],['appsC_1p',mb.s1p],['appsC_1d',mb.s1d],['appsC_2p',mb.s2p],['appsC_2d',mb.s2d]]);
     return;
   }
   // ระยะเวลาการใช้งาน

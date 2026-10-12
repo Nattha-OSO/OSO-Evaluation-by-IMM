@@ -72,6 +72,16 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   await pg.evaluate(()=>showView('sum_onsite',document.querySelector('[data-view="sum_onsite"]'))); await pg.waitForTimeout(500); await layoutOk('onsite@1920'); await pg.setViewportSize({width:1280,height:900}); await pg.waitForTimeout(700); await layoutOk('onsite@1280-after-resize');
   await pg.setViewportSize({width:420,height:900}); await pg.waitForTimeout(800); ok(!(await pg.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth+2)),'no horizontal scroll at 420px'); await pg.screenshot({path:path.join(OUT,'shot-mobile.png')}); await pg.setViewportSize({width:1280,height:900});
 
+  // ---- แดชบอร์ด: กราฟแนวโน้มทุกเดือน (รวมกรณีเดือนเยอะ) ----
+  await pg.evaluate(()=>showView('dashboard',document.querySelector('[data-view="dashboard"]')));
+  await pg.waitForSelector('#dash_tr canvas'); ok(true,'Onsite dashboard has all-months trend (3 months)');
+  await pg.evaluate(()=>showView('apps_dashboard',document.querySelector('[data-view="apps_dashboard"]')));
+  await pg.waitForSelector('#appsC_tr canvas'); ok(true,'APPS dashboard has all-months trend');
+  await pg.evaluate(async()=>{ const ev=[]; let id=1000; for(let m=0;m<26;m++){ const d=new Date(2024,m,5); ['A','B'].forEach((n,i)=>{ const row={id:id++,created_at:d.toISOString(),evaluator:'ผลัด 1',staff:'ทดสอบ '+n,comment:''}; ['speed','problem_solving','communication','service_mind','satisfaction'].forEach(k=>row[k]=Math.max(1,Math.min(5,Math.round(3+Math.sin(m/2)+i*.5)))); ev.push(row); }); } window.__ev=window.__ev.concat(ev); data=await loadData(); });
+  await pg.evaluate(()=>showView('dashboard',document.querySelector('[data-view="dashboard"]'))); await pg.waitForSelector('#dash_tr canvas');
+  const dn=await pg.evaluate(()=>({pts:__sumTest.onsiteCompute('all').monthly.length}));
+  ok(dn.pts>=26,'monthly series is not capped at 12 ('+dn.pts+' months)');
+  await pg.locator('#dash_tr').screenshot({path:path.join(OUT,'shot-trend-many.png')});
   // ---- DOCX จริงผ่านปุ่ม (ดักการดาวน์โหลด) ----
   for(const [kind,view,name] of [['onsite','sum_onsite','Onsite'],['apps','sum_apps','APPS']]){
     await pg.evaluate(v=>showView(v,document.querySelector('[data-view="'+v+'"]')),view);

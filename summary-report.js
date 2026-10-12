@@ -148,10 +148,13 @@ function chTrend(pts,o){
     for(let i=1;i<pts.length;i++){ const mx=(X(i-1)+X(i))/2; g.bezierCurveTo(mx,Y(pts[i-1].value),mx,Y(pts[i].value),X(i),Y(pts[i].value)); }
     g.lineWidth=3; g.lineJoin='round'; g.strokeStyle=col; g.stroke();
   }
-  pts.forEach((p,i)=>{ const x=X(i), y=Y(p.value);
-    g.beginPath(); g.arc(x,y,6,0,2*Math.PI); g.fillStyle='#fff'; g.fill(); g.lineWidth=3; g.strokeStyle=col; g.stroke();
-    g.textAlign='center'; g.textBaseline='alphabetic'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText((o.fmtV||String)(p.value),x,y-12);
-    g.font='12px '+FONT; g.fillStyle='#475569'; g.fillText(p.label,x,h-padB+22); });
+  // เดือนเยอะ: ลดขนาดจุดและแสดงป้ายเว้นช่วง (จุดแรก/สุดท้าย/สูงสุด/ต่ำสุดแสดงเสมอ) เพื่อไม่ให้ตัวเลขทับกัน
+  const step=pw/pts.length, every=Math.max(1,Math.ceil(46/step)), vEvery=Math.max(1,Math.ceil(40/step)), r=step<26?3.5:(step<40?4.5:6);
+  const vals=pts.map(p=>p.value), vmax=Math.max.apply(null,vals), vmin=Math.min.apply(null,vals);
+  pts.forEach((p,i)=>{ const x=X(i), y=Y(p.value), key=(i===0||i===pts.length-1||p.value===vmax||p.value===vmin);
+    g.beginPath(); g.arc(x,y,r,0,2*Math.PI); g.fillStyle='#fff'; g.fill(); g.lineWidth=r<5?2:3; g.strokeStyle=col; g.stroke();
+    if(i%vEvery===0||key){ g.textAlign='center'; g.textBaseline='alphabetic'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText((o.fmtV||String)(p.value),x,y-r-6); }
+    if(i%every===0||i===pts.length-1){ g.font='12px '+FONT; g.fillStyle='#475569'; g.textAlign='center'; g.fillText(p.label,x,h-padB+22); } });
   return c;
 }
 // แท่งซ้อน 100% ของ 4 ระดับความพึงพอใจ  items:[{label,counts:{4,3,2,1}}] · scale:[{label,value,color}]
@@ -200,7 +203,7 @@ function cardsRow(ids){ const list=ids.filter(Boolean); if(!list.length) return 
   document.head.appendChild(st); })();
 // วาดใหม่เมื่อความกว้างหน้าจอเปลี่ยนจริง (หมุนจอ/ย่อขยายหน้าต่าง) — ไม่วาดซ้ำเพราะแค่เลื่อนจนแถบ URL ขยับ
 let lastW=document.documentElement.clientWidth, rzT=null;
-window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(function(){ const w=document.documentElement.clientWidth; if(Math.abs(w-lastW)<40) return; lastW=w; if(typeof view!=='undefined'&&(view==='sum_onsite'||view==='sum_apps'||view==='apps_dashboard')) window.render(); },300); });
+window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(function(){ const w=document.documentElement.clientWidth; if(Math.abs(w-lastW)<40) return; lastW=w; if(typeof view!=='undefined'&&(view==='sum_onsite'||view==='sum_apps'||view==='apps_dashboard'||view==='dashboard')) window.render(); },300); });
 
 /* ============================================================
    คำนวณข้อมูลสรุป
@@ -213,14 +216,14 @@ function onsiteCompute(period){
   const s=summarizeOverall(recs,people);
   const bandCounts=BAND5.map(b=>({label:b.label,color:b.color,value:recs.filter(r=>scoreBand(r.avg)===b.label).length}));
   const byM={}; all.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
-  const monthly=Object.keys(byM).sort().slice(-12).map(k=>({key:k,label:monthShort(k),value:byM[k].reduce((a,b)=>a+b,0)/byM[k].length,n:byM[k].length}));
+  const monthly=Object.keys(byM).sort().map(k=>({key:k,label:monthShort(k),value:byM[k].reduce((a,b)=>a+b,0)/byM[k].length,n:byM[k].length}));
   return {recs,people,s,bandCounts,monthly,months:monthsOf(all,r=>r.timestampRaw)};
 }
 function appsCompute(period){
   const api=window.appsSummaryApi, rows=api.rows();
   const rs=inPeriod(rows,r=>r.created_at,period), s=api.summarize(rs);
   const byM={}; rows.forEach(r=>{const k=ymOf(r.created_at); if(!k)return; (byM[k]=byM[k]||[]).push(r);});
-  const monthly=Object.keys(byM).sort().slice(-12).map(k=>({key:k,label:monthShort(k),value:api.summarize(byM[k]).overallPct,n:byM[k].length}));
+  const monthly=Object.keys(byM).sort().map(k=>({key:k,label:monthShort(k),value:api.summarize(byM[k]).overallPct,n:byM[k].length}));
   const agencies=Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value);
   return {rs,s,monthly,agencies,months:monthsOf(rows,r=>r.created_at)};
 }
@@ -258,6 +261,11 @@ function appsBuilders(m){
     trend:(m.monthly||[]).length>=2?(w=>chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{w,h:Math.round(Math.max(230,Math.min(300,w*.5))),title:'แนวโน้มความพึงพอใจภาพรวมรายเดือน (%)',yMin:0,yMax:100,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'})):null
   };
 }
+function trendBuilder(monthly,o){ if(!monthly.length) return null; return w=>chTrend(monthly.map(p=>({label:p.label,value:p.value})),Object.assign({w,h:Math.round(Math.max(240,Math.min(320,w*.45)))},o)); }
+function onsiteTrendAll(){ const all=(data&&data.records)||[], byM={}; all.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
+  return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:byM[k].reduce((a,b)=>a+b,0)/byM[k].length})),{title:'แนวโน้มคะแนนเฉลี่ยทุกเดือน (เต็ม 5)',yMin:1,yMax:5,ticks:4,fmtY:v=>f1(v),fmtV:v=>f2(v),color:'#2563eb'}); }
+function appsTrendAll(rows){ const api=window.appsSummaryApi, byM={}; rows.forEach(r=>{const k=ymOf(r.created_at); if(!k)return; (byM[k]=byM[k]||[]).push(r);});
+  return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:api.summarize(byM[k]).overallPct})),{title:'แนวโน้มความพึงพอใจภาพรวมทุกเดือน (%)',yMin:0,yMax:100,ticks:4,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'}); }
 function onsiteCharts(m){ return resolveB(onsiteBuilders(m),620); }
 function appsCharts(m){ return resolveB(appsBuilders(m),620); }
 
@@ -577,12 +585,17 @@ const SVIEWS={ sum_onsite:{title:'สรุปผลประเมิน — On
 const _render=window.render;
 window.render=function(){
   const v=view;
+  if(v==='dashboard'){
+    const r=_render.apply(this,arguments);
+    try{ const b=onsiteTrendAll(), c=$('content'); if(b&&c){ c.insertAdjacentHTML('beforeend','<div style="height:16px"></div>'+cardsRow(['dash_tr'])); fill([['dash_tr',b]]); } }catch(e){}
+    return r;
+  }
   if(SVIEWS[v]){ const pt=$('pageTitle'); if(pt)pt.textContent=SVIEWS[v].title; SVIEWS[v].fn(); return; }
   return _render.apply(this,arguments);
 };
 // ให้ vm harness เรียกฟังก์ชันภายในได้
 // ให้แดชบอร์ด APPS เดิมใช้กราฟและเลย์เอาต์ชุดเดียวกัน
-window.osoCharts={ cardsRow, fill, setBG:function(v){ BG=v; },
+window.osoCharts={ cardsRow, fill, appsTrendAll, setBG:function(v){ BG=v; },
   appsModel:function(rs){ const api=window.appsSummaryApi; const s=api.summarize(rs); return {rs,s,monthly:[],agencies:Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value)}; },
   appsBuilders:appsBuilders };
 window.__sumTest={onsiteSections,appsSections,wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
