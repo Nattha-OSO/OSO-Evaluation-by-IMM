@@ -41,28 +41,36 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   });
   // ---- หน้าจอ Onsite ----
   await pg.evaluate(()=>{ const b=document.querySelector('[data-view="sum_onsite"]'); showView('sum_onsite',b); });
-  await pg.waitForSelector('#sumOn_c canvas');
+  await pg.waitForSelector('#on_c canvas');
   ok(await pg.locator('.nav-title',{hasText:'สรุปผลประเมิน'}).count()===1,'nav group present');
   ok(await pg.locator('button[data-view="sum_onsite"].active').count()===1,'onsite menu active');
   ok((await pg.textContent('#pageTitle')).includes('Onsite'),'title onsite');
   ok(await pg.locator('#content canvas').count()>=5,'onsite >=5 canvases ('+await pg.locator('#content canvas').count()+')');
   await pg.setViewportSize({width:1280,height:3200}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-onsite.png')}); await pg.setViewportSize({width:1280,height:900});
+  // เลย์เอาต์สมดุล: การ์ดกราฟในแถวเดียวกันกว้างเท่ากัน อยู่แถวเดียวกัน และกราฟไม่ล้นการ์ด
+  async function layoutOk(label){ const r=await pg.evaluate(()=>{ const rows=[...document.querySelectorAll('.sum-grid')].map(g=>{ const cs=[...g.querySelectorAll('.sum-card')]; const rc=cs.map(c=>c.getBoundingClientRect()); const cv=cs.map(c=>c.querySelector('canvas')).filter(Boolean).map(c=>c.getBoundingClientRect()); return {n:cs.length,sameTop:rc.every(x=>Math.abs(x.top-rc[0].top)<2),sameW:rc.length<2||rc.every(x=>Math.abs(x.width-rc[0].width)<2),sameH:rc.length<2||rc.every(x=>Math.abs(x.height-rc[0].height)<2),fit:cv.every((x,i)=>x.right<=rc[i].right+1&&x.left>=rc[i].left-1),filled:cs.length===cv.length,cvw:cv.map(x=>Math.round(x.width))}; }); return {rows,hscroll:document.documentElement.scrollWidth>document.documentElement.clientWidth+2}; });
+    ok(r.rows.length>=3,label+' grid rows '+r.rows.length); ok(r.rows.every(x=>x.sameTop&&x.sameW&&x.sameH&&x.fit&&x.filled),label+' cards aligned/equal/fit '+JSON.stringify(r.rows.map(x=>x.cvw))); ok(!r.hscroll,label+' no horizontal scroll'); }
+  await layoutOk('onsite@1280');
   // เลือกเดือน
   await pg.setViewportSize({width:1280,height:3200}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-onsite.png')}); await pg.setViewportSize({width:1280,height:900});
   await pg.selectOption('#content select','2026-07');
-  await pg.waitForSelector('#sumOn_c canvas');
+  await pg.waitForSelector('#on_c canvas');
   ok((await pg.textContent('#content')).includes('กรกฎาคม 2569'),'period month label (Thai BE)');
   // ---- หน้าจอ APPS ----
   await pg.evaluate(()=>{ const b=document.querySelector('[data-view="sum_apps"]'); showView('sum_apps',b); });
-  await pg.waitForSelector('#sumAp_1p canvas');
+  await pg.waitForSelector('#ap_1p canvas');
   ok((await pg.textContent('#pageTitle')).includes('APPS'),'title apps');
+  await layoutOk('apps@1280');
   ok(await pg.locator('#content canvas').count()>=7,'apps >=7 canvases ('+await pg.locator('#content canvas').count()+')');
   await pg.setViewportSize({width:1280,height:4600}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-apps.png')}); await pg.setViewportSize({width:1280,height:900});
   // เมนูเดิมยังทำงาน
   await pg.evaluate(()=>showView('dashboard',document.querySelector('[data-view="dashboard"]')));
   ok((await pg.textContent('#pageTitle'))==='แดชบอร์ด','old dashboard still renders');
   await pg.evaluate(()=>showView('apps_dashboard',document.querySelector('[data-view="apps_dashboard"]')));
-  await pg.waitForSelector('#appsChartS1c canvas'); ok(true,'old APPS dashboard still renders');
+  await pg.waitForSelector('#appsC_1p canvas'); ok(true,'old APPS dashboard still renders');
+  await layoutOk('old-apps-dashboard@1280'); await pg.setViewportSize({width:1920,height:1080}); await pg.waitForTimeout(700); await pg.waitForSelector('#appsC_1p canvas'); await layoutOk('old-apps-dashboard@1920'); await pg.screenshot({path:path.join(OUT,'shot-old-apps-1920.png'),fullPage:false});
+  await pg.evaluate(()=>showView('sum_onsite',document.querySelector('[data-view="sum_onsite"]'))); await pg.waitForTimeout(500); await layoutOk('onsite@1920'); await pg.setViewportSize({width:1280,height:900}); await pg.waitForTimeout(700); await layoutOk('onsite@1280-after-resize');
+  await pg.setViewportSize({width:420,height:900}); await pg.waitForTimeout(800); ok(!(await pg.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth+2)),'no horizontal scroll at 420px'); await pg.screenshot({path:path.join(OUT,'shot-mobile.png')}); await pg.setViewportSize({width:1280,height:900});
 
   // ---- DOCX จริงผ่านปุ่ม (ดักการดาวน์โหลด) ----
   for(const [kind,view,name] of [['onsite','sum_onsite','Onsite'],['apps','sum_apps','APPS']]){

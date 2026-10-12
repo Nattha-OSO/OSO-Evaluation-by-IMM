@@ -21,6 +21,7 @@ const BAND5 = [
   {label:'ไม่ผ่าน',      color:'#ef4444'}
 ];
 const MON_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+let SCREEN = false;   // true ตอนวาดบนหน้าจอ: ชื่อกราฟแสดงเป็นหัวการ์ด HTML (จัดชิดซ้ายสม่ำเสมอ) ไม่วาดลงในรูป
 let BG = null;   // พื้นหลังกราฟ: null = โปร่งใส (หน้าจอ) · '#ffffff' ตอนสร้างรูปลง DOCX
 const state = {onsite:'all', apps:'all'};   // ช่วงข้อมูลที่เลือกของแต่ละเมนู ('all' หรือ 'YYYY-MM')
 
@@ -56,11 +57,11 @@ function wrapTH(g,text,maxW,maxLines){
   if(lines.length>maxLines){ const keep=lines.slice(0,maxLines-1); keep.push(fitText(g,lines.slice(maxLines-1).join(' '),maxW)); return keep; }
   return lines.map(l=>fitText(g,l,maxW));
 }
-function chartTitle(g,t,x,y){ if(!t) return; g.font='bold 14px '+FONT; g.fillStyle=NAVY; g.textAlign='left'; g.textBaseline='alphabetic'; g.fillText(t,x,y); }
+function chartTitle(g,t,x,y){ if(!t) return; g.canvas._title=t; if(SCREEN) return; g.font='bold 14px '+FONT; g.fillStyle=NAVY; g.textAlign='left'; g.textBaseline='alphabetic'; g.fillText(t,x,y); }
 
 // มาตรวัดครึ่งวงกลม: pct 0-100
 function chGauge(pct,o){
-  const w=260,h=220,{c,g}=mk(w,h); pct=Math.max(0,Math.min(100,Number(pct)||0));
+  const k=o.k||1, w=260, h=220, {c,g}=mk(w*k,h*k); g.scale(k,k); pct=Math.max(0,Math.min(100,Number(pct)||0));
   chartTitle(g,o.title,14,24);
   const cx=w/2, cy=156, R=92;
   g.lineWidth=24; g.lineCap='round';
@@ -71,70 +72,70 @@ function chGauge(pct,o){
   }
   g.textAlign='center'; g.textBaseline='alphabetic';
   g.font='bold 30px '+FONT; g.fillStyle=NAVY; g.fillText(o.main,cx,cy-8);
-  g.font='bold 13px '+FONT; g.fillStyle='#475569'; g.fillText(o.sub||'',cx,cy+16);
-  g.font='11px '+FONT; g.fillStyle='#64748b'; g.textAlign='center'; g.fillText('0',cx-R,cy+28); g.fillText(o.maxTxt||'100',cx+R,cy+28);
+  g.font='bold 14px '+FONT; g.fillStyle='#475569'; g.fillText(o.sub||'',cx,cy+16);
+  g.font='12px '+FONT; g.fillStyle='#64748b'; g.textAlign='center'; g.fillText('0',cx-R,cy+28); g.fillText(o.maxTxt||'100',cx+R,cy+28);
   return c;
 }
 // โดนัท + คำอธิบายสี  items:[{label,value,color}]
 function chDonut(items,o){
-  const w=380,h=220,{c,g}=mk(w,h); chartTitle(g,o.title,14,24);
+  const k=o.k||1, w=420, h=220, {c,g}=mk(w*k,h*k); g.scale(k,k); chartTitle(g,o.title,14,24);
   const cx=100, cy=128, R=78, r=50, total=items.reduce((a,x)=>a+x.value,0);
   if(!total){
     g.lineWidth=R-r; g.strokeStyle='#e8eefb'; g.beginPath(); g.arc(cx,cy,(R+r)/2,0,2*Math.PI); g.stroke();
-    g.fillStyle='#94a3b8'; g.font='12px '+FONT; g.textAlign='center'; g.fillText('ไม่มีข้อมูล',cx,cy+4);
+    g.fillStyle='#94a3b8'; g.font='13px '+FONT; g.textAlign='center'; g.fillText('ไม่มีข้อมูล',cx,cy+4);
   } else {
     let a0=-Math.PI/2; const gap=items.filter(x=>x.value>0).length>1?0.03:0;
     items.forEach(it=>{ if(!it.value) return; const a1=a0+2*Math.PI*it.value/total;
       g.beginPath(); g.arc(cx,cy,(R+r)/2,a0+gap,a1-gap); g.lineWidth=R-r; g.lineCap='butt'; g.strokeStyle=it.color; g.stroke(); a0=a1; });
     g.textAlign='center'; g.fillStyle=NAVY; g.font='bold 26px '+FONT; g.fillText(String(o.center!=null?o.center:total),cx,cy+4);
-    g.fillStyle='#475569'; g.font='11px '+FONT; g.fillText(o.centerSub||'',cx,cy+22);
+    g.fillStyle='#475569'; g.font='12px '+FONT; g.fillText(o.centerSub||'',cx,cy+22);
   }
   const pcs=pctSplit(items.map(x=>x.value));
   const lx=214, ly0=Math.max(52,128-items.length*12);
   items.forEach((it,i)=>{ const y=ly0+i*26; g.fillStyle=it.value?it.color:'#d5dbe8'; g.beginPath(); g.arc(lx,y,6,0,2*Math.PI); g.fill();
-    g.textBaseline='middle'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle=it.value?'#334155':'#94a3b8'; g.fillText(fitText(g,it.label,100),lx+14,y);
-    g.textAlign='right'; g.font='bold 12px '+FONT; g.fillStyle=it.value?NAVY:'#94a3b8'; g.fillText(it.value+(total?'  ('+pcs[i]+'%)':''),w-10,y); });
+    g.textBaseline='middle'; g.textAlign='left'; g.font='13px '+FONT; g.fillStyle=it.value?'#334155':'#64748b'; g.fillText(fitText(g,it.label,108),lx+14,y);
+    g.textAlign='right'; g.font='bold 13px '+FONT; g.fillStyle=it.value?NAVY:'#64748b'; g.fillText(it.value+(total?'  ('+pcs[i]+'%)':''),w-10,y); });
   return c;
 }
 // แท่งแนวนอนมุมโค้งไล่สี  items:[{label,value,color,text}]
 function chHBars(items,o){
   o=o||{}; if(o.stack) return chHBarsStacked(items,o);
-  const w=o.w||620, rowH=o.rowH||38, padT=o.title?36:10, h=padT+items.length*rowH+10, {c,g}=mk(w,h);
+  const w=o.w||620, rowH=o.rowH||38, padT=(o.title&&!SCREEN)?36:10, h=padT+items.length*rowH+10, {c,g}=mk(w,h);
   chartTitle(g,o.title,14,24);
   const labW=o.labW||200, x0=14+labW, x1=w-14-62, bh=14, max=o.max||5;
   items.forEach((it,i)=>{ const cy=padT+i*rowH+rowH/2;
-    g.textBaseline='middle'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle='#334155';
+    g.textBaseline='middle'; g.textAlign='left'; g.font='13px '+FONT; g.fillStyle='#334155';
     const ln=wrapTH(g,it.label,labW-8,2); ln.forEach((t,li)=>g.fillText(t,14,cy+(li-(ln.length-1)/2)*14));
     rr(g,x0,cy-bh/2,x1-x0,bh,bh/2); g.fillStyle='#eaf0fb'; g.fill();
     const frac=Math.max(0,Math.min(1,(Number(it.value)||0)/max));
     if(frac>0){ const bw=Math.max(bh,(x1-x0)*frac), gr=g.createLinearGradient(x0,0,x0+bw,0); gr.addColorStop(0,lighten(it.color)); gr.addColorStop(1,it.color); rr(g,x0,cy-bh/2,bw,bh,bh/2); g.fillStyle=gr; g.fill(); }
-    g.textAlign='right'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText(it.text!=null?it.text:String(it.value),w-14,cy); });
+    g.textAlign='right'; g.font='bold 14px '+FONT; g.fillStyle=NAVY; g.fillText(it.text!=null?it.text:String(it.value),w-14,cy); });
   return c;
 }
 // แท่งแนวนอนแบบ "ป้ายชื่อเต็มความกว้างอยู่เหนือแท่ง" — สำหรับหัวข้อยาว ไม่ตัดคำ ไม่ทับแท่ง
 function chHBarsStacked(items,o){
-  const w=o.w||620, padT=o.title?40:12, max=o.max||5, bh=14, x0=14, x1=w-14-62;
-  const {c:probe,g:pg}=mk(w,10); pg.font='12px '+FONT;
+  const w=o.w||620, padT=(o.title&&!SCREEN)?40:12, max=o.max||5, bh=14, x0=14, x1=w-14-62;
+  const {c:probe,g:pg}=mk(w,10); pg.font='13px '+FONT;
   const lay=items.map(it=>wrapTH(pg,it.label,w-28,2));
-  const h=padT+lay.reduce((a,l)=>a+l.length*15+bh+22,0)+6, {c,g}=mk(w,h);
+  const h=padT+lay.reduce((a,l)=>a+l.length*16+bh+22,0)+6, {c,g}=mk(w,h);
   chartTitle(g,o.title,14,24);
   let y=padT;
   items.forEach((it,i)=>{
-    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle='#334155';
-    lay[i].forEach((ln,li)=>g.fillText(ln,x0,y+12+li*15));
-    const by=y+lay[i].length*15+4;
+    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='13px '+FONT; g.fillStyle='#334155';
+    lay[i].forEach((ln,li)=>g.fillText(ln,x0,y+12+li*16));
+    const by=y+lay[i].length*16+4;
     rr(g,x0,by,x1-x0,bh,bh/2); g.fillStyle='#eaf0fb'; g.fill();
     const frac=Math.max(0,Math.min(1,(Number(it.value)||0)/max));
     if(frac>0){ const bw=Math.max(bh,(x1-x0)*frac), gr=g.createLinearGradient(x0,0,x0+bw,0); gr.addColorStop(0,lighten(it.color)); gr.addColorStop(1,it.color); rr(g,x0,by,bw,bh,bh/2); g.fillStyle=gr; g.fill(); }
-    g.textAlign='right'; g.textBaseline='middle'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText(it.text!=null?it.text:String(it.value),w-14,by+bh/2);
+    g.textAlign='right'; g.textBaseline='middle'; g.font='bold 14px '+FONT; g.fillStyle=NAVY; g.fillText(it.text!=null?it.text:String(it.value),w-14,by+bh/2);
     y=by+bh+18; });
   return c;
 }
 // เส้นแนวโน้ม + พื้นที่ไล่สี  pts:[{label,value}]
 function chTrend(pts,o){
-  const w=620,h=250,{c,g}=mk(w,h); chartTitle(g,o.title,14,24);
+  const w=o.w||620,h=o.h||250,{c,g}=mk(w,h); chartTitle(g,o.title,14,24);
   const padL=48,padR=28,padT=46,padB=44, pw=w-padL-padR, ph=h-padT-padB, yMin=o.yMin||0, yMax=o.yMax, col=o.color||'#2563eb';
-  g.font='11px '+FONT; g.textBaseline='middle';
+  g.font='12px '+FONT; g.textBaseline='middle';
   const tk=o.ticks||4;
   for(let i=0;i<=tk;i++){ const y=padT+ph-ph*i/tk; g.strokeStyle='#e6ecf5'; g.lineWidth=1; g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke(); g.fillStyle='#94a3b8'; g.textAlign='right'; g.fillText((o.fmtY||String)(yMin+(yMax-yMin)*i/tk),padL-8,y); }
   const X=i=>padL+pw*(i+0.5)/pts.length, Y=v=>padT+ph-ph*Math.max(0,Math.min(1,(v-yMin)/(yMax-yMin)));
@@ -149,27 +150,27 @@ function chTrend(pts,o){
   }
   pts.forEach((p,i)=>{ const x=X(i), y=Y(p.value);
     g.beginPath(); g.arc(x,y,6,0,2*Math.PI); g.fillStyle='#fff'; g.fill(); g.lineWidth=3; g.strokeStyle=col; g.stroke();
-    g.textAlign='center'; g.textBaseline='alphabetic'; g.font='bold 12px '+FONT; g.fillStyle=NAVY; g.fillText((o.fmtV||String)(p.value),x,y-12);
-    g.font='11px '+FONT; g.fillStyle='#475569'; g.fillText(p.label,x,h-padB+22); });
+    g.textAlign='center'; g.textBaseline='alphabetic'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText((o.fmtV||String)(p.value),x,y-12);
+    g.font='12px '+FONT; g.fillStyle='#475569'; g.fillText(p.label,x,h-padB+22); });
   return c;
 }
 // แท่งซ้อน 100% ของ 4 ระดับความพึงพอใจ  items:[{label,counts:{4,3,2,1}}] · scale:[{label,value,color}]
 function chStacked(items,scale,o){
-  const w=620, padT=o.title?66:40, x0=14, x1=w-14, bh=18;
-  const {g:pg}=mk(w,10); pg.font='12px '+FONT;
+  const w=o.w||620, padT=(o.title&&!SCREEN)?66:40, x0=14, x1=w-14, bh=18;
+  const {g:pg}=mk(w,10); pg.font='13px '+FONT;
   const lay=items.map(it=>wrapTH(pg,it.label,w-28,2));
-  const h=padT+lay.reduce((a,l)=>a+l.length*15+bh+16,0)+4, {c,g}=mk(w,h); chartTitle(g,o.title,14,24);
-  let lx=14; g.font='11px '+FONT; g.textBaseline='middle';
-  scale.forEach(s=>{ g.fillStyle=s.color; rr(g,lx,o.title?42:16,12,12,3); g.fill(); g.fillStyle='#475569'; g.textAlign='left'; g.fillText(s.label,lx+17,(o.title?42:16)+6); lx+=17+g.measureText(s.label).width+20; });
+  const h=padT+lay.reduce((a,l)=>a+l.length*16+bh+16,0)+4, {c,g}=mk(w,h); chartTitle(g,o.title,14,24);
+  let lx=14; g.font='12px '+FONT; g.textBaseline='middle';
+  scale.forEach(s=>{ g.fillStyle=s.color; rr(g,lx,(o.title&&!SCREEN)?42:16,12,12,3); g.fill(); g.fillStyle='#475569'; g.textAlign='left'; g.fillText(s.label,lx+17,((o.title&&!SCREEN)?42:16)+6); lx+=17+g.measureText(s.label).width+20; });
   let y=padT;
   items.forEach((it,i)=>{
-    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='12px '+FONT; g.fillStyle='#334155';
-    lay[i].forEach((ln,li)=>g.fillText(ln,x0,y+12+li*15));
-    const by=y+lay[i].length*15+4, tot=scale.reduce((a,s)=>a+(it.counts[s.value]||0),0);
+    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='13px '+FONT; g.fillStyle='#334155';
+    lay[i].forEach((ln,li)=>g.fillText(ln,x0,y+12+li*16));
+    const by=y+lay[i].length*16+4, tot=scale.reduce((a,s)=>a+(it.counts[s.value]||0),0);
     rr(g,x0,by,x1-x0,bh,9); g.fillStyle='#eaf0fb'; g.fill();
     if(tot){ g.save(); rr(g,x0,by,x1-x0,bh,9); g.clip(); let x=x0; const pc=pctSplit(scale.map(s=>it.counts[s.value]||0));
       scale.forEach((s,si)=>{ const n=it.counts[s.value]||0; if(!n) return; const sw=(x1-x0)*n/tot; g.fillStyle=s.color; g.fillRect(x,by,sw,bh);
-        if(sw>30){ g.fillStyle=(s.color==='#f59e0b')?'#1f2937':'#fff'; g.font='bold 11px '+FONT; g.textAlign='center'; g.textBaseline='middle'; g.fillText(pc[si]+'%',x+sw/2,by+bh/2+.5); } x+=sw; });
+        if(sw>30){ g.fillStyle=(s.color==='#f59e0b')?'#1f2937':'#fff'; g.font='bold 12px '+FONT; g.textAlign='center'; g.textBaseline='middle'; g.fillText(pc[si]+'%',x+sw/2,by+bh/2+.5); } x+=sw; });
       g.restore(); }
     y=by+bh+12; });
   return c;
@@ -183,7 +184,23 @@ function sideBySide(a,b,gap){
   g.drawImage(a,0,0,a._w,a._h); g.drawImage(b,a._w+gap,0,b._w,b._h); return c;
 }
 function canvasBytes(cv){ const b64=cv.toDataURL('image/png').split(',')[1], bin=atob(b64), arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i); return arr; }
-function mount(id,cv){ const host=$(id); if(!host) return; cv.style.width='100%'; cv.style.maxWidth=cv._w+'px'; cv.style.height='auto'; cv.style.display='block'; cv.style.margin='0 auto'; host.innerHTML=''; host.appendChild(cv); }
+function mount(id,cv){ const host=$(id); if(!host) return; const hw=host.clientWidth||cv._w; cv.style.width=Math.min(hw,Math.round(cv._w))+'px'; cv.style.maxWidth='100%'; cv.style.height='auto'; cv.style.display='block'; cv.style.margin='0 auto'; host.innerHTML=''; host.appendChild(cv); }
+// กราฟที่ปรับความกว้างตามการ์ด: builder(w) วาดใหม่ให้พอดีกว้างจริง (ตัวอักษรขนาดคงที่ ไม่ถูกย่อ/ขยายจนเบลอ)
+function fill(pairs){
+  pairs.forEach(([id,fn])=>{ if(!fn) return; const host=$(id); if(!host) return;
+    const W=Math.max(300,Math.min(Math.floor(host.clientWidth)||620,780));
+    SCREEN=true; let cv; try{ cv=fn(W,true); } finally{ SCREEN=false; }
+    mount(id,cv);
+    const card=host.parentNode; if(card&&cv._title&&!card.querySelector('.sum-title')){ const t=document.createElement('div'); t.className='sum-title'; t.textContent=cv._title; card.insertBefore(t,host); } });
+}
+// แถวการ์ดกราฟ 2 คอลัมน์ที่สมดุล (ถ้ามีการ์ดเดียวให้เต็มแถว)
+function cardsRow(ids){ const list=ids.filter(Boolean); if(!list.length) return ''; return '<div class="sum-grid'+(list.length===1?' one':'')+'">'+list.map(id=>'<div class="panel sum-card"><div id="'+id+'"></div></div>').join('')+'</div>'; }
+(function css(){ if(document.getElementById('sumCss')) return; const st=document.createElement('style'); st.id='sumCss';
+  st.textContent='.sum-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px;align-items:stretch}.sum-grid.one{grid-template-columns:1fr}.sum-card{display:flex;flex-direction:column;padding:16px 18px;margin:0}.sum-card>div:not(.sum-title){flex:1;display:flex;align-items:center;justify-content:center;width:100%}.sum-title{font-weight:800;font-size:15px;color:var(--navy);margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid var(--line)}@media(max-width:1040px){.sum-grid{grid-template-columns:1fr}}';
+  document.head.appendChild(st); })();
+// วาดใหม่เมื่อความกว้างหน้าจอเปลี่ยนจริง (หมุนจอ/ย่อขยายหน้าต่าง) — ไม่วาดซ้ำเพราะแค่เลื่อนจนแถบ URL ขยับ
+let lastW=document.documentElement.clientWidth, rzT=null;
+window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(function(){ const w=document.documentElement.clientWidth; if(Math.abs(w-lastW)<40) return; lastW=w; if(typeof view!=='undefined'&&(view==='sum_onsite'||view==='sum_apps'||view==='apps_dashboard')) window.render(); },300); });
 
 /* ============================================================
    คำนวณข้อมูลสรุป
@@ -209,34 +226,40 @@ function appsCompute(period){
 }
 
 /* ---------- กราฟชุดของแต่ละแบบประเมิน (ใช้ร่วมกันระหว่างหน้าจอและ DOCX) ---------- */
-function onsiteCharts(m){
+const PAL8=['#2563eb','#06b6d4','#14b8a6','#8b5cf6','#f59e0b','#ef4444','#64748b','#0ea5e9'];
+function resolveB(b,W){ const o={}; Object.keys(b).forEach(k=>{ o[k]=b[k]?b[k](W):null; }); return o; }
+const LW=(w,r)=>Math.round(w*(r||.3));
+const KS=(w,scr)=>scr?Math.max(1.2,Math.min(1.7,w/400)):1;   // บนหน้าจอขยายกราฟวงกลมตามความกว้างการ์ด ให้สมดุลกับกราฟแท่ง
+function onsiteBuilders(m){
   const s=m.s, avgBand=scoreBand(s.avgScore);
-  const gauge=chGauge(s.avgScore/5*100,{title:'คะแนนเฉลี่ยรวม',main:f2(s.avgScore)+' / 5',sub:avgBand,color:toneColorAvg(s.avgScore),maxTxt:'5'});
-  const donut=chDonut(m.bandCounts,{title:'สัดส่วนผลประเมินตามระดับ',center:s.total,centerSub:'รายการ'});
-  const crit=chHBars(criteria.map(cr=>{const v=s.criteriaAvg[cr.key]||0; return {label:cr.no+'. '+cr.shortTitle,value:v,color:toneColorAvg(v),text:f2(v)};}),{title:'คะแนนเฉลี่ยรายหัวข้อ (เต็ม 5)',max:5,labW:170});
   const top=m.people.filter(p=>p.count).slice(0,5);
-  const topBars=top.length?chHBars(top.map(p=>({label:p.name,value:p.avg,color:toneColorAvg(p.avg),text:f2(p.avg)+'  ('+p.count+')'})),{title:'เจ้าหน้าที่คะแนนสูงสุด 5 อันดับ (จำนวนครั้ง)',max:5,labW:170,rowH:34}):null;
   const shifts=Object.keys(s.evaluators||{}).map(k=>({label:k||'-',value:s.evaluators[k]})).sort((a,b)=>b.value-a.value).slice(0,8);
-  const shiftBars=shifts.length?chHBars(shifts.map((x,i)=>({label:x.label,value:x.value,color:['#2563eb','#06b6d4','#14b8a6','#8b5cf6','#f59e0b','#ef4444','#64748b','#0ea5e9'][i%8],text:String(x.value)})),{title:'จำนวนรายการประเมินตามผลัด',max:Math.max(1,shifts[0].value),labW:170,rowH:34}):null;
-  const trend=m.monthly.length>=2?chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{title:'แนวโน้มคะแนนเฉลี่ยรายเดือน (เต็ม 5)',yMin:1,yMax:5,ticks:4,fmtY:v=>f1(v),fmtV:v=>f2(v),color:'#2563eb'}):null;
-  return {gauge,donut,crit,topBars,shiftBars,trend};
+  return {
+    gauge:(w,scr)=>chGauge(s.avgScore/5*100,{k:KS(w,scr),title:'คะแนนเฉลี่ยรวม',main:f2(s.avgScore)+' / 5',sub:avgBand,color:toneColorAvg(s.avgScore),maxTxt:'5'}),
+    donut:(w,scr)=>chDonut(m.bandCounts,{k:KS(w,scr),title:'สัดส่วนผลประเมินตามระดับ',center:s.total,centerSub:'รายการ'}),
+    crit:w=>chHBars(criteria.map(cr=>{const v=s.criteriaAvg[cr.key]||0; return {label:cr.no+'. '+cr.shortTitle,value:v,color:toneColorAvg(v),text:f2(v)};}),{w,title:'คะแนนเฉลี่ยรายหัวข้อ (เต็ม 5)',max:5,labW:LW(w,.3),rowH:40}),
+    topBars:top.length?(w=>chHBars(top.map(p=>({label:p.name,value:p.avg,color:toneColorAvg(p.avg),text:f2(p.avg)+'  ('+p.count+')'})),{w,title:'เจ้าหน้าที่คะแนนสูงสุด 5 อันดับ (คะแนน · จำนวนครั้ง)',max:5,labW:LW(w,.36),rowH:40})):null,
+    shiftBars:shifts.length?(w=>chHBars(shifts.map(x=>({label:x.label,value:x.value,color:'#2563eb',text:String(x.value)})),{w,title:'จำนวนรายการประเมินตามผลัด',max:Math.max(1,shifts[0].value),labW:LW(w,.3),rowH:36})):null,
+    trend:m.monthly.length>=2?(w=>chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{w,h:Math.round(Math.max(230,Math.min(300,w*.5))),title:'แนวโน้มคะแนนเฉลี่ยรายเดือน (เต็ม 5)',yMin:1,yMax:5,ticks:4,fmtY:v=>f1(v),fmtV:v=>f2(v),color:'#2563eb'})):null
+  };
 }
-function appsCharts(m){
-  const api=window.appsSummaryApi, s=m.s;
-  const gauge=chGauge(s.overallPct,{title:'ความพึงพอใจภาพรวม',main:f1(s.overallPct)+'%',sub:api.band(s.overallPct),color:api.bandColor(s.overallPct)});
-  const durColors=['#06b6d4','#2563eb','#8b5cf6','#14b8a6'];
-  const dur=chDonut(api.DURATIONS.map((d,i)=>({label:d,value:s.durCounts[d]||0,color:durColors[i%4]})),{title:'ระยะเวลาการใช้งานระบบ APPS',center:s.n,centerSub:'ราย'});
+function appsBuilders(m){
+  const api=window.appsSummaryApi, s=m.s, durColors=['#2563eb','#14b8a6','#f59e0b','#8b5cf6'], ag=m.agencies.slice(0,8);
   const mkPct=arr=>arr.map(x=>({label:x.crit.no+'. '+x.crit.title,value:x.pct,color:api.bandColor(x.pct),text:f1(x.pct)+'%'}));
-  const s1p=chHBars(mkPct(s.sec1),{title:'ร้อยละความพึงพอใจ — ส่วนที่ 1 เจ้าหน้าที่ที่ให้การสนับสนุน',max:100,stack:true});
-  const s2p=chHBars(mkPct(s.sec2),{title:'ร้อยละความพึงพอใจ — ส่วนที่ 2 ระบบ APPS และ Service Desk',max:100,stack:true});
   const mkSt=arr=>arr.map(x=>({label:x.crit.no+'. '+x.crit.title,counts:x.counts}));
-  const s1d=chStacked(mkSt(s.sec1),api.SCALE,{title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 1'});
-  const s2d=chStacked(mkSt(s.sec2),api.SCALE,{title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 2'});
-  const ag=m.agencies.slice(0,8);
-  const agBars=ag.length?chHBars(ag.map((x,i)=>({label:x.label,value:x.value,color:['#2563eb','#06b6d4','#14b8a6','#8b5cf6','#f59e0b','#ef4444','#64748b','#0ea5e9'][i%8],text:String(x.value)})),{title:'จำนวนผู้ประเมินตามหน่วยงาน',max:Math.max(1,ag[0].value),stack:true}):null;
-  const trend=m.monthly.length>=2?chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{title:'แนวโน้มความพึงพอใจภาพรวมรายเดือน (%)',yMin:0,yMax:100,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'}):null;
-  return {gauge,dur,s1p,s2p,s1d,s2d,agBars,trend};
+  return {
+    gauge:(w,scr)=>chGauge(s.overallPct,{k:KS(w,scr),title:'ความพึงพอใจภาพรวม',main:f1(s.overallPct)+'%',sub:api.band(s.overallPct),color:api.bandColor(s.overallPct)}),
+    dur:(w,scr)=>chDonut(api.DURATIONS.map((d,i)=>({label:d,value:s.durCounts[d]||0,color:durColors[i%4]})),{k:KS(w,scr),title:'ระยะเวลาการใช้งานระบบ APPS',center:s.n,centerSub:'ราย'}),
+    s1p:w=>chHBars(mkPct(s.sec1),{w,title:'ร้อยละความพึงพอใจ — ส่วนที่ 1',max:100,stack:true}),
+    s2p:w=>chHBars(mkPct(s.sec2),{w,title:'ร้อยละความพึงพอใจ — ส่วนที่ 2',max:100,stack:true}),
+    s1d:w=>chStacked(mkSt(s.sec1),api.SCALE,{w,title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 1'}),
+    s2d:w=>chStacked(mkSt(s.sec2),api.SCALE,{w,title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 2'}),
+    agBars:ag.length?(w=>chHBars(ag.map(x=>({label:x.label,value:x.value,color:'#2563eb',text:String(x.value)})),{w,title:'จำนวนผู้ประเมินตามหน่วยงาน',max:Math.max(1,ag[0].value),stack:true})):null,
+    trend:(m.monthly||[]).length>=2?(w=>chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{w,h:Math.round(Math.max(230,Math.min(300,w*.5))),title:'แนวโน้มความพึงพอใจภาพรวมรายเดือน (%)',yMin:0,yMax:100,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'})):null
+  };
 }
+function onsiteCharts(m){ return resolveB(onsiteBuilders(m),620); }
+function appsCharts(m){ return resolveB(appsBuilders(m),620); }
 
 /* ---------- ข้อสังเกตอัตโนมัติ (ใช้ทั้งหน้าจอและ DOCX) ---------- */
 function onsiteInsights(m){
@@ -277,9 +300,6 @@ function toolbarHtml(kind,months,count){
 function insightPanel(items){
   return '<div class="panel" style="margin-bottom:16px"><div class="panel-title" style="margin-bottom:10px">สรุปประเด็นสำคัญ</div><ul style="margin:0;padding-left:20px;line-height:1.9">'+items.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>';
 }
-function chartPanel(id,span){ return '<div class="panel"'+(span?' style="grid-column:1/-1"':'')+'><div id="'+id+'"></div></div>'; }
-const GRID='display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px';
-
 function renderOnsite(){
   const c=$('content'), m=onsiteCompute(state.onsite), s=m.s;
   let h=toolbarHtml('onsite',m.months,s.total);
@@ -289,17 +309,12 @@ function renderOnsite(){
     stat('คะแนนเฉลี่ย',f2(s.avgScore),pctTxt(s.avgScore)+' · '+s.band,toneColorAvg(s.avgScore))+
     stat('ต้องติดตาม',String((s.risks||[]).length),'คนที่ต่ำกว่า 3.50',(s.risks||[]).length?'#ef4444':'#22c55e')+'</div>';
   if(!s.total){ c.innerHTML=h+'<div class="panel"><div class="empty">ยังไม่มีข้อมูลการประเมินในช่วงนี้</div></div>'; return; }
+  const b=onsiteBuilders(m);
   h+=insightPanel(onsiteInsights(m));
-  h+='<div style="'+GRID+'">'+chartPanel('sumOn_g')+chartPanel('sumOn_d')+'</div>';
-  h+=chartPanel('sumOn_c')+'<div style="height:16px"></div>';
-  h+=chartPanel('sumOn_t')+'<div style="height:16px"></div>'+chartPanel('sumOn_s')+'<div style="height:16px"></div>'+chartPanel('sumOn_tr');
-  h+='<div style="height:16px"></div>'+sectionsHtml(onsiteSections(m));
-  c.innerHTML=h;
-  BG=null; const ch=onsiteCharts(m);
-  mount('sumOn_g',ch.gauge); mount('sumOn_d',ch.donut); mount('sumOn_c',ch.crit);
-  if(ch.topBars) mount('sumOn_t',ch.topBars); else $('sumOn_t').parentNode.remove();
-  if(ch.shiftBars) mount('sumOn_s',ch.shiftBars); else $('sumOn_s').parentNode.remove();
-  if(ch.trend) mount('sumOn_tr',ch.trend); else $('sumOn_tr').parentNode.remove();
+  h+=cardsRow(['on_g','on_d'])+cardsRow(['on_c',b.topBars&&'on_t'])+cardsRow([b.shiftBars&&'on_s',b.trend&&'on_tr']);
+  h+=sectionsHtml(onsiteSections(m));
+  c.innerHTML=h; BG=null;
+  fill([['on_g',b.gauge],['on_d',b.donut],['on_c',b.crit],['on_t',b.topBars],['on_s',b.shiftBars],['on_tr',b.trend]]);
 }
 async function renderApps(){
   const c=$('content'); c.innerHTML=LOADING;
@@ -314,17 +329,12 @@ async function renderApps(){
     stat('ส่วนที่ 2 (ระบบ/Service Desk)',f1(s.sec2Pct)+'%',api.band(s.sec2Pct),api.bandColor(s.sec2Pct))+
     stat('ภาพรวมทั้งหมด',f1(s.overallPct)+'%',api.band(s.overallPct),api.bandColor(s.overallPct))+'</div>';
   if(!s.n){ c.innerHTML=h+'<div class="panel"><div class="empty">ยังไม่มีข้อมูลการประเมินในช่วงนี้</div></div>'; return; }
+  const b=appsBuilders(m);
   h+=insightPanel(appsInsights(m));
-  h+='<div style="'+GRID+'">'+chartPanel('sumAp_g')+chartPanel('sumAp_d')+'</div>';
-  h+=chartPanel('sumAp_1p')+'<div style="height:16px"></div>'+chartPanel('sumAp_1d')+'<div style="height:16px"></div>';
-  h+=chartPanel('sumAp_2p')+'<div style="height:16px"></div>'+chartPanel('sumAp_2d')+'<div style="height:16px"></div>';
-  h+=chartPanel('sumAp_ag')+'<div style="height:16px"></div>'+chartPanel('sumAp_tr');
-  h+='<div style="height:16px"></div>'+sectionsHtml(appsSections(m));
-  c.innerHTML=h;
-  BG=null; const ch=appsCharts(m);
-  mount('sumAp_g',ch.gauge); mount('sumAp_d',ch.dur); mount('sumAp_1p',ch.s1p); mount('sumAp_1d',ch.s1d); mount('sumAp_2p',ch.s2p); mount('sumAp_2d',ch.s2d);
-  if(ch.agBars) mount('sumAp_ag',ch.agBars); else $('sumAp_ag').parentNode.remove();
-  if(ch.trend) mount('sumAp_tr',ch.trend); else $('sumAp_tr').parentNode.remove();
+  h+=cardsRow(['ap_g','ap_d'])+cardsRow(['ap_1p','ap_1d'])+cardsRow(['ap_2p','ap_2d'])+cardsRow([b.agBars&&'ap_ag',b.trend&&'ap_tr']);
+  h+=sectionsHtml(appsSections(m));
+  c.innerHTML=h; BG=null;
+  fill([['ap_g',b.gauge],['ap_d',b.dur],['ap_1p',b.s1p],['ap_1d',b.s1d],['ap_2p',b.s2p],['ap_2d',b.s2d],['ap_ag',b.agBars],['ap_tr',b.trend]]);
 }
 
 /* ============================================================
@@ -571,5 +581,9 @@ window.render=function(){
   return _render.apply(this,arguments);
 };
 // ให้ vm harness เรียกฟังก์ชันภายในได้
+// ให้แดชบอร์ด APPS เดิมใช้กราฟและเลย์เอาต์ชุดเดียวกัน
+window.osoCharts={ cardsRow, fill, setBG:function(v){ BG=v; },
+  appsModel:function(rs){ const api=window.appsSummaryApi; const s=api.summarize(rs); return {rs,s,monthly:[],agencies:Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value)}; },
+  appsBuilders:appsBuilders };
 window.__sumTest={onsiteSections,appsSections,wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();
