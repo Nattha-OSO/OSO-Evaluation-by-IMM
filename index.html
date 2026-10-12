@@ -900,6 +900,10 @@ td b{color:var(--text);font-weight:600}
       <button data-view="people" onclick="showView('people',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg><span>สรุปรายเจ้าหน้าที่</span></button>
       <button data-view="insights" onclick="showView('insights',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>วิเคราะห์ภาพรวม</span></button>
 
+      <div class="nav-title">สรุปผลประเมิน</div>
+      <button data-view="sum_onsite" onclick="showView('sum_onsite',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>สรุปผล Onsite Support</span></button>
+      <button data-view="sum_apps" onclick="showView('sum_apps',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>สรุปผล APPS (Service Desk)</span></button>
+
       <div class="nav-title">ประเมินระบบ APPS (Service Desk)</div>
       <button data-view="apps_dashboard" onclick="showView('apps_dashboard',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg><span>แดชบอร์ด APPS</span></button>
       <button data-view="apps_list" onclick="showView('apps_list',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>รายการประเมิน APPS</span></button>
@@ -1056,13 +1060,14 @@ td b{color:var(--text);font-weight:600}
 <div class="toast" id="toast"></div>
 
 <script async src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=78"></script>
+<script src="config.js?v=80"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=78"></script>
-<script src="apps-survey.js?v=78"></script>
+<script src="app.js?v=80"></script>
+<script src="apps-survey.js?v=80"></script>
+<script src="summary-report.js?v=80"></script>
 
 <!-- ============================================================
      UI layer (v3) — เอฟเฟกต์การใช้งานอย่างเดียว ไม่ยุ่งกับตรรกะระบบ

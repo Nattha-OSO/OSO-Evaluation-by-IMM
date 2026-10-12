@@ -731,6 +731,8 @@ window.appsRunReport=runReport;
 window.appsImportCsv=importCsv;
 window.appsExportCsv=exportCsv;
 window.appsRenderPublicForm=renderPublicForm;
+// อินเทอร์เฟซอ่านอย่างเดียวสำหรับ summary-report.js (หน้าสรุปผล + รายงานสรุป DOCX)
+window.appsSummaryApi={ ensure:async function(f){ await ensure(f); }, rows:function(){ return rows; }, summarize:summarize, band:band, bandColor:bandColor, SCALE:SCALE, DURATIONS:DURATIONS };
 window.openQrModal=openQr;
 window.closeQrModal=closeQr;
 window.copyQr=copyQrLink;
