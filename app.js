@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='76';
+const APP_VERSION='77';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -98,15 +98,17 @@ function gotoLogin(){showLogin();}
 function boot(){$('public').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.add('ready');refresh();checkAdmin();loadPerms();loadMyProfile();startRealtime();logAction('login','auth',user&&user.email);}
 function showPublic(){hideAll();$('public').classList.remove('hidden');$('pubThanks').classList.add('hidden');$('pubForm').classList.remove('hidden');renderPublicForm();loadPublicDirectories();}
 
-window.onload = async function(){
+async function appInit(){
   renderPublicForm();
   if(!sb){showPublic();toast('ยังไม่ได้ตั้งค่า Supabase ใน config.js',true);return;}
   sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){sessionStorage.setItem('pw_recovery','1');showResetPw();}});
   // โหมดตั้งรหัสใหม่: ต้องตั้งรหัสให้เสร็จก่อน ห้าม boot เข้าระบบแม้จะมี session (กันรีเฟรชแล้วหลุดเข้าระบบ)
   if(sessionStorage.getItem('pw_recovery')==='1'||String(location.hash).indexOf('type=recovery')>=0){sessionStorage.setItem('pw_recovery','1');showResetPw();return;}
-  try{const {data:s}=await sb.auth.getSession();if(s&&s.session){enterApp(s.session.user,'public');}else showPublic();}
+  try{const {data:s}=await Promise.race([sb.auth.getSession(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('getSession timeout')),8000))]);if(s&&s.session){enterApp(s.session.user,'public');}else showPublic();}
   catch(e){showPublic();}
-};
+}
+// เริ่มทันทีที่ DOM พร้อม (ไม่รอรูป/ไลบรารีเสริมจาก CDN ที่อาจช้า)
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',appInit);else appInit();
 function setUser(u){const r=(u&&u.app_metadata&&u.app_metadata.role)||'senior';user={email:u.email,role:r,isAdmin:r==='admin',displayName:u.email,username:u.email};}
 // ---------- การอนุมัติ: ผู้ใช้ต้องมีบทบาทที่ admin กำหนด จึงจะเข้าใช้งานได้ ----------
 const APPROVED_ROLES=['admin','senior','manager'];
