@@ -32,7 +32,11 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const ap=[]; [[2026,7],[2026,8]].forEach(([y,m],mi)=>{ for(let i=0;i<18;i++){ const r={id:ap.length+1,created_at:new Date(y,m,2+i).toISOString(),agency:ag[i%4],duration:du[i%4],suggestion:i%6===0?'อยากให้ตอบเร็วขึ้น':'-'};
       ['s1_1','s1_2','s1_3','s2_1','s2_2','s2_3','s2_4','s2_5','s2_6','s2_7'].forEach(k=>{ r[k]=Math.max(1,Math.min(4,Math.round(3.3+(rnd()-.5)*2.4-(k==='s2_7'?1:0)))); }); ap.push(r); } });
     window.__ap=ap;
-    sb={from(t){ const d=t==='apps_surveys'?window.__ap:t==='evaluations'?window.__ev:[]; return {select(){ const p=Promise.resolve({data:d,error:null}); p.order=()=>Promise.resolve({data:d,error:null}); return p; }}; }};
+    const sn=['นางสาวณัฏฐา บัวศรีจันทร์ (แนน)','นายธีธัช ทีรฆาภิบาล (เบส)'], stf=['สมชาย ใจดี','สมหญิง รักงาน','วิชัย มั่นคง','นภา สดใส'];
+    const SK=['troubleshooting','accuracy','communication','service_mind','case_handling','housekeeping'];
+    const se=[]; [[2026,5],[2026,6],[2026,7],[2026,8]].forEach(([y,m],mi)=>{ for(let i=0;i<5;i++){ const r={id:se.length+1,created_at:new Date(y,m,2+i*3).toISOString(),senior:sn[i%2],staff:stf[(i+mi)%4],comment:i===1?'ทำงานได้ดี \'ทดสอบ\' มีเครื่องหมายคำพูด':''}; SK.forEach(k=>r[k]=Math.max(1,Math.min(5,Math.round(4+(rnd()-.5)*2-(r.staff===stf[3]?1.6:0))))); se.push(r); } });
+    window.__se=se; window.__ins=[]; window.__del=[]; window.__sn=sn.map((n,i)=>({id:i+1,name:n})); window.__stf=stf.map((n,i)=>({id:i+1,name:n}));
+    sb={from(t){ const src={apps_surveys:window.__ap,evaluations:window.__ev,senior_evaluations:window.__se,senior_names:window.__sn,staff:window.__stf}; const d=src[t]||[]; const q={select(){return q;},order(){return q;},range(a,b){return Promise.resolve({data:d.slice(a,b+1),error:null});},then(res,rej){return Promise.resolve({data:d,error:null}).then(res,rej);},insert(r){ window.__ins.push([t,r]); return Promise.resolve({error:null}); },delete(){ return {eq(c,v){ window.__del.push([t,c,v]); return Promise.resolve({error:null}); }}; }}; return q; }};
   });
   await pg.evaluate(async()=>{
     hideAll(); $('app').classList.add('ready');
@@ -82,6 +86,84 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   const dn=await pg.evaluate(()=>({pts:__sumTest.onsiteCompute('all').monthly.length}));
   ok(dn.pts>=26,'monthly series is not capped at 12 ('+dn.pts+' months)');
   await pg.locator('#dash_tr').screenshot({path:path.join(OUT,'shot-trend-many.png')});
+  // ================= Senior ประเมิน Onsite =================
+  ok(await pg.locator('[data-view="sum_senior"]').count()===1&&await pg.locator('[data-view="senior_list"]').count()===1,'senior menus present (summary + list)');
+  // รายการ
+  await pg.evaluate(()=>showView('senior_list',document.querySelector('[data-view="senior_list"]')));
+  await pg.waitForSelector('table tbody tr');
+  ok((await pg.locator('table tbody tr').count())===20,'senior list shows 20 rows ('+await pg.locator('table tbody tr').count()+')');
+  ok((await pg.textContent('#pageTitle')).includes('Senior'),'senior list title');
+  await pg.fill('.toolbar input.search','ธีธัช'); await pg.waitForTimeout(150);
+  ok((await pg.locator('table tbody tr').count())===8,'senior list search filters (by senior name)');
+  pg.once('dialog',d=>d.accept()); await pg.locator('table tbody tr').first().locator('button').click(); await pg.waitForTimeout(300);
+  ok((await pg.evaluate(()=>window.__del.length))===1&&(await pg.evaluate(()=>window.__del[0][0]))==='senior_evaluations','senior delete calls senior_evaluations.delete');
+  // สรุป
+  await pg.evaluate(()=>showView('sum_senior',document.querySelector('[data-view="sum_senior"]')));
+  await pg.waitForSelector('#on_c canvas');
+  ok((await pg.textContent('#pageTitle')).includes('Senior'),'senior summary title');
+  ok((await pg.locator('#content canvas').count())>=5,'senior summary canvases ('+await pg.locator('#content canvas').count()+')');
+  ok((await pg.textContent('#content')).includes('Senior ผู้ประเมิน'),'senior summary labels evaluators as Senior');
+  ok((await pg.textContent('#content')).includes('เอกสาร'),'senior summary uses the 6 Senior criteria');
+  await layoutOk('senior@1280');
+  const crit6=await pg.evaluate(()=>({n:criteria.length,k:criteria[0].key})); ok(crit6.n===5&&crit6.k==='speed','global criteria restored after senior render (no leak)');
+  await pg.setViewportSize({width:1280,height:3400}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-senior.png')}); await pg.setViewportSize({width:1280,height:900});
+  {
+    const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#sumExportBtn_senior')]);
+    const f=path.join(OUT,'OSO_Summary_Senior.docx'); await dl.saveAs(f);
+    ok(dl.suggestedFilename().startsWith('OSO_Summary_Senior_'),'senior docx name '+dl.suggestedFilename());
+    const JSZip=require('jszip'); const z=await JSZip.loadAsync(fs.readFileSync(f)); const d=await z.file('word/document.xml').async('string'); const txt=d.replace(/<[^>]+>/g,'|');
+    ['Dashboard Summary','โดย Senior','ประเด็นที่ควรติดตาม','จำนวนรายการประเมินตาม Senior ผู้ประเมิน','ข้อเสนอแนะเชิงบริหาร','รายละเอียดสรุปรายบุคคล','ข้อเสนอแนะทั้งหมดในรอบรายงาน','OSO Evaluation — Senior Evaluation'].forEach(k=>ok(txt.includes(k),'senior docx has: '+k));
+    const tbls=d.split('<w:tbl>').slice(1).map(x=>x.split('</w:tbl>')[0]);
+    ok(tbls.every(x=>/<w:tblW w:w="10106" w:type="dxa"\/><w:jc w:val="center"\/>/.test(x)),'senior docx tables full width + centred');
+    ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525)&&(d.match(/<wp:extent/g)||[]).length>=4,'senior docx images full width');
+    ok(txt.includes('มีเครื่องหมายคำพูด'),'senior docx keeps comment with quotes');
+    for(const f2 of Object.keys(z.files)) if(/\.(xml|rels)$/.test(f2)) { const x=await z.file(f2).async('string'); if(!x.startsWith('<?xml')) ok(false,'xml header '+f2); }
+  }
+  // หน้าสาธารณะ ?form=senior
+  {
+    const pg2=await (await br.newContext({viewport:{width:420,height:900},locale:'th-TH'})).newPage(); const e2=[]; pg2.on('pageerror',e=>e2.push(String(e)));
+    await pg2.route(/supabase\.co/,r=>r.abort());
+    await pg2.goto('http://localhost:'+port+'/?form=senior',{waitUntil:'domcontentloaded'});
+    await pg2.waitForSelector('#seniorForm',{timeout:30000});
+    ok(await pg2.evaluate(()=>getComputedStyle(document.getElementById('pubSwitchBar')).display==='none'),'deep link hides the tab bar');
+    ok(await pg2.evaluate(()=>document.getElementById('pubForm').classList.contains('hidden')&&!document.getElementById('seniorFormHost').classList.contains('hidden')),'only senior form visible');
+    ok((await pg2.textContent('#pubHeroTitle')).includes('Senior'),'banner says Senior');
+    ok(await pg2.locator('[data-scard]').count()===6,'form has 6 criteria cards');
+    await pg2.evaluate(()=>{ window.__ins=[]; sb={from(t){ const d=t==='senior_names'?[{name:'นายธีธัช ทีรฆาภิบาล (เบส)'}]:t==='staff'?[{name:'นายปวริศ พบหิรัญ (โต๊ด)'}]:[]; const q={select(){return q;},order(){return q;},then(a,b){return Promise.resolve({data:d,error:null}).then(a,b);},insert(r){ window.__ins.push([t,r]); return Promise.resolve({error:null}); }}; return q; }}; seniorReset(); });
+    await pg2.waitForFunction(()=>document.querySelectorAll('#senSenior option').length===2&&document.querySelectorAll('#senStaff option').length===2);
+    ok(true,'dropdowns filled from senior_names + staff');
+    await pg2.click('#senSubmit'); await pg2.waitForTimeout(200);
+    ok((await pg2.evaluate(()=>window.__ins.length))===0,'submit without selections is blocked');
+    await pg2.selectOption('#senSenior',{index:1}); await pg2.selectOption('#senStaff',{index:1});
+    for(const k of ['troubleshooting','accuracy','communication','service_mind','case_handling']) await pg2.click('#senCriteria button[data-sk="'+k+'"][data-value="5"]');
+    await pg2.click('#senSubmit'); await pg2.waitForTimeout(200);
+    ok((await pg2.evaluate(()=>window.__ins.length))===0&&await pg2.locator('.pub-crit.invalid').count()===1,'submit with 5/6 criteria blocked + highlights the missing one');
+    ok((await pg2.textContent('#senProg')).trim()==='5 จาก 6','progress shows 5 of 6');
+    await pg2.waitForTimeout(3500); await pg2.screenshot({path:path.join(OUT,'shot-senior-form-fill.png'),fullPage:true});
+    await pg2.click('#senCriteria button[data-sk="housekeeping"][data-value="3"]'); await pg2.fill('#senComment','ข้อเสนอแนะ \'ทดสอบ\'');
+    await pg2.click('#senSubmit'); await pg2.waitForSelector('#seniorThanks:not(.hidden)');
+    const ins=await pg2.evaluate(()=>window.__ins);
+    ok(ins.length===1&&ins[0][0]==='senior_evaluations','inserts into senior_evaluations once');
+    const row=ins[0][1]; ok(row.senior.includes('ธีธัช')&&row.staff.includes('ปวริศ')&&row.troubleshooting===5&&row.case_handling===5&&row.housekeeping===3&&row.comment==="ข้อเสนอแนะ 'ทดสอบ'",'payload correct '+JSON.stringify(row));
+    ok(await pg2.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+2),'public form no horizontal scroll @420');
+    await pg2.screenshot({path:path.join(OUT,'shot-senior-form.png'),fullPage:true});
+    ok(e2.length===0,'no page errors on public senior page '+e2.join('|'));
+    // tab (without deep link) on normal page
+    await pg2.goto('http://localhost:'+port+'/',{waitUntil:'domcontentloaded'}); await pg2.waitForSelector('[data-pubtab="senior"]');
+    await pg2.click('[data-pubtab="senior"]'); await pg2.waitForSelector('#seniorForm');
+    ok(await pg2.evaluate(()=>document.getElementById('pubForm').classList.contains('hidden')&&document.querySelector('[data-pubtab="senior"]').classList.contains('active')),'tab switches to senior');
+    await pg2.click('[data-pubtab="onsite"]');
+    ok(await pg2.evaluate(()=>!document.getElementById('pubForm').classList.contains('hidden')&&document.getElementById('seniorFormHost').classList.contains('hidden')),'tab back to onsite hides senior form');
+    await pg2.click('[data-pubtab="apps"]');
+    ok(await pg2.evaluate(()=>document.getElementById('seniorFormHost').classList.contains('hidden')&&!document.getElementById('appsFormHost').classList.contains('hidden')),'tab to apps still works');
+    await pg2.context().close();
+  }
+  // QR + directory
+  await pg.evaluate(()=>openQrModal()); await pg.waitForTimeout(400);
+  ok((await pg.textContent('#qrUrlSenior')).includes('?form=senior')&&await pg.locator('#qrSenior img, #qrSenior canvas').count()>0,'QR modal shows senior link + QR');
+  await pg.evaluate(()=>closeQrModal());
+  await pg.evaluate(()=>showView('directory',document.querySelector('[data-view="directory"]'))); await pg.waitForTimeout(500);
+  ok((await pg.textContent('#content')).includes('Senior ผู้ประเมิน'),'directory has Senior list panel');
   // ---- DOCX จริงผ่านปุ่ม (ดักการดาวน์โหลด) ----
   for(const [kind,view,name] of [['onsite','sum_onsite','Onsite'],['apps','sum_apps','APPS']]){
     await pg.evaluate(v=>showView(v,document.querySelector('[data-view="'+v+'"]')),view);

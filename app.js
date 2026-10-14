@@ -19,7 +19,7 @@ const LABEL_MAP = SCORE_OPTIONS.reduce((m,x)=>(m[x.value]=x.label,m),{});
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 // ---------- globals ----------
-const APP_VERSION='85';
+const APP_VERSION='86';
 let criteria = CRITERIA, scoreOptions = SCORE_OPTIONS;
 let user = null, data = {records:[],people:[],staffNames:[],shiftNames:[],summary:{}};
 let view = 'dashboard', filter = '', selectedStaff = '', editRow = 0;
@@ -455,7 +455,8 @@ function renderHelp(){
       '<b>2. รายการประเมิน</b> — ดูทุกรายการ ค้นหาได้ · กด <b>แก้ไข</b>/<b>x</b> · ปุ่ม <b>🧹 ลบรายการประเมินที่ซ้ำ</b> (ลบที่ตรงกันทุกช่อง + แถวตัวอย่าง)',
       '<b>3. สรุปรายเจ้าหน้าที่</b> — ตารางความร้อน + อันดับ · คลิกชื่อดูโปรไฟล์ + radar + แนวโน้ม · ปุ่ม <b>PDF</b> รายคน',
       '<b>4. วิเคราะห์ภาพรวม</b> — สรุปเชิงวิเคราะห์ทีม + คำสำคัญในข้อเสนอแนะ',
-      '<b>สรุปผลประเมิน</b> — แยกเมนูละแบบประเมิน: <b>สรุปผล Onsite Support</b> และ <b>สรุปผล APPS (Service Desk)</b> · เลือกช่วงข้อมูล (ทั้งหมด/รายเดือน) → ดู KPI + กราฟ (มาตรวัด, โดนัท, แท่ง, แนวโน้ม) + ประเด็นสำคัญ · ปุ่ม <b>ออกรายงานสรุป DOCX</b> ฝังกราฟชุดเดียวกัน (ใช้ช่วงข้อมูลที่เลือกอยู่) · เนื้อหาครบ: ข้อมูลรอบรายงาน, Dashboard Summary, ประเด็นที่ควรติดตาม, สัดส่วนตามผลัด/หน่วยงาน, ข้อเสนอแนะเชิงบริหาร, รายละเอียดรายบุคคล/รายหน่วยงาน และข้อเสนอแนะทั้งหมด',
+      '<b>ประเมินโดย Senior</b> — ลิงก์ <code>?form=senior</code> (พิมพ์ QR ได้จากเมนู QR Code) ให้ Senior ประเมินเจ้าหน้าที่ Onsite Support 6 หัวข้อ · เมนู <b>รายการประเมิน Senior</b> (ค้นหา/ลบ/ส่งออก CSV) · เมนู <b>สรุปผล Senior ประเมิน Onsite</b> มีกราฟ + รายงานสรุป DOCX แบบเดียวกับแบบอื่น · เพิ่ม/ลบรายชื่อ Senior ได้ที่ <b>จัดการรายชื่อ</b>',
+      '<b>สรุปผลประเมิน</b> — แยกเมนูละแบบประเมิน: <b>สรุปผล Onsite Support</b>, <b>สรุปผล APPS (Service Desk)</b> และ <b>สรุปผล Senior</b> · เลือกช่วงข้อมูล (ทั้งหมด/รายเดือน) → ดู KPI + กราฟ (มาตรวัด, โดนัท, แท่ง, แนวโน้ม) + ประเด็นสำคัญ · ปุ่ม <b>ออกรายงานสรุป DOCX</b> ฝังกราฟชุดเดียวกัน (ใช้ช่วงข้อมูลที่เลือกอยู่) · เนื้อหาครบ: ข้อมูลรอบรายงาน, Dashboard Summary, ประเด็นที่ควรติดตาม, สัดส่วนตามผลัด/หน่วยงาน, ข้อเสนอแนะเชิงบริหาร, รายละเอียดรายบุคคล/รายหน่วยงาน และข้อเสนอแนะทั้งหมด',
       '<b>จัดการรายชื่อ</b> — เพิ่ม/ลบ ผลัดและเจ้าหน้าที่ · ปุ่ม <b>ล้างชื่อซ้ำ</b> (รวมชื่อซ้ำ + ลบรายการตัวอย่าง) · <b>นำเข้า CSV</b> (กันซ้ำ + ข้ามแถวตัวอย่างอัตโนมัติ)',
       '<b>Tools</b> — ออกรายงาน DOCX, ส่งออก CSV, รีเฟรช, เปลี่ยนรหัสผ่าน'
     ])+
@@ -500,9 +501,9 @@ function renderHelp(){
 // ---------- จัดการรายชื่อ ----------
 async function renderDirectory(){
   $('content').innerHTML=LOADING;
-  const [s,sh]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name')]);
+  const [s,sh,sn]=await Promise.all([sb.from('staff').select('*').order('name'),sb.from('shifts').select('*').order('name'),sb.from('senior_names').select('*').order('name')]);
   if(s.error||sh.error){$('content').innerHTML='<div class="empty">โหลดรายชื่อไม่สำเร็จ</div>';return;}
-  $('content').innerHTML='<div class="toolbar"><button class="btn" onclick="dedupNames()">🧹 ล้างชื่อซ้ำ</button><span class="mini">รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว</span></div><div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+'</div>'+(can('import_csv')?importPanel():'');
+  $('content').innerHTML='<div class="toolbar"><button class="btn" onclick="dedupNames()">🧹 ล้างชื่อซ้ำ</button><span class="mini">รวมชื่อที่เหมือนกัน (ไม่สนช่องว่าง/ตัวพิมพ์) ให้เหลือรายการเดียว</span></div><div class="dash grid">'+dirPanel('ผลัด / ผู้ประเมิน (เจ้าหน้าที่ ตม.)','shifts',sh.data||[])+dirPanel('เจ้าหน้าที่ Onsite Support','staff',s.data||[])+(sn.error?'<div class="panel"><div class="panel-title">Senior ผู้ประเมิน</div><div class="mini" style="margin-top:8px">ยังไม่ได้สร้างตาราง senior_names — รัน schema-senior-eval.sql ใน Supabase</div></div>':dirPanel('Senior ผู้ประเมิน (แบบประเมินโดย Senior)','senior_names',sn.data||[]))+'</div>'+(can('import_csv')?importPanel():'');
 }
 const SAMPLE_NAMES=new Set(['ผลัด a','ผลัด b','ผลัด c','สมชาย ใจดี','สมหญิง รักงาน','อนุชา ตั้งใจ'].map(nkey));
 async function dedupNames(){

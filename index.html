@@ -365,6 +365,7 @@ td b{color:var(--text);font-weight:600}
 #pubCriteria{display:grid;grid-template-columns:1fr;gap:var(--sp3)}
 /* ฟอร์ม APPS ถูกสร้างจาก JS โดยไม่มี .pub-body ห่อ จึงต้องมีระยะขอบของตัวเอง */
 #appsFormHost{padding:var(--sp5)}
+#seniorFormHost{padding:var(--sp5)}#seniorFormHost .pub-thanks{padding:var(--sp6) 0}#seniorFormHost>#seniorForm>h2{margin-bottom:2px}
 #appsFormHost .pub-thanks{padding:var(--sp6) 0}
 #appsFormHost>#appsForm>h2{margin-bottom:2px}
 .apps-sec{margin:var(--sp6) 0 var(--sp3);color:var(--text);font-size:16px;font-weight:600;letter-spacing:-.018em;border-left:4px solid var(--b500);padding:8px 0 8px 14px;background:linear-gradient(90deg,var(--b50),transparent);border-radius:0 var(--r-sm) var(--r-sm) 0}
@@ -586,7 +587,7 @@ td b{color:var(--text);font-weight:600}
 .seg button[data-value="ไม่ผ่าน"]{--rc:var(--s1);--rl:var(--s1-l);--rg:var(--s1-g);--tone:var(--s1-b)!important}
 
 /* --- QR --- */
-.qr-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp4)}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--sp4)}
 .qr-item{border:1px solid var(--line);border-radius:var(--radius);padding:var(--sp4);text-align:center;background:linear-gradient(180deg,#fff,var(--panel2));box-shadow:var(--e0)}
 .qr-name{font-weight:600;color:var(--text);margin-bottom:var(--sp3);min-height:42px;display:flex;align-items:center;justify-content:center;letter-spacing:-.018em}
 .qr-box{display:flex;justify-content:center;align-items:center;background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;min-height:220px;box-shadow:inset 0 2px 6px rgba(12,34,80,.05)}
@@ -627,6 +628,7 @@ td b{color:var(--text);font-weight:600}
   .pub-seg{grid-template-columns:repeat(2,1fr)!important}
   .pub-seg button:nth-child(5){grid-column:span 2}
   #appsFormHost{padding:var(--sp4)}
+  #seniorFormHost{padding:var(--sp4)}
   .pub-top{padding:var(--sp4) var(--sp4) var(--sp8)}
   .pub-top h1{font-size:25px}
   .pub-inner{margin-top:calc(var(--sp5) * -1)}
@@ -701,6 +703,7 @@ td b{color:var(--text);font-weight:600}
       <div class="pub-switch" id="pubSwitchBar">
         <button type="button" data-pubtab="onsite" class="active" onclick="pubSwitch('onsite')">ประเมินเจ้าหน้าที่ Onsite Support</button>
         <button type="button" data-pubtab="apps" onclick="pubSwitch('apps')">ประเมินความพึงพอใจระบบ APPS</button>
+        <button type="button" data-pubtab="senior" onclick="pubSwitch('senior')">Senior ประเมินเจ้าหน้าที่ Onsite</button>
       </div>
       <div class="pub-card">
         <div id="pubForm">
@@ -741,6 +744,7 @@ td b{color:var(--text);font-weight:600}
           <button class="btn primary lg" onclick="resetPublic()">ประเมินรายการถัดไป</button>
         </div>
         <div id="appsFormHost" class="hidden"></div>
+        <div id="seniorFormHost" class="hidden"></div>
       </div>
     </div>
   </main>
@@ -903,6 +907,10 @@ td b{color:var(--text);font-weight:600}
       <div class="nav-title">สรุปผลประเมิน</div>
       <button data-view="sum_onsite" onclick="showView('sum_onsite',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>สรุปผล Onsite Support</span></button>
       <button data-view="sum_apps" onclick="showView('sum_apps',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>สรุปผล APPS (Service Desk)</span></button>
+      <button data-view="sum_senior" onclick="showView('sum_senior',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>สรุปผล Senior ประเมิน Onsite</span></button>
+
+      <div class="nav-title">ประเมินโดย Senior</div>
+      <button data-view="senior_list" onclick="showView('senior_list',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>รายการประเมิน Senior</span></button>
 
       <div class="nav-title">ประเมินระบบ APPS (Service Desk)</div>
       <button data-view="apps_dashboard" onclick="showView('apps_dashboard',this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg><span>แดชบอร์ด APPS</span></button>
@@ -1050,24 +1058,31 @@ td b{color:var(--text);font-weight:600}
           <div class="qr-url" id="qrUrlApps"></div>
           <div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button class="btn sm" onclick="copyQr('apps')">คัดลอกลิงก์</button><button class="btn sm" onclick="downloadQr('apps')">บันทึกรูป</button></div>
         </div>
+        <div class="qr-item">
+          <div class="qr-name">Senior ประเมินเจ้าหน้าที่ Onsite Support</div>
+          <div class="qr-box" id="qrSenior"></div>
+          <div class="qr-url" id="qrUrlSenior"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button class="btn sm" onclick="seniorCopyQr()">คัดลอกลิงก์</button><button class="btn sm" onclick="seniorDownloadQr()">บันทึกรูป</button></div>
+        </div>
       </div>
       <div class="note info" style="margin:var(--sp4) 0 0">พิมพ์ QR ไปติดที่เคาน์เตอร์แต่ละจุดได้เลย · ถ้าเปลี่ยนโดเมน/ที่อยู่เว็บ ลิงก์จะอัปเดตอัตโนมัติตามหน้านี้</div>
     </div>
-    <div class="modal-foot"><button class="btn" onclick="closeQrModal()">ปิด</button><button class="btn primary" onclick="printQr()">พิมพ์ QR ทั้งสองแบบ</button></div>
+    <div class="modal-foot"><button class="btn" onclick="closeQrModal()">ปิด</button><button class="btn primary" onclick="printQr()">พิมพ์ QR ทั้งสามแบบ</button></div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script async src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=85"></script>
+<script src="config.js?v=86"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=85"></script>
-<script src="apps-survey.js?v=85"></script>
-<script src="summary-report.js?v=85"></script>
+<script src="app.js?v=86"></script>
+<script src="apps-survey.js?v=86"></script>
+<script src="senior-eval.js?v=86"></script>
+<script src="summary-report.js?v=86"></script>
 
 <!-- ============================================================
      UI layer (v3) — เอฟเฟกต์การใช้งานอย่างเดียว ไม่ยุ่งกับตรรกะระบบ

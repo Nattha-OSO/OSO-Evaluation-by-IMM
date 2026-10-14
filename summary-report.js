@@ -23,7 +23,23 @@ const BAND5 = [
 const MON_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 let SCREEN = false;   // true ตอนวาดบนหน้าจอ: ชื่อกราฟแสดงเป็นหัวการ์ด HTML (จัดชิดซ้ายสม่ำเสมอ) ไม่วาดลงในรูป
 let BG = null;   // พื้นหลังกราฟ: null = โปร่งใส (หน้าจอ) · '#ffffff' ตอนสร้างรูปลง DOCX
-const state = {onsite:'all', apps:'all'};   // ช่วงข้อมูลที่เลือกของแต่ละเมนู ('all' หรือ 'YYYY-MM')
+const state = {onsite:'all', apps:'all', senior:'all'};
+// รูปแบบ "ประเมินรายบุคคล 5 ระดับ": Onsite (เจ้าหน้าที่ ตม.ประเมิน) และ Senior (Senior ประเมิน) ใช้ฟังก์ชันชุดเดียวกัน ต่างกันที่ cfg
+const CFG={
+  onsite:{kind:'onsite',records:()=>(data&&data.records)||[],criteria:null,
+    evTitle:'จำนวนรายการประเมินตามผลัด',evHead:'ผลัดของเจ้าหน้าที่ ตม.',
+    rec1:'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล',
+    docxTitle:'รายงานสรุปผลการประเมินเจ้าหน้าที่ Onsite Support',docxSub:'สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง · ',
+    source:'OSO Evaluation (Supabase)',file:'Onsite',viewId:'sum_onsite'},
+  senior:{kind:'senior',records:()=>(window.seniorApi?window.seniorApi.records():[]),criteria:()=>window.seniorApi.CRITERIA,
+    evTitle:'จำนวนรายการประเมินตาม Senior ผู้ประเมิน',evHead:'Senior ผู้ประเมิน',
+    rec1:'กำหนดให้ Senior แต่ละท่านประเมินเจ้าหน้าที่ Onsite Support อย่างต่อเนื่องทุกเดือน และให้ครอบคลุมเจ้าหน้าที่ทุกคน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล',
+    docxTitle:'รายงานสรุปผลการประเมินเจ้าหน้าที่ Onsite Support โดย Senior',docxSub:'การประเมินโดย Senior ผู้ควบคุมงาน · ',
+    source:'OSO Evaluation — Senior Evaluation (Supabase)',file:'Senior',viewId:'sum_senior'}
+};
+let CUR=CFG.onsite;
+// ใช้ cfg ชั่วคราว (สลับ criteria ส่วนกลางให้ summarizePerson/summarizeOverall ใช้หัวข้อของแบบนั้น) แล้วคืนค่าเดิมเสมอ — ทำงานแบบ sync เท่านั้น
+function withCfg(cfg,fn){ const prevC=CUR, prevCrit=criteria; CUR=cfg; if(cfg.criteria) criteria=cfg.criteria(); try{ return fn(); } finally{ CUR=prevC; criteria=prevCrit; } }   // ช่วงข้อมูลที่เลือกของแต่ละเมนู ('all' หรือ 'YYYY-MM')
 
 /* ---------- เครื่องมือเวลา / ช่วงข้อมูล ---------- */
 function ymOf(v){ const d=new Date(v); return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
@@ -203,14 +219,14 @@ function cardsRow(ids){ const list=ids.filter(Boolean); if(!list.length) return 
   document.head.appendChild(st); })();
 // วาดใหม่เมื่อความกว้างหน้าจอเปลี่ยนจริง (หมุนจอ/ย่อขยายหน้าต่าง) — ไม่วาดซ้ำเพราะแค่เลื่อนจนแถบ URL ขยับ
 let lastW=document.documentElement.clientWidth, rzT=null;
-window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(function(){ const w=document.documentElement.clientWidth; if(Math.abs(w-lastW)<40) return; lastW=w; if(typeof view!=='undefined'&&(view==='sum_onsite'||view==='sum_apps'||view==='apps_dashboard'||view==='dashboard')) window.render(); },300); });
+window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(function(){ const w=document.documentElement.clientWidth; if(Math.abs(w-lastW)<40) return; lastW=w; if(typeof view!=='undefined'&&(view==='sum_onsite'||view==='sum_apps'||view==='sum_senior'||view==='apps_dashboard'||view==='dashboard')) window.render(); },300); });
 
 /* ============================================================
    คำนวณข้อมูลสรุป
    ============================================================ */
 function toneColorAvg(v){ return v>=4.6?'#2563eb':v>=3.8?'#22c55e':v>=3?'#f59e0b':v>=2?'#f97316':'#ef4444'; }
 function onsiteCompute(period){
-  const all=(data&&data.records)||[];
+  const all=CUR.records();
   const recs=inPeriod(all,r=>r.timestampRaw,period);
   const people=rankPeople(uniqueSort(recs.map(r=>r.staff)).map(n=>summarizePerson(n,recs)),recs);
   const s=summarizeOverall(recs,people);
@@ -240,9 +256,9 @@ function onsiteBuilders(m){
   return {
     gauge:(w,scr)=>chGauge(s.avgScore/5*100,{k:KS(w,scr),title:'คะแนนเฉลี่ยรวม',main:f2(s.avgScore)+' / 5',sub:avgBand,color:toneColorAvg(s.avgScore),maxTxt:'5'}),
     donut:(w,scr)=>chDonut(m.bandCounts,{k:KS(w,scr),title:'สัดส่วนผลประเมินตามระดับ',center:s.total,centerSub:'รายการ'}),
-    crit:w=>chHBars(criteria.map(cr=>{const v=s.criteriaAvg[cr.key]||0; return {label:cr.no+'. '+cr.shortTitle,value:v,color:toneColorAvg(v),text:f2(v)};}),{w,title:'คะแนนเฉลี่ยรายหัวข้อ (เต็ม 5)',max:5,labW:LW(w,.3),rowH:40}),
+    crit:w=>chHBars(criteria.map(cr=>{const v=s.criteriaAvg[cr.key]||0; return {label:cr.no+'. '+cr.shortTitle,value:v,color:toneColorAvg(v),text:f2(v)};}),{w,title:'คะแนนเฉลี่ยรายหัวข้อ (เต็ม 5)',max:5,labW:LW(w,.3),rowH:40,stack:CUR.kind==='senior'}),
     topBars:top.length?(w=>chHBars(top.map(p=>({label:p.name,value:p.avg,color:toneColorAvg(p.avg),text:f2(p.avg)+'  ('+p.count+')'})),{w,title:'เจ้าหน้าที่คะแนนสูงสุด 5 อันดับ (คะแนน · จำนวนครั้ง)',max:5,labW:LW(w,.36),rowH:40})):null,
-    shiftBars:shifts.length?(w=>chHBars(shifts.map(x=>({label:x.label,value:x.value,color:'#2563eb',text:String(x.value)})),{w,title:'จำนวนรายการประเมินตามผลัด',max:Math.max(1,shifts[0].value),labW:LW(w,.3),rowH:36})):null,
+    shiftBars:shifts.length?(w=>chHBars(shifts.map(x=>({label:x.label,value:x.value,color:'#2563eb',text:String(x.value)})),{w,title:CUR.evTitle,max:Math.max(1,shifts[0].value),labW:LW(w,.3),rowH:36})):null,
     trend:m.monthly.length>=2?(w=>chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{w,h:Math.round(Math.max(230,Math.min(300,w*.5))),title:'แนวโน้มคะแนนเฉลี่ยรายเดือน (เต็ม 5)',yMin:1,yMax:5,ticks:4,fmtY:v=>f1(v),fmtV:v=>f2(v),color:'#2563eb'})):null
   };
 }
@@ -262,7 +278,7 @@ function appsBuilders(m){
   };
 }
 function trendBuilder(monthly,o){ if(!monthly.length) return null; return w=>chTrend(monthly.map(p=>({label:p.label,value:p.value})),Object.assign({w,h:Math.round(Math.max(240,Math.min(320,w*.45)))},o)); }
-function onsiteTrendAll(){ const all=(data&&data.records)||[], byM={}; all.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
+function onsiteTrendAll(){ const all=CUR.records(), byM={}; all.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
   return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:byM[k].reduce((a,b)=>a+b,0)/byM[k].length})),{title:'แนวโน้มคะแนนเฉลี่ยทุกเดือน (เต็ม 5)',yMin:1,yMax:5,ticks:4,fmtY:v=>f1(v),fmtV:v=>f2(v),color:'#2563eb'}); }
 function appsTrendAll(rows){ const api=window.appsSummaryApi, byM={}; rows.forEach(r=>{const k=ymOf(r.created_at); if(!k)return; (byM[k]=byM[k]||[]).push(r);});
   return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:api.summarize(byM[k]).overallPct})),{title:'แนวโน้มความพึงพอใจภาพรวมทุกเดือน (%)',yMin:0,yMax:100,ticks:4,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'}); }
@@ -308,11 +324,12 @@ function toolbarHtml(kind,months,count){
 function insightPanel(items){
   return '<div class="panel" style="margin-bottom:16px"><div class="panel-title" style="margin-bottom:10px">สรุปประเด็นสำคัญ</div><ul style="margin:0;padding-left:20px;line-height:1.9">'+items.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>';
 }
-function renderOnsite(){
-  const c=$('content'), m=onsiteCompute(state.onsite), s=m.s;
-  let h=toolbarHtml('onsite',m.months,s.total);
+function renderPerson(kind){ return withCfg(CFG[kind],()=>renderPersonImpl(kind)); }
+function renderPersonImpl(kind){
+  const c=$('content'), m=onsiteCompute(state[kind]), s=m.s;
+  let h=toolbarHtml(kind,m.months,s.total);
   h+='<div class="grid stats">'+
-    stat('จำนวนประเมิน',String(s.total),'รายการ · '+periodLabel(state.onsite),'var(--navy)')+
+    stat('จำนวนประเมิน',String(s.total),'รายการ · '+periodLabel(state[kind]),'var(--navy)')+
     stat('เจ้าหน้าที่ที่ถูกประเมิน',String(s.evaluated),'คน','#0ea5e9')+
     stat('คะแนนเฉลี่ย',f2(s.avgScore),pctTxt(s.avgScore)+' · '+s.band,toneColorAvg(s.avgScore))+
     stat('ต้องติดตาม',String((s.risks||[]).length),'คนที่ต่ำกว่า 3.50',(s.risks||[]).length?'#ef4444':'#22c55e')+'</div>';
@@ -323,6 +340,14 @@ function renderOnsite(){
   h+=sectionsHtml(onsiteSections(m));
   c.innerHTML=h; BG=null;
   fill([['on_g',b.gauge],['on_d',b.donut],['on_c',b.crit],['on_t',b.topBars],['on_s',b.shiftBars],['on_tr',b.trend]]);
+}
+function renderOnsite(){ renderPerson('onsite'); }
+async function renderSenior(){
+  const c=$('content'); c.innerHTML=LOADING;
+  const api=window.seniorApi; if(!api){ c.innerHTML='<div class="empty">โมดูล Senior ยังไม่พร้อมใช้งาน</div>'; return; }
+  await api.ensure();
+  if(view!=='sum_senior') return;
+  renderPerson('senior');
 }
 async function renderApps(){
   const c=$('content'); c.innerHTML=LOADING;
@@ -418,10 +443,10 @@ function onsiteSections(m){
   const s=m.s, weak=criteria.find(c=>c.key===s.lowestKey), best=s.top&&s.top[0], risk=(s.risks||[])[0];
   const follow={title:'ประเด็นที่ควรติดตาม',head:['ลำดับ','ชื่อเจ้าหน้าที่','คะแนนเฉลี่ย','ร้อยละ','ระดับ'],rows:(s.risks||[]).map((p,i)=>[String(i+1),p.name,f2(p.avg),pctTxt(p.avg),p.band]),widths:[800,4400,1600,1600,1700],center:[0,2,3,4],levelCol:4,empty:'ไม่พบเจ้าหน้าที่ที่มีคะแนนเฉลี่ยต่ำกว่าเกณฑ์ติดตาม (3.50) ในรอบรายงานนี้'};
   const ev=Object.entries(s.evaluators||{}).sort((a,b)=>b[1]-a[1]);
-  const dists=[{title:'จำนวนรายการประเมินตามผลัด',head:['ลำดับ','ผลัดของเจ้าหน้าที่ ตม.','จำนวนรายการ','ร้อยละ'],rows:ev.map((x,i)=>[String(i+1),x[0]||'-',String(x[1]),pcTxt(x[1],s.total)]),widths:[800,5400,2000,1900],center:[0,2,3],empty:'ไม่มีข้อมูลผลัดในรอบรายงานนี้'}];
+  const dists=[{title:CUR.evTitle,head:['ลำดับ',CUR.evHead,'จำนวนรายการ','ร้อยละ'],rows:ev.map((x,i)=>[String(i+1),x[0]||'-',String(x[1]),pcTxt(x[1],s.total)]),widths:[800,5400,2000,1900],center:[0,2,3],empty:'ไม่มีข้อมูลผลัดในรอบรายงานนี้'}];
   const stars=m.people.filter(p=>p.count&&p.avg>=4.995).map(p=>p.name);
   const recs=[
-    {text:s.total?'กำหนดให้แต่ละผลัดบันทึกผลการประเมินอย่างต่อเนื่องทุกเดือน เพื่อให้ข้อมูลเพียงพอต่อการติดตามแนวโน้มรายบุคคล':'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ'},
+    {text:s.total?CUR.rec1:'เริ่มบันทึกผลการประเมินประจำเดือนให้ครบถ้วนก่อนใช้รายงานประกอบการตัดสินใจ'},
     {text:weak?'จัด coaching หรือ sharing session ในหัวข้อ "'+weak.shortTitle+'" เนื่องจากเป็นหัวข้อที่มีคะแนนเฉลี่ยต่ำสุดในรอบรายงาน ('+f2(s.criteriaAvg[weak.key]||0)+')':'ติดตามคะแนนรายหัวข้อหลังมีข้อมูลประเมินเพิ่มเติม'}
   ];
   if(stars.length>1) recs.push({text:'นำแนวปฏิบัติของเจ้าหน้าที่ที่ได้คะแนนเต็ม 5.00 มาใช้เป็นตัวอย่างหรือ buddy model เพื่อยกระดับมาตรฐานการให้บริการของทีม ได้แก่',subs:stars});
@@ -492,13 +517,15 @@ function docxComments(c){
 }
 function metaPairs(label,now,extra){ return [['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',who()]].concat(extra||[]); }
 
-async function buildOnsiteDocx(period){
+async function buildPersonDocx(kind,period){ const r=withCfg(CFG[kind],()=>personDocxBody(period)); return assemble(r.b,r.md); }
+function buildOnsiteDocx(period){ return buildPersonDocx('onsite',period); }
+function personDocxBody(period){
   BG='#ffffff'; const m=onsiteCompute(period), s=m.s, ch=onsiteCharts(m), sec=onsiteSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   const weak=criteria.slice().sort((a,b)=>(s.criteriaAvg[a.key]||0)-(s.criteriaAvg[b.key]||0))[0];
   let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner('รายงานสรุปผลการประเมินเจ้าหน้าที่ Onsite Support','สำหรับเจ้าหน้าที่ตรวจคนเข้าเมือง · '+label,'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
-  b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation (Supabase)']]));
+  b+=banner(CUR.docxTitle,CUR.docxSub+label,'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
+  b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล',CUR.source]]));
   b+=H('Dashboard Summary');
   b+=kpiRow([
     {label:'จำนวนประเมิน',value:String(s.total),sub:'รายการ',color:'#0b2f6b'},
@@ -519,8 +546,8 @@ async function buildOnsiteDocx(period){
   b+=H('ข้อเสนอแนะเชิงบริหาร','2563EB'); b+=docxRecs(sec.recs);
   b+=H(sec.detail.title,'14B8A6'); if(ch.topBars) b+=md.add(ch.topBars,IMG_MAX); b+=docxTable(sec.detail);
   b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
-  b+=para('เกณฑ์ระดับคะแนน: ดีเยี่ยม ≥ 4.60 · ดี ≥ 3.80 · พอใช้ ≥ 3.00 · ต้องปรับปรุง ≥ 2.00 · ไม่ผ่าน < 2.00   |   แหล่งข้อมูล: OSO Evaluation (Supabase)',{sz:16,color:'94a3b8',before:200,align:'center'});
-  return assemble(b,md);
+  b+=para('เกณฑ์ระดับคะแนน: ดีเยี่ยม ≥ 4.60 · ดี ≥ 3.80 · พอใช้ ≥ 3.00 · ต้องปรับปรุง ≥ 2.00 · ไม่ผ่าน < 2.00   |   แหล่งข้อมูล: '+CUR.source,{sz:16,color:'94a3b8',before:200,align:'center'});
+  return {b,md};
 }
 async function buildAppsDocx(period){
   BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
@@ -557,9 +584,10 @@ async function buildAppsDocx(period){
 /* ============================================================
    ปุ่ม/เหตุการณ์ (global สำหรับ onclick)
    ============================================================ */
-window.sumPeriodChange=function(kind,val){ state[kind]=val||'all'; (kind==='onsite'?renderOnsite:renderApps)(); };
+window.sumPeriodChange=function(kind,val){ state[kind]=val||'all'; ({onsite:renderOnsite,apps:renderApps,senior:renderSenior})[kind](); };
 window.sumRefresh=async function(kind){
   if(kind==='onsite'){ await refresh(); return; }
+  if(kind==='senior'){ try{ await window.seniorApi.ensure(true); }catch(e){} renderSenior(); toast('อัปเดตข้อมูลแล้ว'); return; }
   try{ await window.appsSummaryApi.ensure(true); }catch(e){}
   renderApps(); toast('อัปเดตข้อมูลแล้ว');
 };
@@ -568,10 +596,10 @@ window.sumExport=async function(kind){
   const btn=$('sumExportBtn_'+kind); if(btn)btn.disabled=true;
   try{
     toast('กำลังสร้างรายงานสรุป DOCX...');
-    if(kind==='onsite'){ if(typeof ensureFresh==='function') await ensureFresh(); } else await window.appsSummaryApi.ensure(true);
-    const p=state[kind], blob=await (kind==='onsite'?buildOnsiteDocx(p):buildAppsDocx(p));
+    if(kind==='onsite'){ if(typeof ensureFresh==='function') await ensureFresh(); } else if(kind==='senior'){ await window.seniorApi.ensure(true); } else await window.appsSummaryApi.ensure(true);
+    const p=state[kind], blob=await (kind==='apps'?buildAppsDocx(p):buildPersonDocx(kind,p));
     if(!blob) return;
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='OSO_Summary_'+(kind==='onsite'?'Onsite':'APPS')+'_'+(p==='all'?'all':p)+'.docx'; a.click();
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='OSO_Summary_'+(kind==='apps'?'APPS':CFG[kind].file)+'_'+(p==='all'?'all':p)+'.docx'; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
     toast('สร้างรายงานสรุป DOCX แล้ว');
     if(typeof logAction==='function') logAction('report','summary_'+kind,periodLabel(p));
@@ -581,7 +609,8 @@ window.sumExport=async function(kind){
 
 /* ---------- เชื่อมกับ render() ---------- */
 const SVIEWS={ sum_onsite:{title:'สรุปผลประเมิน — Onsite Support', fn:renderOnsite},
-               sum_apps:  {title:'สรุปผลประเมิน — APPS (Service Desk)', fn:renderApps} };
+               sum_apps:  {title:'สรุปผลประเมิน — APPS (Service Desk)', fn:renderApps},
+               sum_senior:{title:'สรุปผลประเมิน — Senior ประเมินเจ้าหน้าที่ Onsite', fn:renderSenior} };
 const _render=window.render;
 window.render=function(){
   const v=view;
@@ -598,5 +627,5 @@ window.render=function(){
 window.osoCharts={ cardsRow, fill, appsTrendAll, setBG:function(v){ BG=v; },
   appsModel:function(rs){ const api=window.appsSummaryApi; const s=api.summarize(rs); return {rs,s,monthly:[],agencies:Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value)}; },
   appsBuilders:appsBuilders };
-window.__sumTest={onsiteSections,appsSections,wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
+window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();
