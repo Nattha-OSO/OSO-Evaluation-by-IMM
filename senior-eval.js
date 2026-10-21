@@ -180,7 +180,7 @@ async function renderList(){
   if(view!=='senior_list') return;
   const q=filter.toLowerCase(), list=recs.filter(r=>!q||(r.staff+' '+r.evaluator+' '+r.comment).toLowerCase().includes(q));
   let h='<div class="toolbar"><input class="input search" value="'+esc(filter)+'" oninput="seniorSearch(this.value)" placeholder="ค้นหาชื่อเจ้าหน้าที่ / Senior / ข้อเสนอแนะ"><span class="mini">'+list.length+' / '+recs.length+' รายการ</span>'+
-    '<button class="btn" style="margin-left:auto" onclick="seniorRefresh()">รีเฟรช</button><button class="btn" onclick="seniorExportCsv()">ส่งออก CSV</button><button class="btn primary" onclick="showView(\'sum_senior\',document.querySelector(\'[data-view=sum_senior]\'))">สรุปผล / รายงาน DOCX</button></div>';
+    '<button class="btn" style="margin-left:auto" onclick="seniorRefresh()">รีเฟรช</button><button class="btn" onclick="seniorExportCsv()">ส่งออก CSV</button>'+(canImport()?'<button class="btn" onclick="seniorImportOpen()">นำเข้า CSV</button><input type="file" id="senCsvFile" accept=".csv,text/csv" class="hidden" onchange="seniorImport(this)">':'')+'<button class="btn primary" onclick="showView(\'sum_senior\',document.querySelector(\'[data-view=sum_senior]\'))">สรุปผล / รายงาน DOCX</button></div>';
   if(!list.length){ c.innerHTML=h+'<div class="panel"><div class="empty">'+(recs.length?'ไม่พบรายการที่ค้นหา':'ยังไม่มีผลประเมินจาก Senior')+'</div></div>'; return; }
   h+='<div class="table-wrap"><table style="min-width:1100px"><thead><tr><th>วันเวลา</th><th>Senior</th><th>เจ้าหน้าที่</th>'+SCRITERIA.map(k=>'<th style="text-align:center" title="'+esc(k.title)+'">'+k.no+'. '+esc(k.shortTitle)+'</th>').join('')+'<th style="text-align:center">เฉลี่ย</th><th>ข้อเสนอแนะ</th><th></th></tr></thead><tbody>'+
     list.map(r=>'<tr><td class="nowrap">'+esc(r.timestamp)+'</td><td>'+esc(r.evaluator)+'</td><td><b>'+esc(r.staff)+'</b></td>'+SCRITERIA.map(k=>'<td style="text-align:center">'+pill(k,r.scores[k.key].value)+'</td>').join('')+
@@ -202,6 +202,70 @@ function exportCsv(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'})); a.download='OSO_Senior_Evaluation.csv'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
+
+/* ---------- นำเข้า CSV (ไฟล์ตอบกลับจาก Google Form / Sheets) ----------
+   คอลัมน์ตามลำดับ: เวลา, Senior ผู้ประเมิน, เจ้าหน้าที่ Onsite, 6 หัวข้อ (ดีเยี่ยม..ไม่ผ่าน หรือ 1-5), ข้อเสนอแนะ  (มีแถวหัวตารางหรือไม่ก็ได้) */
+const canImport=()=>{ try{ return user&&(user.isAdmin||can('import_csv')); }catch(e){ return false; } };
+const L2N={'ดีเยี่ยม':5,'ดี':4,'พอใช้':3,'ต้องปรับปรุง':2,'ไม่ผ่าน':1};
+const toScore=v=>{ v=String(v==null?'':v).trim().replace(/\s+/g,' '); if(L2N[v]!=null) return L2N[v]; const n=/^\d+$/.test(v)?parseInt(v,10):0; return (n>=1&&n<=5)?n:null; };
+// วันที่: M/D/Y (Google Sheets สหรัฐฯ) หรือ D/M/Y (ไทย) — ตัดสินจากทั้งไฟล์ ถ้าก้ำกึ่งใช้ M/D/Y ตามที่ Google Form ส่งออก; รองรับ พ.ศ. และ ISO
+function guessDmy(vals){
+  let mdy=0, dmy=0;
+  vals.forEach(v=>{ const m=String(v||'').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.]\d{4}/); if(!m) return; if(+m[1]>12) dmy++; if(+m[2]>12) mdy++; });
+  return dmy>mdy;
+}
+function parseDate(v,dmy){
+  v=String(v==null?'':v).trim(); if(!v) return null;
+  let m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){ let a=+m[1], b=+m[2], y=+m[3]; if(y>2200) y-=543; const mo=dmy?b:a, d=dmy?a:b; if(mo<1||mo>12||d<1||d>31) return null;
+    const dt=new Date(y,mo-1,d,+(m[4]||0),+(m[5]||0),+(m[6]||0)); return isNaN(dt.getTime())?null:dt; }
+  const dt=new Date(v); return isNaN(dt.getTime())?null:dt;
+}
+const rowKey=r=>[new Date(r.created_at).toISOString(),r.senior,r.staff].concat(SCRITERIA.map(c=>r[c.key]),[r.comment||'']).join('||');
+function parseImport(text){
+  text=String(text||'').replace(/^\ufeff/,'');
+  let rows=parseCSV(text).filter(r=>r.length>1&&r.join('').trim()!=='');
+  if(!rows.length) return {recs:[],skipped:0,empty:true};
+  const looksHeader=toScore(rows[0][3])==null;   // แถวแรกไม่ใช่คะแนน = หัวตาราง
+  if(looksHeader) rows=rows.slice(1);
+  const dmy=guessDmy(rows.map(r=>r[0]));
+  const recs=[], bad=[]; let skipped=0;
+  rows.forEach((r,i)=>{
+    const senior=normName(r[1]), staff=normName(r[2]), sc=SCRITERIA.map((c,k)=>toScore(r[3+k]));
+    if(!senior||!staff||sc.some(x=>x==null)){ skipped++; bad.push((i+(looksHeader?2:1))+''); return; }
+    const dt=parseDate(r[0],dmy);
+    const rec={created_at:(dt||new Date()).toISOString(),senior:senior,staff:staff,comment:(r[3+SCRITERIA.length]||'').trim()||null};
+    SCRITERIA.forEach((c,k)=>rec[c.key]=sc[k]); recs.push(rec);
+  });
+  return {recs,skipped,bad,dmy};
+}
+window.seniorImportOpen=function(){ const f=$('senCsvFile'); if(f){ f.value=''; f.click(); } };
+window.seniorImport=async function(inp){
+  const file=inp&&inp.files&&inp.files[0]; if(!file) return;
+  if(!canImport()) return toast('คุณไม่มีสิทธิ์นำเข้าข้อมูล',true);
+  let text; try{ text=await file.text(); }catch(e){ return toast('อ่านไฟล์ไม่สำเร็จ',true); }
+  const p=parseImport(text);
+  if(p.empty) return toast('ไฟล์ว่าง',true);
+  if(!p.recs.length) return toast('ไม่พบแถวข้อมูลที่ถูกต้อง (ข้าม '+p.skipped+' แถว) — ตรวจว่าคอลัมน์เรียงตามแบบ: เวลา, Senior, เจ้าหน้าที่, 6 คะแนน, ข้อเสนอแนะ',true);
+  await ensure(true);
+  const exist=new Set(rows.map(rowKey)), seen=new Set(); let dup=0;
+  const fresh=p.recs.filter(r=>{ const k=rowKey(r); if(exist.has(k)||seen.has(k)){ dup++; return false; } seen.add(k); return true; });
+  if(!fresh.length) return toast('ทุกแถวซ้ำกับข้อมูลที่มีอยู่แล้ว (ซ้ำ '+dup+', ไม่ถูกต้อง '+p.skipped+')',true);
+  if(!confirm('พบข้อมูลถูกต้อง '+p.recs.length+' รายการ\nจะนำเข้าใหม่ '+fresh.length+' รายการ'+(dup?' · ข้ามซ้ำ '+dup:'')+(p.skipped?' · ข้ามไม่ถูกต้อง '+p.skipped+(p.bad.length?' (แถวที่ '+p.bad.slice(0,8).join(', ')+(p.bad.length>8?' …':'')+')':''):'')+'\n\nยืนยันนำเข้า?')) return;
+  const isDup=e=>e&&(String(e.code)==='23505'||/duplicate key|already exists/i.test(e.message||''));
+  let ok=0;
+  for(let j=0;j<fresh.length;j+=200){
+    const batch=fresh.slice(j,j+200), {error}=await sb.from(TABLE).insert(batch);
+    if(!error){ ok+=batch.length; continue; }
+    if(/relation|does not exist|schema cache/i.test(error.message||'')) return toast('ยังไม่ได้สร้างตาราง senior_evaluations — รัน schema-senior-eval.sql ใน Supabase ก่อน',true);
+    if(!isDup(error)) return toast('นำเข้าผิดพลาด: '+error.message,true);
+    for(const row of batch){ const {error:e2}=await sb.from(TABLE).insert(row); if(!e2) ok++; else if(isDup(e2)) dup++; else return toast('นำเข้าผิดพลาด: '+e2.message,true); }
+  }
+  try{ await syncTable('senior_names',fresh.map(r=>r.senior)); await syncTable('staff',fresh.map(r=>r.staff)); }catch(e){}
+  if(typeof logAction==='function') logAction('import',TABLE,ok+' รายการ'+(dup?' (ข้ามซ้ำ '+dup+')':''));
+  loaded=false; toast('นำเข้าสำเร็จ '+ok+' รายการ'+(dup?' · ข้ามซ้ำ '+dup:'')+(p.skipped?' · ข้ามไม่ถูกต้อง '+p.skipped:'')); renderList();
+};
+window.__seniorParseImport=parseImport;
 
 const VIEWS={ senior_list:{title:'รายการประเมิน Senior',fn:renderList} };
 const _render=window.render;

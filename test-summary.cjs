@@ -97,6 +97,40 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   ok((await pg.locator('table tbody tr').count())===8,'senior list search filters (by senior name)');
   pg.once('dialog',d=>d.accept()); await pg.locator('table tbody tr').first().locator('button').click(); await pg.waitForTimeout(300);
   ok((await pg.evaluate(()=>window.__del.length))===1&&(await pg.evaluate(()=>window.__del[0][0]))==='senior_evaluations','senior delete calls senior_evaluations.delete');
+  // นำเข้า CSV (ไฟล์ตัวอย่างจริงของผู้ใช้ ถ้ามี ไม่งั้นใช้ไฟล์สังเคราะห์)
+  {
+    const real=process.env.SENIOR_CSV&&fs.existsSync(process.env.SENIOR_CSV)?process.env.SENIOR_CSV:null;
+    const csvPath=path.join(OUT,'senior-import.csv');
+    if(real) fs.copyFileSync(real,csvPath); else fs.writeFileSync(csvPath,'\ufeffTimestamp,Senior ผู้ประเมิน,ชื่อเจ้าหน้าที่ Onsite Support ,"1. a\nb","2. a","3. a","4. a","5. a","6. a",ข้อเสนอแนะ\r\n4/28/2026 14:21:07,นายธีธัช  ทีรฆาภิบาล (เบส),นางสาวสราลี  พนิตนรากุล (เฟิร์น),ดีเยี่ยม,ดี,พอใช้,ต้องปรับปรุง,ไม่ผ่าน,ดีเยี่ยม,"มี ""คำพูด"", และ\nขึ้นบรรทัดใหม่"\r\n5/6/2026 9:05:00,นางสาวณัฏฐา บัวศรีจันทร์ (แนน),สมชาย ใจดี,5,4,3,2,1,5,\r\n5/7/2026 9:05:00,,สมชาย ใจดี,5,4,3,2,1,5,\r\n5/8/2026 9:05:00,นางสาวณัฏฐา บัวศรีจันทร์ (แนน),สมชาย ใจดี,5,4,x,2,1,5,\r\n');
+    const expectN=real?14:2;
+    await pg.evaluate(()=>showView('senior_list',document.querySelector('[data-view="senior_list"]'))); await pg.waitForSelector('table tbody tr');
+    ok(await pg.locator('button:has-text("นำเข้า CSV")').count()===1,'import button visible for admin');
+    await pg.evaluate(()=>{ window.__ins=[]; window.__dlg=[]; });
+    let dlgMsg=''; pg.once('dialog',async d=>{ dlgMsg=d.message(); await d.accept(); });
+    await pg.setInputFiles('#senCsvFile',csvPath); await pg.waitForTimeout(800);
+    const insR=await pg.evaluate(()=>window.__ins.filter(x=>x[0]==='senior_evaluations'));
+    const recsIn=insR.flatMap(x=>Array.isArray(x[1])?x[1]:[x[1]]);
+    ok(recsIn.length===expectN,'imported '+recsIn.length+' rows (expect '+expectN+')');
+    const first=recsIn.find(r=>r.created_at.startsWith('2026-04-28'));
+    ok(!!first&&first.senior==='นายธีธัช ทีรฆาภิบาล (เบส)'&&first.staff.startsWith('นางสาวสราลี พนิตนรากุล')&&first.troubleshooting>=1,'first row names normalised (double spaces) + date M/D/Y 28 Apr');
+    ok(new Date(first.created_at).getTime()===new Date(2026,3,28,14,21,7).getTime(),'timestamp preserved as local time 14:21:07');
+    if(!real){
+      ok(first.troubleshooting===5&&first.accuracy===4&&first.communication===3&&first.service_mind===2&&first.case_handling===1&&first.housekeeping===5,'label scores mapped');
+      ok(first.comment==='มี "คำพูด", และ\nขึ้นบรรทัดใหม่','quoted/multiline comment preserved');
+      const second=recsIn.find(r=>r.created_at.startsWith('2026-05-06')||new Date(r.created_at).getMonth()===4); ok(!!second&&new Date(second.created_at).getDate()===6&&second.comment===null,'5/6/2026 read as May 6 (M/D/Y), numeric scores, empty comment null');
+      ok(dlgMsg.includes('ข้ามไม่ถูกต้อง 2'),'confirm dialog reports 2 invalid rows');
+    }
+    const parsed=await pg.evaluate(txt=>{ const p=window.__seniorParseImport(txt); return {n:p.recs.length,s:p.skipped}; },fs.readFileSync(csvPath,'utf8'));
+    ok(parsed.n===expectN,'parser count '+parsed.n);
+    // DD/MM (ไทย) + พ.ศ.
+    const thai=await pg.evaluate(()=>{ const p=window.__seniorParseImport('25/12/2569 08:30,ก,ข,5,5,5,5,5,5,x\n01/02/2569 08:30,ก,ข,5,5,5,5,5,5,y'); return p.recs.map(r=>r.created_at); });
+    ok(thai.length===2&&new Date(thai[0]).getFullYear()===2026&&new Date(thai[0]).getMonth()===11&&new Date(thai[1]).getMonth()===1,'D/M/Y + Buddhist year detected when day>12');
+    // ซ้ำ: นำเข้าไฟล์เดิมอีกครั้งหลัง DB มีข้อมูลแล้ว
+    await pg.evaluate(recs=>{ window.__se.push(...recs.map((r,i)=>Object.assign({id:9000+i},r))); window.__ins=[]; },recsIn);
+    await pg.setInputFiles('#senCsvFile',csvPath); await pg.waitForTimeout(800);
+    ok((await pg.evaluate(()=>window.__ins.filter(x=>x[0]==='senior_evaluations').length))===0,'re-importing the same file inserts nothing (duplicates skipped)');
+    await pg.evaluate(()=>{ window.__se=window.__se.filter(r=>r.id<9000); return seniorRefresh(); }); await pg.waitForTimeout(300);
+  }
   // สรุป
   await pg.evaluate(()=>showView('sum_senior',document.querySelector('[data-view="sum_senior"]')));
   await pg.waitForSelector('#on_c canvas');
