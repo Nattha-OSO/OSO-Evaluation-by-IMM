@@ -599,7 +599,7 @@ async function buildAppsDocx(period){
     b+=part('ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',ch.s2p,ch.s2d,s.sec2,'F59E0B');
   }
   b+=H(sec.follow.title,'EF4444'); b+=docxTable(sec.follow);
-  b+=H('ข้อเสนอแนะเชิงบริหาร','2563EB'); b+=docxRecs(sec.recs);
+  if(s.n){ b+=H(sec.dists[1].title,'0EA5E9'); if(ch.agBars) b+=md.add(ch.agBars,IMG_MAX); b+=docxTable(sec.dists[1]); }
   b+=H(sec.detail.title,'14B8A6'); b+=docxTable(sec.detail);
   b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
   b+=para('เกณฑ์: ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง   |   แหล่งข้อมูล: OSO Evaluation — APPS Survey (Supabase)',{sz:16,color:'94a3b8',before:200,align:'center'});
