@@ -413,7 +413,7 @@ function para(text,o){
   o=o||{};
   return '<w:p><w:pPr>'+(o.keep?'<w:keepNext/>':'')+(o.border?'<w:pBdr><w:left w:val="single" w:sz="'+(o.border.sz||36)+'" w:space="6" w:color="'+o.border.color+'"/></w:pBdr>':'')+(o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'')+'<w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+(o.indent?'<w:ind w:left="'+o.indent+'"/>':'')+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+'</w:pPr>'+xr(text,o)+'</w:p>';
 }
-function heading(text,color){ return para(text,{sz:26,bold:true,color:'0b2f6b',keep:true,before:260,after:100,border:{color:color||'2563EB'}}); }
+function heading(text,color,o){ o=o||{}; return para(text,{sz:26,bold:true,color:'0b2f6b',keep:true,before:o.before==null?260:o.before,after:o.after==null?100:o.after,border:{color:color||'2563EB'}}); }
 function subHeading(text){ return para(text,{sz:22,bold:true,color:'16438f',keep:true,before:120,after:50}); }
 function spacer(){ return para('',{after:60}); }
 function banner(title,sub,meta){
@@ -577,7 +577,7 @@ function personDocxBody(period){
 }
 async function buildAppsDocx(period){
   BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
-  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
+  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c,{before:360,after:200});
   let b='';
   b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)',appsBannerSub(period),'');
   b+=kvTable(metaPairs(label,now,[['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));

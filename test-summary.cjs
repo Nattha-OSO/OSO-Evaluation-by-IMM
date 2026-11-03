@@ -232,6 +232,7 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
         if(name==='APPS'){
           ok(!txt.includes('แหล่งข้อมูล'),'APPS DOCX omits source from metadata and footer');
           ok(!txt.includes('เกณฑ์: ร้อยละ 80-100'),'APPS DOCX omits the score-criteria footer');
+          ok(d.includes('<w:spacing w:before="360" w:after="200"'),'APPS DOCX uses balanced section heading spacing');
         } }
       ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525),name+' every image is full content width (673px)');
       ok(!/<w:pgMar[^>]*w:left="(?!900)/.test(d)&&/w:pgSz w:w="11906"/.test(d)&&/w:left="900"/.test(d)&&/w:right="900"/.test(d),name+' page 11906 - 2x900 margins = 10106'); }
