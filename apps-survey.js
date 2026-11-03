@@ -450,7 +450,7 @@ function reportInner(start,end,word,label){
     arr.map(s=>'<tr><td>'+s.crit.no+'</td><td class="l">'+gesc(s.crit.title)+'</td>'+SCALE.map(o=>'<td>'+s.counts[o.value]+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
   const pctTable=(arr)=>'<table><thead><tr><th style="width:40px">ข้อ</th><th>หัวข้อ</th><th style="width:90px">ร้อยละ</th><th style="width:120px">ระดับ</th></tr></thead><tbody>'+
     arr.map(s=>'<tr><td>'+s.crit.no+'</td><td class="l">'+gesc(s.crit.title)+'</td><td style="font-weight:700;color:'+bandColor(s.pct)+'">'+f2(s.pct)+'</td><td>'+band(s.pct)+'</td></tr>').join('')+'</tbody></table>';
-  let h='<h1>สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)</h1>';
+  let h='<h1>สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)</h1>';
   h+='<p class="sub">ผ่านเจ้าหน้าที่ Onsite Support '+gesc(word)+' '+gesc(label)+'</p>';
   h+='<p>ผู้ประเมินจำนวน <b>'+s.n+'</b> ท่าน โดยมีระยะเวลาการใช้งานระบบ APPS ของผู้ประเมินดังนี้</p>';
   h+='<ul>'+DURATIONS.map(d=>'<li>'+gesc(d)+' จำนวน <b>'+(s.durCounts[d]||0)+'</b> ท่าน</li>').join('')+'</ul>';
@@ -495,7 +495,7 @@ async function buildDocxBlob(start,end,word,label){
   const img=(m,maxpx)=>{ const d=scaleW(m,maxpx||560); return dImg(m.rel,d.w,d.h,m.id); };
 
   let body='';
-  body+=dPar('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)',{sz:30,bold:true,color:'111827',align:'center',after:40});
+  body+=dPar('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)',{sz:30,bold:true,color:'111827',align:'center',after:40});
   body+=dPar('ผ่านเจ้าหน้าที่ Onsite Support '+word+' '+label,{sz:22,color:'374151',align:'center',after:160});
   body+=dPar('ผู้ประเมินจำนวน '+s.n+' ท่าน โดยมีระยะเวลาการใช้งานระบบ APPS ของผู้ประเมินดังนี้',{sz:22,after:40});
   DURATIONS.forEach(d=>{ body+=dPar('•  '+d+'   จำนวน '+(s.durCounts[d]||0)+' ท่าน',{sz:22,indent:360,after:20}); });

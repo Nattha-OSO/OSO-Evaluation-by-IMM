@@ -569,7 +569,7 @@ async function buildAppsDocx(period){
   BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)',appsBannerSub(period),'');
+  b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)',appsBannerSub(period),'');
   b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation — APPS Survey (Supabase)'],['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
   b+=H('Dashboard Summary');
   b+=kpiRow([

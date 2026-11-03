@@ -247,8 +247,8 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   const rec=await pg.evaluate(()=>{ const mk=(avg)=>({recs:[],people:[{name:'A',count:1,avg},{name:'B',count:2,avg},{name:'C',count:1,avg}],s:{total:4,evaluated:3,avgScore:avg,band:'x',criteriaAvg:{},lowestKey:'speed',top:[{name:'A',avg}],risks:[],evaluators:{}}}); const r=__sumTest.onsiteSections(mk(5)); return {subs:(r.recs.find(x=>x.subs)||{}).subs, last:r.recs[r.recs.length-1].text, followEmpty:r.follow.rows.length}; });
   ok(rec.subs&&rec.subs.length===3,'recs list all 5.00 staff as sub-bullets'); ok(rec.last.includes('คงการติดตามตามรอบปกติ')&&rec.followEmpty===0,'no risks -> keep-standard recommendation');
   // หัวรายงาน APPS ต้องใช้ชื่อเต็มและระบุ Onsite Support พร้อมเดือน/ปีที่เลือกรายงาน
-  const appsHeader=await pg.evaluate(async()=>{ const b=await __sumTest.buildAppsDocx('2026-10'); const z=await JSZip.loadAsync(b); const xml=await z.file('word/document.xml').async('string'); return xml.replace(/<[^>]+>/g,'|'); });
-  ok(appsHeader.includes('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)'),'APPS DOCX uses the requested full report title');
+  const appsHeader=await pg.evaluate(async()=>{ const b=await __sumTest.buildAppsDocx('2026-10'); const z=await JSZip.loadAsync(b); const xml=await z.file('word/document.xml').async('string'); return xml.replace(/<[^>]+>/g,'|').replace(/&amp;/g,'&'); });
+  ok(appsHeader.includes('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)'),'APPS DOCX uses the requested APPS&PNR report title');
   ok(appsHeader.includes('ผ่านเจ้าหน้าที่ Onsite Support ประจำเดือนตุลาคม ปี 2569'),'APPS DOCX header identifies Onsite Support and selected month/year');
   ok(!appsHeader.includes('OSO Evaluation · สำนักงานตรวจคนเข้าเมือง'),'APPS DOCX header omits the requested organisation line');
   // ช่วงเดือน + ว่างเปล่า
