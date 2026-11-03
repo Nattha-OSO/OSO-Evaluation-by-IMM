@@ -250,6 +250,7 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   const appsHeader=await pg.evaluate(async()=>{ const b=await __sumTest.buildAppsDocx('2026-10'); const z=await JSZip.loadAsync(b); const xml=await z.file('word/document.xml').async('string'); return xml.replace(/<[^>]+>/g,'|'); });
   ok(appsHeader.includes('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)'),'APPS DOCX uses the requested full report title');
   ok(appsHeader.includes('ผ่านเจ้าหน้าที่ Onsite Support ประจำเดือนตุลาคม ปี 2569'),'APPS DOCX header identifies Onsite Support and selected month/year');
+  ok(!appsHeader.includes('OSO Evaluation · สำนักงานตรวจคนเข้าเมือง'),'APPS DOCX header omits the requested organisation line');
   // ช่วงเดือน + ว่างเปล่า
   const emptyOk=await pg.evaluate(async()=>{ const r=await __sumTest.buildOnsiteDocx('2020-01'); const r2=await __sumTest.buildAppsDocx('2020-01'); return !!r&&!!r2; });
   ok(emptyOk,'docx builds with empty period (onsite+apps)');

@@ -409,7 +409,7 @@ function spacer(){ return para('',{after:60}); }
 function banner(title,sub,meta){
   const cell=(t,o)=>'<w:tc><w:tcPr><w:tcW w:w="'+DW+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="0B2F6B"/></w:tcPr>'+t+'</w:tc>';
   return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+'<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="'+DW+'"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>'+
-    cell(cellP(title,{sz:36,bold:true,color:'FFFFFF',align:'center',before:200,after:40})+cellP(sub,{sz:22,color:'CFE0FF',align:'center',before:0,after:40})+cellP(meta,{sz:18,color:'9FB8E8',align:'center',before:0,after:200}))+'</w:tr></w:tbl>'+spacer();
+    cell(cellP(title,{sz:36,bold:true,color:'FFFFFF',align:'center',before:200,after:40})+cellP(sub,{sz:22,color:'CFE0FF',align:'center',before:0,after:meta?200:160})+(meta?cellP(meta,{sz:18,color:'9FB8E8',align:'center',before:0,after:200}):''))+'</w:tr></w:tbl>'+spacer();
 }
 function kpiRow(cards){
   const ws=fitW(cards.map(()=>1),DW), bd='<w:left w:val="single" w:sz="36" w:color="FFFFFF"/><w:right w:val="single" w:sz="36" w:color="FFFFFF"/>';
@@ -540,7 +540,7 @@ function personDocxBody(period){
   const weak=criteria.slice().sort((a,b)=>(s.criteriaAvg[a.key]||0)-(s.criteriaAvg[b.key]||0))[0];
   let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner(CUR.docxTitle,CUR.docxSub+label,'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
+  b+=banner(CUR.docxTitle,CUR.docxSub+label,'');
   b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล',CUR.source]]));
   b+=H('Dashboard Summary');
   b+=kpiRow([
@@ -569,7 +569,7 @@ async function buildAppsDocx(period){
   BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)',appsBannerSub(period),'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
+  b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)',appsBannerSub(period),'');
   b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation — APPS Survey (Supabase)'],['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
   b+=H('Dashboard Summary');
   b+=kpiRow([
