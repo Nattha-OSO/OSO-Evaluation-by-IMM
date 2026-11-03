@@ -59,6 +59,11 @@ function appsBannerSub(p){
   const a=String(p).split('-').map(Number);
   return 'ผ่านเจ้าหน้าที่ Onsite Support ประจำเดือน'+THAI_MONTHS[a[1]-1]+' ปี '+(a[0]+543);
 }
+const EN_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function appsReportFilename(p){
+  const a=String(p).match(/^(\d{4})-(\d{2})$/);
+  return a?'สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบส่วน OSO_'+EN_MONTHS[Number(a[2])-1]+'_'+a[1]+'.docx':'OSO_Summary_APPS_'+(p==='all'?'all':p)+'.docx';
+}
 const f2 = x => (Number(x)||0).toFixed(2);
 const f1 = x => (Number(x)||0).toFixed(1);
 
@@ -594,7 +599,6 @@ async function buildAppsDocx(period){
     b+=part('ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',ch.s2p,ch.s2d,s.sec2,'F59E0B');
   }
   b+=H(sec.follow.title,'EF4444'); b+=docxTable(sec.follow);
-  if(s.n){ b+=H(sec.dists[1].title,'0EA5E9'); if(ch.agBars) b+=md.add(ch.agBars,IMG_MAX); b+=docxTable(sec.dists[1]); }
   b+=H('ข้อเสนอแนะเชิงบริหาร','2563EB'); b+=docxRecs(sec.recs);
   b+=H(sec.detail.title,'14B8A6'); b+=docxTable(sec.detail);
   b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
@@ -620,7 +624,7 @@ window.sumExport=async function(kind){
     if(kind==='onsite'){ if(typeof ensureFresh==='function') await ensureFresh(); } else if(kind==='senior'){ await window.seniorApi.ensure(true); } else await window.appsSummaryApi.ensure(true);
     const p=state[kind], blob=await (kind==='apps'?buildAppsDocx(p):buildPersonDocx(kind,p));
     if(!blob) return;
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='OSO_Summary_'+(kind==='apps'?'APPS':CFG[kind].file)+'_'+(p==='all'?'all':p)+'.docx'; a.click();
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=kind==='apps'?appsReportFilename(p):'OSO_Summary_'+CFG[kind].file+'_'+(p==='all'?'all':p)+'.docx'; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
     toast('สร้างรายงานสรุป DOCX แล้ว');
     if(typeof logAction==='function') logAction('report','summary_'+kind,periodLabel(p));
