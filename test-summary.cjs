@@ -66,6 +66,10 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   ok((await pg.textContent('#pageTitle')).includes('APPS'),'title apps');
   await layoutOk('apps@1280');
   ok(await pg.locator('#content canvas').count()>=7,'apps >=7 canvases ('+await pg.locator('#content canvas').count()+')');
+  const appPeriods=await pg.locator('#content select option').evaluateAll(xs=>xs.map(x=>({value:x.value,text:x.textContent})));
+  ok(JSON.stringify(appPeriods)==='[{"value":"all","text":"ทั้งหมด"},{"value":"2026","text":"ปี 2569"}]','APPS selector offers year-only filtering');
+  await pg.selectOption('#content select','2026'); await pg.waitForSelector('#ap_1p canvas');
+  ok((await pg.textContent('#content')).includes('ปี 2569'),'APPS selected year updates the report period');
   await pg.setViewportSize({width:1280,height:4600}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-apps.png')}); await pg.setViewportSize({width:1280,height:900});
   // เมนูเดิมยังทำงาน
   await pg.evaluate(()=>showView('dashboard',document.querySelector('[data-view="dashboard"]')));
@@ -225,6 +229,9 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   // กราฟแนวโน้มต้องติดป้ายเฉพาะค่าต่ำสุดและค่าล่าสุด เพื่อลดข้อความทับกันในรายงาน
   const trendKeys=await pg.evaluate(()=>typeof __sumTest.trendKeyIndices==='function'&&__sumTest.trendKeyIndices([{value:86.7},{value:81.0},{value:89.5},{value:100.0},{value:91.0}]).join(','));
   ok(trendKeys==='1,4','trend labels only minimum and latest points');
+  // ตัวกรองกราฟ APPS ต้องเลือกปีเดียวและคืนเฉพาะรายการของปีนั้น
+  const yearPeriod=await pg.evaluate(()=>typeof __sumTest.inPeriod==='function'&&__sumTest.inPeriod([{d:'2025-01-15'},{d:'2025-12-15'},{d:'2026-01-15'}],r=>r.d,'2025').length);
+  ok(yearPeriod===2,'year-only period filter returns only records in the selected year');
   // ข้อเสนอแนะเชิงบริหาร: หลายคนได้ 5.00 → รายชื่อย่อย; ไม่มีใครต่ำกว่าเกณฑ์ → ข้อความคงมาตรฐาน
   const rec=await pg.evaluate(()=>{ const mk=(avg)=>({recs:[],people:[{name:'A',count:1,avg},{name:'B',count:2,avg},{name:'C',count:1,avg}],s:{total:4,evaluated:3,avgScore:avg,band:'x',criteriaAvg:{},lowestKey:'speed',top:[{name:'A',avg}],risks:[],evaluators:{}}}); const r=__sumTest.onsiteSections(mk(5)); return {subs:(r.recs.find(x=>x.subs)||{}).subs, last:r.recs[r.recs.length-1].text, followEmpty:r.follow.rows.length}; });
   ok(rec.subs&&rec.subs.length===3,'recs list all 5.00 staff as sub-bullets'); ok(rec.last.includes('คงการติดตามตามรอบปกติ')&&rec.followEmpty===0,'no risks -> keep-standard recommendation');

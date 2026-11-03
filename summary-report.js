@@ -45,11 +45,17 @@ function withCfg(cfg,fn){ const prevC=CUR, prevCrit=criteria; CUR=cfg; if(cfg.cr
 function ymOf(v){ const d=new Date(v); return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function monthLabel(ym){ const a=String(ym).split('-').map(Number); return THAI_MONTHS[a[1]-1]+' '+(a[0]+543); }
 function monthShort(ym){ const a=String(ym).split('-').map(Number); return MON_SHORT[a[1]-1]+' '+String((a[0]+543)%100).padStart(2,'0'); }
-function inPeriod(rows,getDate,period){ return (!period||period==='all')?rows.slice():rows.filter(r=>ymOf(getDate(r))===period); }
+function inPeriod(rows,getDate,period){
+  if(!period||period==='all') return rows.slice();
+  const p=String(period);
+  return rows.filter(r=>{ const ym=ymOf(getDate(r)); return /^\d{4}$/.test(p)?ym.startsWith(p+'-'):ym===p; });
+}
 function monthsOf(rows,getDate){ const s={}; rows.forEach(r=>{const k=ymOf(getDate(r)); if(k)s[k]=1;}); return Object.keys(s).sort().reverse(); }
-function periodLabel(p){ return p==='all'?'ข้อมูลทั้งหมด':monthLabel(p); }
+function yearsOf(months){ return [...new Set(months.map(m=>String(m).slice(0,4)))].sort().reverse(); }
+function periodLabel(p){ return p==='all'?'ข้อมูลทั้งหมด':(/^\d{4}$/.test(String(p))?'ปี '+(Number(p)+543):monthLabel(p)); }
 function appsBannerSub(p){
   if(p==='all') return 'ผ่านเจ้าหน้าที่ Onsite Support ข้อมูลทั้งหมด';
+  if(/^\d{4}$/.test(String(p))) return 'ผ่านเจ้าหน้าที่ Onsite Support ประจำปี '+(Number(p)+543);
   const a=String(p).split('-').map(Number);
   return 'ผ่านเจ้าหน้าที่ Onsite Support ประจำเดือน'+THAI_MONTHS[a[1]-1]+' ปี '+(a[0]+543);
 }
@@ -321,10 +327,12 @@ function appsInsights(m){
    หน้าจอสรุป
    ============================================================ */
 function toolbarHtml(kind,months,count){
-  return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">ช่วงข้อมูล</label>'+
+  const annual=kind==='apps', choices=annual?yearsOf(months):months;
+  const option=(k)=>'<option value="'+k+'"'+(state[kind]===k?' selected':'')+'>'+(annual?'ปี '+(Number(k)+543):monthLabel(k))+'</option>';
+  return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">'+(annual?'เลือกปี':'ช่วงข้อมูล')+'</label>'+
     '<select class="input" style="width:auto;min-width:180px" onchange="sumPeriodChange(\''+kind+'\',this.value)">'+
     '<option value="all"'+(state[kind]==='all'?' selected':'')+'>ทั้งหมด</option>'+
-    months.map(k=>'<option value="'+k+'"'+(state[kind]===k?' selected':'')+'>'+monthLabel(k)+'</option>').join('')+'</select>'+
+    choices.map(option).join('')+'</select>'+
     '<span class="mini">'+count+' รายการ</span>'+
     '<button class="btn" style="margin-left:auto" onclick="sumRefresh(\''+kind+'\')">รีเฟรช</button>'+
     '<button class="btn primary" id="sumExportBtn_'+kind+'" onclick="sumExport(\''+kind+'\')">ออกรายงานสรุป DOCX</button></div>';
@@ -635,5 +643,5 @@ window.render=function(){
 window.osoCharts={ cardsRow, fill, appsTrendAll, setBG:function(v){ BG=v; },
   appsModel:function(rs){ const api=window.appsSummaryApi; const s=api.summarize(rs); return {rs,s,monthly:[],agencies:Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value)}; },
   appsBuilders:appsBuilders };
-window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,trendKeyIndices,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
+window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,trendKeyIndices,inPeriod,yearsOf,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();
