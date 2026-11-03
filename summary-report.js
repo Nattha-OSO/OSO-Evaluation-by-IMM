@@ -327,15 +327,20 @@ function appsInsights(m){
    หน้าจอสรุป
    ============================================================ */
 function toolbarHtml(kind,months,count){
-  const annual=kind==='apps', choices=annual?yearsOf(months):months;
-  const option=(k)=>'<option value="'+k+'"'+(state[kind]===k?' selected':'')+'>'+(annual?'ปี '+(Number(k)+543):monthLabel(k))+'</option>';
-  return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">'+(annual?'เลือกปี':'ช่วงข้อมูล')+'</label>'+
-    '<select class="input" style="width:auto;min-width:180px" onchange="sumPeriodChange(\''+kind+'\',this.value)">'+
-    '<option value="all"'+(state[kind]==='all'?' selected':'')+'>ทั้งหมด</option>'+
-    choices.map(option).join('')+'</select>'+
-    '<span class="mini">'+count+' รายการ</span>'+
-    '<button class="btn" style="margin-left:auto" onclick="sumRefresh(\''+kind+'\')">รีเฟรช</button>'+
-    '<button class="btn primary" id="sumExportBtn_'+kind+'" onclick="sumExport(\''+kind+'\')">ออกรายงานสรุป DOCX</button></div>';
+  const annual=kind==='apps';
+  if(!annual){
+    return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">ช่วงข้อมูล</label>'+
+      '<select class="input" style="width:auto;min-width:180px" onchange="sumPeriodChange(\''+kind+'\',this.value)">'+
+      '<option value="all"'+(state[kind]==='all'?' selected':'')+'>ทั้งหมด</option>'+months.map(k=>'<option value="'+k+'"'+(state[kind]===k?' selected':'')+'>'+monthLabel(k)+'</option>').join('')+'</select>'+
+      '<span class="mini">'+count+' รายการ</span><button class="btn" style="margin-left:auto" onclick="sumRefresh(\''+kind+'\')">รีเฟรช</button><button class="btn primary" id="sumExportBtn_'+kind+'" onclick="sumExport(\''+kind+'\')">ออกรายงานสรุป DOCX</button></div>';
+  }
+  const selected=String(state.apps||'all'), year=/^\d{4}/.test(selected)?selected.slice(0,4):'';
+  const years=yearsOf(months), monthChoices=year?months.filter(m=>m.startsWith(year+'-')):[];
+  return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">เลือกปี</label>'+
+    '<select class="input" style="width:auto;min-width:140px" onchange="sumPeriodChange(\'apps\',this.value)"><option value="all"'+(selected==='all'?' selected':'')+'>ทั้งหมด</option>'+years.map(y=>'<option value="'+y+'"'+(year===y?' selected':'')+'>ปี '+(Number(y)+543)+'</option>').join('')+'</select>'+
+    '<label class="mini" style="font-weight:700;color:var(--navy)">เลือกเดือน</label>'+
+    '<select class="input" style="width:auto;min-width:150px"'+(year?'':' disabled')+' onchange="sumPeriodChange(\'apps\',this.value)">'+(year?'<option value="'+year+'"'+(selected===year?' selected':'')+'>ทุกเดือน</option>'+monthChoices.map(m=>'<option value="'+m+'"'+(selected===m?' selected':'')+'>'+monthLabel(m)+'</option>').join(''):'<option>เลือกปีก่อน</option>')+'</select>'+
+    '<span class="mini">'+count+' รายการ</span><button class="btn" style="margin-left:auto" onclick="sumRefresh(\'apps\')">รีเฟรช</button><button class="btn primary" id="sumExportBtn_apps" onclick="sumExport(\'apps\')">ออกรายงานสรุป DOCX</button></div>';
 }
 function insightPanel(items){
   return '<div class="panel" style="margin-bottom:16px"><div class="panel-title" style="margin-bottom:10px">สรุปประเด็นสำคัญ</div><ul style="margin:0;padding-left:20px;line-height:1.9">'+items.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>';

@@ -67,10 +67,14 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   ok((await pg.textContent('#pageTitle')).includes('APPS'),'title apps');
   await layoutOk('apps@1280');
   ok(await pg.locator('#content canvas').count()>=7,'apps >=7 canvases ('+await pg.locator('#content canvas').count()+')');
-  const appPeriods=await pg.locator('#content select option').evaluateAll(xs=>xs.map(x=>({value:x.value,text:x.textContent})));
-  ok(JSON.stringify(appPeriods)==='[{"value":"all","text":"ทั้งหมด"},{"value":"2026","text":"ปี 2569"},{"value":"2025","text":"ปี 2568"}]','APPS selector offers year-only filtering');
-  await pg.selectOption('#content select','2026'); await pg.waitForSelector('#ap_1p canvas');
-  ok((await pg.textContent('#content')).includes('ปี 2569'),'APPS selected year updates the report period');
+  const appYears=await pg.locator('#content select').nth(0).locator('option').evaluateAll(xs=>xs.map(x=>({value:x.value,text:x.textContent})));
+  ok(JSON.stringify(appYears)==='[{"value":"all","text":"ทั้งหมด"},{"value":"2026","text":"ปี 2569"},{"value":"2025","text":"ปี 2568"}]','APPS selector offers year-only filtering');
+  ok(await pg.locator('#content select').count()===2,'APPS summary provides a separate month selector');
+  await pg.locator('#content select').nth(0).selectOption('2026'); await pg.waitForSelector('#ap_1p canvas');
+  const appMonths=await pg.locator('#content select').nth(1).locator('option').evaluateAll(xs=>xs.map(x=>x.value).join(','));
+  ok(appMonths==='2026,2026-09,2026-08','APPS month selector lists only months in the selected year');
+  await pg.locator('#content select').nth(1).selectOption('2026-08'); await pg.waitForSelector('#ap_1p canvas');
+  ok((await pg.textContent('#content')).includes('สิงหาคม 2569'),'APPS selected month updates the report period');
   await pg.setViewportSize({width:1280,height:4600}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-apps.png')}); await pg.setViewportSize({width:1280,height:900});
   // เมนูเดิมยังทำงาน
   await pg.evaluate(()=>showView('dashboard',document.querySelector('[data-view="dashboard"]')));
