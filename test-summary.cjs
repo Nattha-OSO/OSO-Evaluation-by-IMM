@@ -31,6 +31,7 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const du=['1-6 เดือน','6 เดือน - 1 ปี','1-3 ปี','มากกว่า 3 ปี'];
     const ap=[]; [[2026,7],[2026,8]].forEach(([y,m],mi)=>{ for(let i=0;i<18;i++){ const r={id:ap.length+1,created_at:new Date(y,m,2+i).toISOString(),agency:ag[i%4],duration:du[i%4],suggestion:i%6===0?'อยากให้ตอบเร็วขึ้น':'-'};
       ['s1_1','s1_2','s1_3','s2_1','s2_2','s2_3','s2_4','s2_5','s2_6','s2_7'].forEach(k=>{ r[k]=Math.max(1,Math.min(4,Math.round(3.3+(rnd()-.5)*2.4-(k==='s2_7'?1:0)))); }); ap.push(r); } });
+    ap.slice(0,18).forEach((r,i)=>ap.push({...r,id:100+i,created_at:new Date(2025,7,2+i).toISOString()}));
     window.__ap=ap;
     const sn=['นางสาวณัฏฐา บัวศรีจันทร์ (แนน)','นายธีธัช ทีรฆาภิบาล (เบส)'], stf=['สมชาย ใจดี','สมหญิง รักงาน','วิชัย มั่นคง','นภา สดใส'];
     const SK=['troubleshooting','accuracy','communication','service_mind','case_handling','housekeeping'];
@@ -67,7 +68,7 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   await layoutOk('apps@1280');
   ok(await pg.locator('#content canvas').count()>=7,'apps >=7 canvases ('+await pg.locator('#content canvas').count()+')');
   const appPeriods=await pg.locator('#content select option').evaluateAll(xs=>xs.map(x=>({value:x.value,text:x.textContent})));
-  ok(JSON.stringify(appPeriods)==='[{"value":"all","text":"ทั้งหมด"},{"value":"2026","text":"ปี 2569"}]','APPS selector offers year-only filtering');
+  ok(JSON.stringify(appPeriods)==='[{"value":"all","text":"ทั้งหมด"},{"value":"2026","text":"ปี 2569"},{"value":"2025","text":"ปี 2568"}]','APPS selector offers year-only filtering');
   await pg.selectOption('#content select','2026'); await pg.waitForSelector('#ap_1p canvas');
   ok((await pg.textContent('#content')).includes('ปี 2569'),'APPS selected year updates the report period');
   await pg.setViewportSize({width:1280,height:4600}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-apps.png')}); await pg.setViewportSize({width:1280,height:900});
@@ -76,6 +77,13 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   ok((await pg.textContent('#pageTitle'))==='แดชบอร์ด','old dashboard still renders');
   await pg.evaluate(()=>showView('apps_dashboard',document.querySelector('[data-view="apps_dashboard"]')));
   await pg.waitForSelector('#appsC_1p canvas'); ok(true,'old APPS dashboard still renders');
+  const oldAppPeriods=await pg.locator('#content select option').evaluateAll(xs=>xs.map(x=>x.value).join(','));
+  ok(oldAppPeriods==='all,2026,2025','old APPS dashboard offers year-only filtering');
+  if(await pg.locator('#content select option[value="2026"]').count()){
+    await pg.evaluate(()=>{ const old=window.osoCharts.appsTrendAll; window.__oldAppsTrendRows=[]; window.osoCharts.appsTrendAll=function(rs){ window.__oldAppsTrendRows=rs.map(r=>r.created_at); return old(rs); }; });
+    await pg.selectOption('#content select','2026'); await pg.waitForSelector('#appsC_tr canvas');
+    ok(await pg.evaluate(()=>window.__oldAppsTrendRows.length===36&&window.__oldAppsTrendRows.every(d=>new Date(d).getFullYear()===2026)),'old APPS trend receives only selected-year records');
+  } else ok(false,'old APPS trend receives only selected-year records');
   await layoutOk('old-apps-dashboard@1280'); await pg.setViewportSize({width:1920,height:1080}); await pg.waitForTimeout(700); await pg.waitForSelector('#appsC_1p canvas'); await layoutOk('old-apps-dashboard@1920'); await pg.screenshot({path:path.join(OUT,'shot-old-apps-1920.png'),fullPage:false});
   await pg.evaluate(()=>showView('sum_onsite',document.querySelector('[data-view="sum_onsite"]'))); await pg.waitForTimeout(500); await layoutOk('onsite@1920'); await pg.setViewportSize({width:1280,height:900}); await pg.waitForTimeout(700); await layoutOk('onsite@1280-after-resize');
   await pg.setViewportSize({width:420,height:900}); await pg.waitForTimeout(800); ok(!(await pg.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth+2)),'no horizontal scroll at 420px'); await pg.screenshot({path:path.join(OUT,'shot-mobile.png')}); await pg.setViewportSize({width:1280,height:900});

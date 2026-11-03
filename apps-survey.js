@@ -101,8 +101,10 @@ function monthsAvailable(){
   rows.forEach(r=>{const d=new Date(r.created_at); if(!isNaN(d)){const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); set[k]=(set[k]||0)+1;}});
   return Object.keys(set).sort().reverse();
 }
+function yearsAvailable(){ return [...new Set(monthsAvailable().map(m=>m.slice(0,4)))].sort().reverse(); }
 function rowsInPeriod(){
   if(!period||period==='all') return rows;
+  if(/^\d{4}$/.test(String(period))) return rows.filter(r=>{ const d=new Date(r.created_at); return !isNaN(d)&&d.getFullYear()===Number(period); });
   const a=period.split('-').map(Number);
   return rows.filter(r=>{const d=new Date(r.created_at); return d.getFullYear()===a[0] && (d.getMonth()+1)===a[1];});
 }
@@ -295,16 +297,16 @@ function mountChart(id,cv){ const host=g$(id); if(host){ cv.style.maxWidth='100%
 async function renderDashboard(){
   const c=g$('content'); c.innerHTML=LOADING;
   await ensure();
-  const months=monthsAvailable();
+  const years=yearsAvailable();
   const rs=rowsInPeriod();
   const s=summarize(rs);
-  const perLabel = period==='all' ? 'ทั้งหมด' : monthLabel(period);
+  const perLabel = period==='all' ? 'ทั้งหมด' : (/^\d{4}$/.test(String(period))?'ปี '+(Number(period)+543):monthLabel(period));
   let h='';
-  // toolbar ช่วงเวลา
-  h+='<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">ช่วงข้อมูล</label>'+
+  // กรองแดชบอร์ดและกราฟ APPS ด้วยปีเดียวกัน
+  h+='<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">เลือกปี</label>'+
      '<select class="input" style="width:auto;min-width:180px" onchange="appsPeriodChange(this.value)">'+
      '<option value="all"'+(period==='all'?' selected':'')+'>ทั้งหมด</option>'+
-     months.map(m=>'<option value="'+m+'"'+(period===m?' selected':'')+'>'+monthLabel(m)+'</option>').join('')+
+     years.map(y=>'<option value="'+y+'"'+(period===y?' selected':'')+'>ปี '+(Number(y)+543)+'</option>').join('')+
      '</select><span class="mini">'+s.n+' รายการ</span>'+
      '<button class="btn" style="margin-left:auto" onclick="appsRefresh()">รีเฟรช</button>'+
      '<button class="btn" onclick="openAppsReport()">รายงาน DOCX</button></div>';
@@ -319,7 +321,7 @@ async function renderDashboard(){
   const OC=window.osoCharts;
   if(OC){
     OC.setBG(null); const mb=OC.appsBuilders(OC.appsModel(rs));
-    const trB=OC.appsTrendAll(rows);
+    const trB=OC.appsTrendAll(rs);
     h+=OC.cardsRow(['appsC_g','appsC_d'])+OC.cardsRow([trB&&'appsC_tr'])+OC.cardsRow(['appsC_1p','appsC_1d'])+sectionTable('ร้อยละความพึงพอใจ — ส่วนที่ 1 : เจ้าหน้าที่ที่ให้การสนับสนุน',s.sec1)+OC.cardsRow(['appsC_2p','appsC_2d'])+sectionTable('ร้อยละความพึงพอใจ — ส่วนที่ 2 : ระบบ APPS และศูนย์บริการ (Service Desk)',s.sec2);
     h+='<div class="panel"><div class="panel-title" style="margin-bottom:10px">ส่วนที่ 3 : ข้อเสนอแนะเพิ่มเติม ('+s.sug.length+')</div>';
     if(s.sug.length) h+='<div class="insight">'+s.sug.map(x=>'<div class="insight-card"><b>'+gesc(x.agency)+'</b>'+gesc(x.text)+'</div>').join('')+'</div>'; else h+='<div class="mini">— ไม่มี —</div>';
