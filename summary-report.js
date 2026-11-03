@@ -580,7 +580,7 @@ async function buildAppsDocx(period){
   let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
   b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)',appsBannerSub(period),'');
-  b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation — APPS Survey (Supabase)'],['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
+  b+=kvTable(metaPairs(label,now,[['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
   b+=H('Dashboard Summary');
   b+=kpiRow([
     {label:'ผู้ประเมิน',value:String(s.n),sub:'ราย',color:'#0b2f6b'},
@@ -602,7 +602,7 @@ async function buildAppsDocx(period){
   if(s.n){ b+=H(sec.dists[1].title,'0EA5E9'); if(ch.agBars) b+=md.add(ch.agBars,IMG_MAX); b+=docxTable(sec.dists[1]); }
   b+=H(sec.detail.title,'14B8A6'); b+=docxTable(sec.detail);
   b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
-  b+=para('เกณฑ์: ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง   |   แหล่งข้อมูล: OSO Evaluation — APPS Survey (Supabase)',{sz:16,color:'94a3b8',before:200,align:'center'});
+  b+=para('เกณฑ์: ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง',{sz:16,color:'94a3b8',before:200,align:'center'});
   return assemble(b,md);
 }
 
