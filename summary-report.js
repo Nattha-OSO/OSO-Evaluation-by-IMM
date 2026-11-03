@@ -48,6 +48,11 @@ function monthShort(ym){ const a=String(ym).split('-').map(Number); return MON_S
 function inPeriod(rows,getDate,period){ return (!period||period==='all')?rows.slice():rows.filter(r=>ymOf(getDate(r))===period); }
 function monthsOf(rows,getDate){ const s={}; rows.forEach(r=>{const k=ymOf(getDate(r)); if(k)s[k]=1;}); return Object.keys(s).sort().reverse(); }
 function periodLabel(p){ return p==='all'?'ข้อมูลทั้งหมด':monthLabel(p); }
+function appsBannerSub(p){
+  if(p==='all') return 'ผ่านเจ้าหน้าที่ Onsite Support ข้อมูลทั้งหมด';
+  const a=String(p).split('-').map(Number);
+  return 'ผ่านเจ้าหน้าที่ Onsite Support ประจำเดือน'+THAI_MONTHS[a[1]-1]+' ปี '+(a[0]+543);
+}
 const f2 = x => (Number(x)||0).toFixed(2);
 const f1 = x => (Number(x)||0).toFixed(1);
 
@@ -553,7 +558,7 @@ async function buildAppsDocx(period){
   BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
   let b='';
-  b+=banner('รายงานสรุปความพึงพอใจต่อการให้บริการระบบ APPS','ระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า · Service Desk · '+label,'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
+  b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS)',appsBannerSub(period),'OSO Evaluation · สำนักงานตรวจคนเข้าเมือง');
   b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล','OSO Evaluation — APPS Survey (Supabase)'],['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
   b+=H('Dashboard Summary');
   b+=kpiRow([
