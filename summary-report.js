@@ -252,7 +252,7 @@ function onsiteCompute(period){
 function appsCompute(period){
   const api=window.appsSummaryApi, rows=api.rows();
   const rs=inPeriod(rows,r=>r.created_at,period), s=api.summarize(rs);
-  const byM={}; rows.forEach(r=>{const k=ymOf(r.created_at); if(!k)return; (byM[k]=byM[k]||[]).push(r);});
+  const byM={}; rs.forEach(r=>{const k=ymOf(r.created_at); if(!k)return; (byM[k]=byM[k]||[]).push(r);});
   const monthly=Object.keys(byM).sort().map(k=>({key:k,label:monthShort(k),value:api.summarize(byM[k]).overallPct,n:byM[k].length}));
   const agencies=Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value);
   return {rs,s,monthly,agencies,months:monthsOf(rows,r=>r.created_at)};

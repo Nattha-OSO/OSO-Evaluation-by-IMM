@@ -232,6 +232,9 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   // ตัวกรองกราฟ APPS ต้องเลือกปีเดียวและคืนเฉพาะรายการของปีนั้น
   const yearPeriod=await pg.evaluate(()=>typeof __sumTest.inPeriod==='function'&&__sumTest.inPeriod([{d:'2025-01-15'},{d:'2025-12-15'},{d:'2026-01-15'}],r=>r.d,'2025').length);
   ok(yearPeriod===2,'year-only period filter returns only records in the selected year');
+  // เมื่อเลือกปี กราฟ APPS ต้องใช้เฉพาะเดือนในปีที่เลือก ไม่ใช่ข้อมูลทุกปี
+  const appTrendYear=await pg.evaluate(()=>{ const api=window.appsSummaryApi, oldRows=api.rows, base=oldRows()[0]; api.rows=()=>[{...base,id:901,created_at:'2025-03-15T00:00:00.000Z'},{...base,id:902,created_at:'2026-04-15T00:00:00.000Z'}]; try{return __sumTest.appsCompute('2025').monthly.map(p=>p.key).join(',');}finally{api.rows=oldRows;} });
+  ok(appTrendYear==='2025-03','APPS trend contains only months in the selected year');
   // ข้อเสนอแนะเชิงบริหาร: หลายคนได้ 5.00 → รายชื่อย่อย; ไม่มีใครต่ำกว่าเกณฑ์ → ข้อความคงมาตรฐาน
   const rec=await pg.evaluate(()=>{ const mk=(avg)=>({recs:[],people:[{name:'A',count:1,avg},{name:'B',count:2,avg},{name:'C',count:1,avg}],s:{total:4,evaluated:3,avgScore:avg,band:'x',criteriaAvg:{},lowestKey:'speed',top:[{name:'A',avg}],risks:[],evaluators:{}}}); const r=__sumTest.onsiteSections(mk(5)); return {subs:(r.recs.find(x=>x.subs)||{}).subs, last:r.recs[r.recs.length-1].text, followEmpty:r.follow.rows.length}; });
   ok(rec.subs&&rec.subs.length===3,'recs list all 5.00 staff as sub-bullets'); ok(rec.last.includes('คงการติดตามตามรอบปกติ')&&rec.followEmpty===0,'no risks -> keep-standard recommendation');
