@@ -229,7 +229,10 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
       ok(tbls.every(t=>{ const rows=t.split('<w:tr>').slice(1); return rows.every(r=>[...r.matchAll(/<w:tcW w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0)===10106); }),name+' every row of cells sums to 10106');
       { const txt=d.replace(/<[^>]+>/g,'|'); const need=['รอบรายงาน','วันที่จัดทำ','จัดทำโดย',name==='APPS'?null:'แหล่งข้อมูล','Dashboard Summary','ประเด็นที่ควรติดตาม',name==='APPS'?null:'ข้อเสนอแนะเชิงบริหาร',name==='APPS'?'รายละเอียดสรุปรายหน่วยงาน':'รายละเอียดสรุปรายบุคคล',name==='APPS'?'จำนวนผู้ประเมินตามหน่วยงาน':'จำนวนรายการประเมินตามผลัด','ข้อเสนอแนะ'].filter(Boolean);
         need.forEach(k=>ok(txt.includes(k),name+' docx has section/field: '+k));
-        if(name==='APPS') ok(!txt.includes('แหล่งข้อมูล'),'APPS DOCX omits source from metadata and footer'); }
+        if(name==='APPS'){
+          ok(!txt.includes('แหล่งข้อมูล'),'APPS DOCX omits source from metadata and footer');
+          ok(!txt.includes('เกณฑ์: ร้อยละ 80-100'),'APPS DOCX omits the score-criteria footer');
+        } }
       ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525),name+' every image is full content width (673px)');
       ok(!/<w:pgMar[^>]*w:left="(?!900)/.test(d)&&/w:pgSz w:w="11906"/.test(d)&&/w:left="900"/.test(d)&&/w:right="900"/.test(d),name+' page 11906 - 2x900 margins = 10106'); }
     ok(fs.statSync(f).size>20000,name+' docx size '+fs.statSync(f).size);

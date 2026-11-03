@@ -602,7 +602,6 @@ async function buildAppsDocx(period){
   if(s.n){ b+=H(sec.dists[1].title,'0EA5E9'); if(ch.agBars) b+=md.add(ch.agBars,IMG_MAX); b+=docxTable(sec.dists[1]); }
   b+=H(sec.detail.title,'14B8A6'); b+=docxTable(sec.detail);
   b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
-  b+=para('เกณฑ์: ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง',{sz:16,color:'94a3b8',before:200,align:'center'});
   return assemble(b,md);
 }
 
