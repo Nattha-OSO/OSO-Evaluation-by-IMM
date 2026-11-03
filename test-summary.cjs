@@ -173,7 +173,7 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const JSZip=require('jszip'); const z=await JSZip.loadAsync(fs.readFileSync(f)); const d=await z.file('word/document.xml').async('string'); const txt=d.replace(/<[^>]+>/g,'|');
     ['Dashboard Summary','โดย Senior','ประเด็นที่ควรติดตาม','จำนวนรายการประเมินตาม Senior ผู้ประเมิน','ข้อเสนอแนะเชิงบริหาร','รายละเอียดสรุปรายบุคคล','ข้อเสนอแนะทั้งหมดในรอบรายงาน'].forEach(k=>ok(txt.includes(k),'senior docx has: '+k));
     ok(!txt.includes('แหล่งข้อมูล')&&!txt.includes('เกณฑ์ระดับคะแนน:'),'senior docx omits source and score-criteria footer');
-    ok(d.includes('<w:spacing w:before="360" w:after="200"'),'senior docx uses balanced section heading spacing');
+    ok(d.includes('<w:spacing w:before="160" w:after="120"'),'senior docx uses balanced section heading spacing');
     const tbls=d.split('<w:tbl>').slice(1).map(x=>x.split('</w:tbl>')[0]);
     ok(tbls.every(x=>/<w:tblW w:w="10106" w:type="dxa"\/><w:jc w:val="center"\/>/.test(x)),'senior docx tables full width + centred');
     ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525)&&(d.match(/<wp:extent/g)||[]).length>=4,'senior docx images full width');
@@ -243,7 +243,7 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
         if(shared){
           ok(!txt.includes('แหล่งข้อมูล'),'APPS/Onsite DOCX omits source from metadata and footer');
           ok(!txt.includes('เกณฑ์ระดับคะแนน:'),'APPS/Onsite DOCX omits the score-criteria footer');
-          ok(d.includes('<w:spacing w:before="360" w:after="200"'),'APPS/Onsite DOCX uses balanced section heading spacing');
+          ok(d.includes('<w:spacing w:before="160" w:after="120"'),'APPS/Onsite DOCX uses balanced section heading spacing');
         } }
       ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525),name+' every image is full content width (673px)');
       ok(!/<w:pgMar[^>]*w:left="(?!900)/.test(d)&&/w:pgSz w:w="11906"/.test(d)&&/w:left="900"/.test(d)&&/w:right="900"/.test(d),name+' page 11906 - 2x900 margins = 10106'); }

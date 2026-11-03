@@ -406,9 +406,9 @@ function para(text,o){
   o=o||{};
   return '<w:p><w:pPr>'+(o.keep?'<w:keepNext/>':'')+(o.border?'<w:pBdr><w:left w:val="single" w:sz="'+(o.border.sz||36)+'" w:space="6" w:color="'+o.border.color+'"/></w:pBdr>':'')+(o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'')+'<w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after==null?60:o.after)+'" w:line="276" w:lineRule="auto"/>'+(o.indent?'<w:ind w:left="'+o.indent+'"/>':'')+(o.align?'<w:jc w:val="'+o.align+'"/>':'')+'</w:pPr>'+xr(text,o)+'</w:p>';
 }
-function heading(text,color,o){ o=o||{}; return para(text,{sz:26,bold:true,color:'0b2f6b',keep:true,before:o.before==null?260:o.before,after:o.after==null?100:o.after,border:{color:color||'2563EB'}}); }
+function heading(text,color,o){ o=o||{}; return para(text,{sz:26,bold:true,color:'0b2f6b',keep:true,before:o.before==null?160:o.before,after:o.after==null?120:o.after,border:{color:color||'2563EB'}}); }
 function subHeading(text){ return para(text,{sz:22,bold:true,color:'16438f',keep:true,before:120,after:50}); }
-function spacer(){ return para('',{after:60}); }
+function spacer(){ return para('',{after:80}); }
 function banner(title,sub,meta){
   const cell=(t,o)=>'<w:tc><w:tcPr><w:tcW w:w="'+DW+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="0B2F6B"/></w:tcPr>'+t+'</w:tc>';
   return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+'<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="'+DW+'"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>'+
@@ -430,13 +430,13 @@ function table(rows,widths,o){
       return '<w:tc><w:tcPr><w:tcW w:w="'+widths[ci]+'" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/><w:vAlign w:val="center"/></w:tcPr>'+cellP(cell,{sz:20,bold:head||(o.colorCol===ci),color:col,align:center.indexOf(ci)>=0?'center':null,keep:keepAll&&!last})+'</w:tc>'; }).join('')+'</w:tr>'; }).join('');
   return '<w:tbl><w:tblPr><w:tblW w:w="'+DW+'" w:type="dxa"/>'+TBL_JC+bd+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+widths.map(w=>'<w:gridCol w:w="'+w+'"/>').join('')+'</w:tblGrid>'+trs+'</w:tbl>'+spacer();
 }
-function bullets(items){ return items.map(t=>para('•  '+t,{sz:21,fill:'F4F7FD',indent:240,after:30,border:{color:'2563EB',sz:24}})).join(''); }
+function bullets(items){ return items.map((t,i)=>para('•  '+t,{sz:21,fill:'F4F7FD',indent:240,after:i===items.length-1?80:20,border:{color:'2563EB',sz:24}})).join(''); }
 function metaTable(pairs){ return table([['รายการ','รายละเอียด']].concat(pairs),[2600,7400]); }
 
 function newMedia(){ const list=[]; return {list, add(cv,maxpx){ const id=list.length+1, m={rel:'rIdImg'+id,name:'chart'+id+'.png',bytes:canvasBytes(cv),id}; list.push(m); const w=maxpx||IMG_MAX, h=Math.round(cv._h*w/cv._w); /* ขยายเต็มความกว้างเนื้อหา (กราฟวาด 2x จึงยังคมชัด) */ return img(m,w,h); }}; }
 function img(m,wpx,hpx){
   const cx=Math.round(wpx*9525), cy=Math.round(hpx*9525);
-  return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'+m.id+'" name="'+m.name+'"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'+m.id+'" name="'+m.name+'"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'+m.rel+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+  return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="80"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="'+m.id+'" name="'+m.name+'"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="'+m.id+'" name="'+m.name+'"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'+m.rel+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
 }
 async function assemble(body,media){
   if(typeof JSZip==='undefined'){ toast('โหลด JSZip ไม่สำเร็จ',true); return null; }
@@ -532,7 +532,7 @@ function docxRecs(items){
 }
 function docxComments(c){
   if(!c.items.length) return para(c.empty,{color:'6a7d9b',fill:'F4F7FD',indent:120});
-  return c.items.map(x=>para(x.who,{sz:18,bold:true,color:'0b2f6b',before:80,after:20,keep:true})+para(x.text,{fill:'F4F6F9',after:40,border:{color:'93C5FD',sz:18}})).join('');
+  return c.items.map((x,i)=>para(x.who,{sz:18,bold:true,color:'0b2f6b',before:i?40:0,after:20,keep:true})+para(x.text,{fill:'F4F6F9',after:i===c.items.length-1?80:40,border:{color:'93C5FD',sz:18}})).join('');
 }
 function metaPairs(label,now,extra){ return [['รอบรายงาน',label],['วันที่จัดทำ',now.toLocaleString('th-TH')],['จัดทำโดย',who()]].concat(extra||[]); }
 
@@ -541,7 +541,7 @@ function buildOnsiteDocx(period){ return buildPersonDocx('onsite',period); }
 function personDocxBody(period){
   BG='#ffffff'; const m=onsiteCompute(period), s=m.s, ch=onsiteCharts(m), sec=onsiteSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   const weak=criteria.slice().sort((a,b)=>(s.criteriaAvg[a.key]||0)-(s.criteriaAvg[b.key]||0))[0];
-  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c,{before:360,after:200});
+  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c,{before:160,after:120});
   let b='';
   b+=banner(CUR.docxTitle,CUR.docxSub+label,'');
   b+=kvTable(metaPairs(label,now));
@@ -569,7 +569,7 @@ function personDocxBody(period){
 }
 async function buildAppsDocx(period){
   BG='#ffffff'; const api=window.appsSummaryApi, m=appsCompute(period), s=m.s, ch=appsCharts(m), sec=appsSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
-  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c,{before:360,after:200});
+  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c,{before:160,after:120});
   let b='';
   b+=banner('สรุปผลการประเมินความพึงพอใจต่อการให้บริการระบบตรวจสอบและคัดกรองผู้โดยสารล่วงหน้า (APPS&PNR)',appsBannerSub(period),'');
   b+=kvTable(metaPairs(label,now,[['เกณฑ์ระดับ','ร้อยละ 80-100 = ดีเยี่ยม · 60-79 = ดี · 40-59 = ปานกลาง · 0-39 = ควรปรับปรุง']]));
