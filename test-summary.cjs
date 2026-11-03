@@ -222,9 +222,9 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const T=['2. ระบบมีประโยชน์สามารถช่วยสนับสนุนภารกิจของหน่วยงานได้','4. คู่มือการใช้งานช่วยเพิ่มความเข้าใจในการใช้งานระบบให้กับเจ้าหน้าที่','7. การแจ้งข้อมูลข่าวสารการ Upgrade ระบบ (วิธีการ / ความชัดเจน / เข้าใจง่าย)','ก'.repeat(300)];
     return T.map(t=>{ const L=__sumTest.wrapTH(g,t,200,2); return {n:L.length,max:Math.max(...L.map(l=>g.measureText(l).width))}; }); });
   ok(wr.every(x=>x.n<=2&&x.max<=200.5),'wrapTH never exceeds width/lines '+JSON.stringify(wr));
-  // กราฟแนวโน้มต้องติดป้ายเฉพาะจุดสำคัญ เพื่อลดข้อความทับกันในรายงาน
+  // กราฟแนวโน้มต้องติดป้ายเฉพาะค่าต่ำสุดและค่าล่าสุด เพื่อลดข้อความทับกันในรายงาน
   const trendKeys=await pg.evaluate(()=>typeof __sumTest.trendKeyIndices==='function'&&__sumTest.trendKeyIndices([{value:86.7},{value:81.0},{value:89.5},{value:100.0},{value:91.0}]).join(','));
-  ok(trendKeys==='0,1,3,4','trend labels only first, minimum, maximum, and latest points');
+  ok(trendKeys==='1,4','trend labels only minimum and latest points');
   // ข้อเสนอแนะเชิงบริหาร: หลายคนได้ 5.00 → รายชื่อย่อย; ไม่มีใครต่ำกว่าเกณฑ์ → ข้อความคงมาตรฐาน
   const rec=await pg.evaluate(()=>{ const mk=(avg)=>({recs:[],people:[{name:'A',count:1,avg},{name:'B',count:2,avg},{name:'C',count:1,avg}],s:{total:4,evaluated:3,avgScore:avg,band:'x',criteriaAvg:{},lowestKey:'speed',top:[{name:'A',avg}],risks:[],evaluators:{}}}); const r=__sumTest.onsiteSections(mk(5)); return {subs:(r.recs.find(x=>x.subs)||{}).subs, last:r.recs[r.recs.length-1].text, followEmpty:r.follow.rows.length}; });
   ok(rec.subs&&rec.subs.length===3,'recs list all 5.00 staff as sub-bullets'); ok(rec.last.includes('คงการติดตามตามรอบปกติ')&&rec.followEmpty===0,'no risks -> keep-standard recommendation');
