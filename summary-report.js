@@ -153,29 +153,36 @@ function chHBarsStacked(items,o){
   return c;
 }
 // เส้นแนวโน้ม + พื้นที่ไล่สี  pts:[{label,value}]
+function trendKeyIndices(pts){
+  if(!pts.length) return [];
+  const vals=pts.map(p=>Number(p.value)||0), min=Math.min.apply(null,vals), max=Math.max.apply(null,vals);
+  return [...new Set([0,vals.indexOf(min),vals.indexOf(max),pts.length-1])].sort((a,b)=>a-b);
+}
 function chTrend(pts,o){
-  const w=o.w||620,h=o.h||250,{c,g}=mk(w,h); chartTitle(g,o.title,14,24);
-  const padL=48,padR=28,padT=46,padB=44, pw=w-padL-padR, ph=h-padT-padB, yMin=o.yMin||0, yMax=o.yMax, col=o.color||'#2563eb';
-  g.font='12px '+FONT; g.textBaseline='middle';
+  const w=o.w||620,h=o.h||290,{c,g}=mk(w,h); chartTitle(g,o.title,14,26);
+  const padL=52,padR=32,padT=50,padB=52, pw=w-padL-padR, ph=h-padT-padB, yMin=o.yMin||0, yMax=o.yMax, col=o.color||'#2563eb';
+  const X=i=>padL+pw*(i+.5)/Math.max(1,pts.length), Y=v=>padT+ph-ph*Math.max(0,Math.min(1,(v-yMin)/(yMax-yMin)));
+  g.font='13px '+FONT; g.textBaseline='middle';
   const tk=o.ticks||4;
-  for(let i=0;i<=tk;i++){ const y=padT+ph-ph*i/tk; g.strokeStyle='#e6ecf5'; g.lineWidth=1; g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke(); g.fillStyle='#94a3b8'; g.textAlign='right'; g.fillText((o.fmtY||String)(yMin+(yMax-yMin)*i/tk),padL-8,y); }
-  const X=i=>padL+pw*(i+0.5)/pts.length, Y=v=>padT+ph-ph*Math.max(0,Math.min(1,(v-yMin)/(yMax-yMin)));
-  if(pts.length>1){
-    const ar=g.createLinearGradient(0,padT,0,padT+ph); ar.addColorStop(0,lighten(col,.55)); ar.addColorStop(1,'rgba(255,255,255,0)');
-    g.beginPath(); g.moveTo(X(0),padT+ph); g.lineTo(X(0),Y(pts[0].value));
-    for(let i=1;i<pts.length;i++){ const mx=(X(i-1)+X(i))/2; g.bezierCurveTo(mx,Y(pts[i-1].value),mx,Y(pts[i].value),X(i),Y(pts[i].value)); }
-    g.lineTo(X(pts.length-1),padT+ph); g.closePath(); g.fillStyle=ar; g.globalAlpha=.55; g.fill(); g.globalAlpha=1;
-    g.beginPath(); g.moveTo(X(0),Y(pts[0].value));
-    for(let i=1;i<pts.length;i++){ const mx=(X(i-1)+X(i))/2; g.bezierCurveTo(mx,Y(pts[i-1].value),mx,Y(pts[i].value),X(i),Y(pts[i].value)); }
-    g.lineWidth=3; g.lineJoin='round'; g.strokeStyle=col; g.stroke();
+  for(let i=0;i<=tk;i++){ const y=padT+ph-ph*i/tk; g.strokeStyle='#dce6f3'; g.lineWidth=1; g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke(); g.fillStyle='#64748b'; g.textAlign='right'; g.fillText((o.fmtY||String)(yMin+(yMax-yMin)*i/tk),padL-10,y); }
+  if(Number.isFinite(o.target)){
+    const ty=Y(o.target); g.save(); g.setLineDash([3,4]); g.strokeStyle='#d97706'; g.lineWidth=1.5; g.beginPath(); g.moveTo(padL,ty); g.lineTo(w-padR,ty); g.stroke(); g.restore();
+    g.font='600 11px '+FONT; g.fillStyle='#9a5b00'; g.textAlign='right'; g.textBaseline='bottom'; g.fillText('เป้าหมาย '+o.target+'%',w-padR,ty-4);
   }
-  // เดือนเยอะ: ลดขนาดจุดและแสดงป้ายเว้นช่วง (จุดแรก/สุดท้าย/สูงสุด/ต่ำสุดแสดงเสมอ) เพื่อไม่ให้ตัวเลขทับกัน
-  const step=pw/pts.length, every=Math.max(1,Math.ceil(46/step)), vEvery=Math.max(1,Math.ceil(40/step)), r=step<26?3.5:(step<40?4.5:6);
-  const vals=pts.map(p=>p.value), vmax=Math.max.apply(null,vals), vmin=Math.min.apply(null,vals);
-  pts.forEach((p,i)=>{ const x=X(i), y=Y(p.value), key=(i===0||i===pts.length-1||p.value===vmax||p.value===vmin);
-    g.beginPath(); g.arc(x,y,r,0,2*Math.PI); g.fillStyle='#fff'; g.fill(); g.lineWidth=r<5?2:3; g.strokeStyle=col; g.stroke();
-    if(i%vEvery===0||key){ g.textAlign='center'; g.textBaseline='alphabetic'; g.font='bold 13px '+FONT; g.fillStyle=NAVY; g.fillText((o.fmtV||String)(p.value),x,y-r-6); }
-    if(i%every===0||i===pts.length-1){ g.font='12px '+FONT; g.fillStyle='#475569'; g.textAlign='center'; g.fillText(p.label,x,h-padB+22); } });
+  if(pts.length>1){
+    const avg=pts.map((p,i)=>{ if(i<2) return null; const xs=pts.slice(i-2,i+1); return xs.reduce((s,x)=>s+(Number(x.value)||0),0)/xs.length; });
+    if(pts.length>=3){ g.save(); g.setLineDash([7,5]); g.lineWidth=2.5; g.strokeStyle='#64748b'; g.beginPath(); avg.forEach((v,i)=>{ if(v==null) return; if(i===2) g.moveTo(X(i),Y(v)); else g.lineTo(X(i),Y(v)); }); g.stroke(); g.restore(); }
+    g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(X(i),Y(p.value)):g.moveTo(X(i),Y(p.value))); g.lineWidth=3; g.lineJoin='round'; g.lineCap='round'; g.strokeStyle=col; g.stroke();
+  }
+  const step=pw/Math.max(1,pts.length), every=Math.max(1,Math.ceil(58/step)), keys=trendKeyIndices(pts), r=step<26?3.5:(step<40?4.5:5);
+  const label=(x,y,text,align,below)=>{ g.font='700 12px '+FONT; const tw=g.measureText(text).width, px=6, left=align==='right'?x-tw-px*2:x-tw/2-px, top=below?Math.min(h-padB-21,y+8):Math.max(padT+2,y-26); g.fillStyle='rgba(255,255,255,.96)'; rr(g,left,top,tw+px*2,19,5); g.fill(); g.strokeStyle='#cbd5e1'; g.lineWidth=1; g.stroke(); g.fillStyle=NAVY; g.textBaseline='middle'; g.textAlign=align==='right'?'right':'center'; g.fillText(text,align==='right'?x-px:x,top+10); };
+  pts.forEach((p,i)=>{ const x=X(i), y=Y(p.value), key=keys.indexOf(i)>=0;
+    if(key){ g.beginPath(); g.arc(x,y,r,0,2*Math.PI); g.fillStyle='#fff'; g.fill(); g.lineWidth=2.5; g.strokeStyle=col; g.stroke(); label(x,y,(o.fmtV||String)(p.value),i===pts.length-1?'right':'center',Number.isFinite(o.target)&&Math.abs(Y(o.target)-y)<30); }
+    if(i%every===0||i===pts.length-1){ g.font='12px '+FONT; g.fillStyle='#475569'; g.textAlign='center'; g.textBaseline='alphabetic'; g.fillText(p.label,x,h-padB+28); } });
+  g.font='12px '+FONT; g.textBaseline='middle'; g.textAlign='left'; g.strokeStyle=col; g.lineWidth=3; g.beginPath(); g.moveTo(padL,padT-16); g.lineTo(padL+22,padT-16); g.stroke(); g.fillStyle='#334155'; g.fillText('คะแนนรายเดือน',padL+28,padT-16);
+  let lx=padL+118;
+  if(pts.length>=3){ g.save(); g.setLineDash([7,5]); g.strokeStyle='#64748b'; g.lineWidth=2.5; g.beginPath(); g.moveTo(lx,padT-16); g.lineTo(lx+22,padT-16); g.stroke(); g.restore(); g.fillStyle='#64748b'; g.fillText('ค่าเฉลี่ย 3 เดือน',lx+28,padT-16); lx+=150; }
+  if(Number.isFinite(o.target)){ g.save(); g.setLineDash([3,4]); g.strokeStyle='#d97706'; g.lineWidth=2; g.beginPath(); g.moveTo(lx,padT-16); g.lineTo(lx+22,padT-16); g.stroke(); g.restore(); g.fillStyle='#9a5b00'; g.fillText('เป้าหมาย '+o.target+'%',lx+28,padT-16); }
   return c;
 }
 // แท่งซ้อน 100% ของ 4 ระดับความพึงพอใจ  items:[{label,counts:{4,3,2,1}}] · scale:[{label,value,color}]
@@ -279,14 +286,14 @@ function appsBuilders(m){
     s1d:w=>chStacked(mkSt(s.sec1),api.SCALE,{w,title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 1'}),
     s2d:w=>chStacked(mkSt(s.sec2),api.SCALE,{w,title:'สัดส่วนระดับความพึงพอใจ — ส่วนที่ 2'}),
     agBars:ag.length?(w=>chHBars(ag.map(x=>({label:x.label,value:x.value,color:'#2563eb',text:String(x.value)})),{w,title:'จำนวนผู้ประเมินตามหน่วยงาน',max:Math.max(1,ag[0].value),stack:true})):null,
-    trend:(m.monthly||[]).length>=2?(w=>chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{w,h:Math.round(Math.max(230,Math.min(300,w*.5))),title:'แนวโน้มความพึงพอใจภาพรวมรายเดือน (%)',yMin:0,yMax:100,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'})):null
+    trend:(m.monthly||[]).length>=2?(w=>chTrend(m.monthly.map(p=>({label:p.label,value:p.value})),{w,h:Math.round(Math.max(260,Math.min(320,w*.52))),title:'แนวโน้มความพึงพอใจภาพรวมรายเดือน (%)',yMin:0,yMax:100,target:90,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'})):null
   };
 }
 function trendBuilder(monthly,o){ if(!monthly.length) return null; return w=>chTrend(monthly.map(p=>({label:p.label,value:p.value})),Object.assign({w,h:Math.round(Math.max(240,Math.min(320,w*.45)))},o)); }
 function onsiteTrendAll(){ const all=CUR.records(), byM={}; all.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
   return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:byM[k].reduce((a,b)=>a+b,0)/byM[k].length})),{title:'แนวโน้มคะแนนเฉลี่ยทุกเดือน (เต็ม 5)',yMin:1,yMax:5,ticks:4,fmtY:v=>f1(v),fmtV:v=>f2(v),color:'#2563eb'}); }
 function appsTrendAll(rows){ const api=window.appsSummaryApi, byM={}; rows.forEach(r=>{const k=ymOf(r.created_at); if(!k)return; (byM[k]=byM[k]||[]).push(r);});
-  return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:api.summarize(byM[k]).overallPct})),{title:'แนวโน้มความพึงพอใจภาพรวมทุกเดือน (%)',yMin:0,yMax:100,ticks:4,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'}); }
+  return trendBuilder(Object.keys(byM).sort().map(k=>({label:monthShort(k),value:api.summarize(byM[k]).overallPct})),{title:'แนวโน้มความพึงพอใจภาพรวมทุกเดือน (%)',yMin:0,yMax:100,target:90,ticks:4,fmtY:v=>String(Math.round(v)),fmtV:v=>f1(v)+'%',color:'#14b8a6'}); }
 function onsiteCharts(m){ return resolveB(onsiteBuilders(m),620); }
 function appsCharts(m){ return resolveB(appsBuilders(m),620); }
 
@@ -632,5 +639,5 @@ window.render=function(){
 window.osoCharts={ cardsRow, fill, appsTrendAll, setBG:function(v){ BG=v; },
   appsModel:function(rs){ const api=window.appsSummaryApi; const s=api.summarize(rs); return {rs,s,monthly:[],agencies:Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value)}; },
   appsBuilders:appsBuilders };
-window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
+window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,trendKeyIndices,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();
