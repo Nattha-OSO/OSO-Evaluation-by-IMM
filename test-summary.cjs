@@ -56,11 +56,15 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   async function layoutOk(label){ const r=await pg.evaluate(()=>{ const rows=[...document.querySelectorAll('.sum-grid')].map(g=>{ const cs=[...g.querySelectorAll('.sum-card')]; const rc=cs.map(c=>c.getBoundingClientRect()); const cv=cs.map(c=>c.querySelector('canvas')).filter(Boolean).map(c=>c.getBoundingClientRect()); return {n:cs.length,sameTop:rc.every(x=>Math.abs(x.top-rc[0].top)<2),sameW:rc.length<2||rc.every(x=>Math.abs(x.width-rc[0].width)<2),sameH:rc.length<2||rc.every(x=>Math.abs(x.height-rc[0].height)<2),fit:cv.every((x,i)=>x.right<=rc[i].right+1&&x.left>=rc[i].left-1),filled:cs.length===cv.length,cvw:cv.map(x=>Math.round(x.width))}; }); return {rows,hscroll:document.documentElement.scrollWidth>document.documentElement.clientWidth+2}; });
     ok(r.rows.length>=3,label+' grid rows '+r.rows.length); ok(r.rows.every(x=>x.sameTop&&x.sameW&&x.sameH&&x.fit&&x.filled),label+' cards aligned/equal/fit '+JSON.stringify(r.rows.map(x=>x.cvw))); ok(!r.hscroll,label+' no horizontal scroll'); }
   await layoutOk('onsite@1280');
-  // เลือกเดือน
-  await pg.setViewportSize({width:1280,height:3200}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-onsite.png')}); await pg.setViewportSize({width:1280,height:900});
-  await pg.selectOption('#content select','2026-07');
-  await pg.waitForSelector('#on_c canvas');
-  ok((await pg.textContent('#content')).includes('กรกฎาคม 2569'),'period month label (Thai BE)');
+  // เลือกปีและเดือน
+  ok(await pg.locator('#content select').count()===2,'onsite summary provides separate year and month selectors');
+  if(await pg.locator('#content select').count()===2){
+    await pg.locator('#content select').nth(0).selectOption('2026'); await pg.waitForSelector('#on_c canvas');
+    const onsiteMonths=await pg.locator('#content select').nth(1).locator('option').evaluateAll(xs=>xs.map(x=>x.value).join(','));
+    ok(onsiteMonths==='2026,2026-09,2026-08,2026-07','onsite month selector lists only selected-year months');
+    await pg.locator('#content select').nth(1).selectOption('2026-07'); await pg.waitForSelector('#on_c canvas');
+    ok((await pg.textContent('#content')).includes('กรกฎาคม 2569'),'onsite selected month updates the report period');
+  } else ok(false,'onsite month selector lists only selected-year months');
   // ---- หน้าจอ APPS ----
   await pg.evaluate(()=>{ const b=document.querySelector('[data-view="sum_apps"]'); showView('sum_apps',b); });
   await pg.waitForSelector('#ap_1p canvas');
@@ -154,6 +158,11 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
   ok((await pg.locator('#content canvas').count())>=5,'senior summary canvases ('+await pg.locator('#content canvas').count()+')');
   ok((await pg.textContent('#content')).includes('Senior ผู้ประเมิน'),'senior summary labels evaluators as Senior');
   ok((await pg.textContent('#content')).includes('เอกสาร'),'senior summary uses the 6 Senior criteria');
+  ok(await pg.locator('#content select').count()===2,'senior summary provides separate year and month selectors');
+  if(await pg.locator('#content select').count()===2){
+    await pg.locator('#content select').nth(0).selectOption('2026'); await pg.waitForSelector('#on_c canvas');
+    ok((await pg.locator('#content select').nth(1).locator('option').count())>1,'senior month selector is populated for the selected year');
+  } else ok(false,'senior month selector is populated for the selected year');
   await layoutOk('senior@1280');
   const crit6=await pg.evaluate(()=>({n:criteria.length,k:criteria[0].key})); ok(crit6.n===5&&crit6.k==='speed','global criteria restored after senior render (no leak)');
   await pg.setViewportSize({width:1280,height:3400}); await pg.waitForTimeout(300); await pg.screenshot({path:path.join(OUT,'shot-senior.png')}); await pg.setViewportSize({width:1280,height:900});
@@ -162,7 +171,9 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const f=path.join(OUT,'OSO_Summary_Senior.docx'); await dl.saveAs(f);
     ok(dl.suggestedFilename().startsWith('OSO_Summary_Senior_'),'senior docx name '+dl.suggestedFilename());
     const JSZip=require('jszip'); const z=await JSZip.loadAsync(fs.readFileSync(f)); const d=await z.file('word/document.xml').async('string'); const txt=d.replace(/<[^>]+>/g,'|');
-    ['Dashboard Summary','โดย Senior','ประเด็นที่ควรติดตาม','จำนวนรายการประเมินตาม Senior ผู้ประเมิน','ข้อเสนอแนะเชิงบริหาร','รายละเอียดสรุปรายบุคคล','ข้อเสนอแนะทั้งหมดในรอบรายงาน','OSO Evaluation — Senior Evaluation'].forEach(k=>ok(txt.includes(k),'senior docx has: '+k));
+    ['Dashboard Summary','โดย Senior','ประเด็นที่ควรติดตาม','จำนวนรายการประเมินตาม Senior ผู้ประเมิน','ข้อเสนอแนะเชิงบริหาร','รายละเอียดสรุปรายบุคคล','ข้อเสนอแนะทั้งหมดในรอบรายงาน'].forEach(k=>ok(txt.includes(k),'senior docx has: '+k));
+    ok(!txt.includes('แหล่งข้อมูล')&&!txt.includes('เกณฑ์ระดับคะแนน:'),'senior docx omits source and score-criteria footer');
+    ok(d.includes('<w:spacing w:before="360" w:after="200"'),'senior docx uses balanced section heading spacing');
     const tbls=d.split('<w:tbl>').slice(1).map(x=>x.split('</w:tbl>')[0]);
     ok(tbls.every(x=>/<w:tblW w:w="10106" w:type="dxa"\/><w:jc w:val="center"\/>/.test(x)),'senior docx tables full width + centred');
     ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525)&&(d.match(/<wp:extent/g)||[]).length>=4,'senior docx images full width');
@@ -227,12 +238,12 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
       ok(tbls.every(t=>/<w:tblW w:w="10106" w:type="dxa"\/><w:jc w:val="center"\/>/.test(t)),name+' every table is 10106 wide + centred');
       ok(tbls.every(t=>{ const g=[...t.matchAll(/<w:gridCol w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0); return g===10106; }),name+' every grid sums to 10106');
       ok(tbls.every(t=>{ const rows=t.split('<w:tr>').slice(1); return rows.every(r=>[...r.matchAll(/<w:tcW w:w="(\d+)"/g)].map(m=>+m[1]).reduce((a,b)=>a+b,0)===10106); }),name+' every row of cells sums to 10106');
-      { const txt=d.replace(/<[^>]+>/g,'|'); const need=['รอบรายงาน','วันที่จัดทำ','จัดทำโดย',name==='APPS'?null:'แหล่งข้อมูล','Dashboard Summary','ประเด็นที่ควรติดตาม',name==='APPS'?null:'ข้อเสนอแนะเชิงบริหาร',name==='APPS'?'รายละเอียดสรุปรายหน่วยงาน':'รายละเอียดสรุปรายบุคคล',name==='APPS'?'จำนวนผู้ประเมินตามหน่วยงาน':'จำนวนรายการประเมินตามผลัด','ข้อเสนอแนะ'].filter(Boolean);
+      { const txt=d.replace(/<[^>]+>/g,'|'); const shared= name==='APPS'||name==='Onsite'; const need=['รอบรายงาน','วันที่จัดทำ','จัดทำโดย',shared?null:'แหล่งข้อมูล','Dashboard Summary','ประเด็นที่ควรติดตาม',name==='APPS'?null:'ข้อเสนอแนะเชิงบริหาร',name==='APPS'?'รายละเอียดสรุปรายหน่วยงาน':'รายละเอียดสรุปรายบุคคล',name==='APPS'?'จำนวนผู้ประเมินตามหน่วยงาน':'จำนวนรายการประเมินตามผลัด','ข้อเสนอแนะ'].filter(Boolean);
         need.forEach(k=>ok(txt.includes(k),name+' docx has section/field: '+k));
-        if(name==='APPS'){
-          ok(!txt.includes('แหล่งข้อมูล'),'APPS DOCX omits source from metadata and footer');
-          ok(!txt.includes('เกณฑ์: ร้อยละ 80-100'),'APPS DOCX omits the score-criteria footer');
-          ok(d.includes('<w:spacing w:before="360" w:after="200"'),'APPS DOCX uses balanced section heading spacing');
+        if(shared){
+          ok(!txt.includes('แหล่งข้อมูล'),'APPS/Onsite DOCX omits source from metadata and footer');
+          ok(!txt.includes('เกณฑ์ระดับคะแนน:'),'APPS/Onsite DOCX omits the score-criteria footer');
+          ok(d.includes('<w:spacing w:before="360" w:after="200"'),'APPS/Onsite DOCX uses balanced section heading spacing');
         } }
       ok([...d.matchAll(/<wp:extent cx="(\d+)"/g)].every(m=>+m[1]===673*9525),name+' every image is full content width (673px)');
       ok(!/<w:pgMar[^>]*w:left="(?!900)/.test(d)&&/w:pgSz w:w="11906"/.test(d)&&/w:left="900"/.test(d)&&/w:right="900"/.test(d),name+' page 11906 - 2x900 margins = 10106'); }

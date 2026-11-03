@@ -250,7 +250,7 @@ function onsiteCompute(period){
   const people=rankPeople(uniqueSort(recs.map(r=>r.staff)).map(n=>summarizePerson(n,recs)),recs);
   const s=summarizeOverall(recs,people);
   const bandCounts=BAND5.map(b=>({label:b.label,color:b.color,value:recs.filter(r=>scoreBand(r.avg)===b.label).length}));
-  const byM={}; all.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
+  const byM={}; recs.forEach(r=>{const k=ymOf(r.timestampRaw); if(!k)return; (byM[k]=byM[k]||[]).push(r.avg);});
   const monthly=Object.keys(byM).sort().map(k=>({key:k,label:monthShort(k),value:byM[k].reduce((a,b)=>a+b,0)/byM[k].length,n:byM[k].length}));
   return {recs,people,s,bandCounts,monthly,months:monthsOf(all,r=>r.timestampRaw)};
 }
@@ -332,20 +332,13 @@ function appsInsights(m){
    หน้าจอสรุป
    ============================================================ */
 function toolbarHtml(kind,months,count){
-  const annual=kind==='apps';
-  if(!annual){
-    return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">ช่วงข้อมูล</label>'+
-      '<select class="input" style="width:auto;min-width:180px" onchange="sumPeriodChange(\''+kind+'\',this.value)">'+
-      '<option value="all"'+(state[kind]==='all'?' selected':'')+'>ทั้งหมด</option>'+months.map(k=>'<option value="'+k+'"'+(state[kind]===k?' selected':'')+'>'+monthLabel(k)+'</option>').join('')+'</select>'+
-      '<span class="mini">'+count+' รายการ</span><button class="btn" style="margin-left:auto" onclick="sumRefresh(\''+kind+'\')">รีเฟรช</button><button class="btn primary" id="sumExportBtn_'+kind+'" onclick="sumExport(\''+kind+'\')">ออกรายงานสรุป DOCX</button></div>';
-  }
-  const selected=String(state.apps||'all'), year=/^\d{4}/.test(selected)?selected.slice(0,4):'';
+  const selected=String(state[kind]||'all'), year=/^\d{4}/.test(selected)?selected.slice(0,4):'';
   const years=yearsOf(months), monthChoices=year?months.filter(m=>m.startsWith(year+'-')):[];
   return '<div class="toolbar"><label class="mini" style="font-weight:700;color:var(--navy)">เลือกปี</label>'+
-    '<select class="input" style="width:auto;min-width:140px" onchange="sumPeriodChange(\'apps\',this.value)"><option value="all"'+(selected==='all'?' selected':'')+'>ทั้งหมด</option>'+years.map(y=>'<option value="'+y+'"'+(year===y?' selected':'')+'>ปี '+(Number(y)+543)+'</option>').join('')+'</select>'+
+    '<select class="input" style="width:auto;min-width:140px" onchange="sumPeriodChange(\''+kind+'\',this.value)"><option value="all"'+(selected==='all'?' selected':'')+'>ทั้งหมด</option>'+years.map(y=>'<option value="'+y+'"'+(year===y?' selected':'')+'>ปี '+(Number(y)+543)+'</option>').join('')+'</select>'+
     '<label class="mini" style="font-weight:700;color:var(--navy)">เลือกเดือน</label>'+
-    '<select class="input" style="width:auto;min-width:150px"'+(year?'':' disabled')+' onchange="sumPeriodChange(\'apps\',this.value)">'+(year?'<option value="'+year+'"'+(selected===year?' selected':'')+'>ทุกเดือน</option>'+monthChoices.map(m=>'<option value="'+m+'"'+(selected===m?' selected':'')+'>'+monthLabel(m)+'</option>').join(''):'<option>เลือกปีก่อน</option>')+'</select>'+
-    '<span class="mini">'+count+' รายการ</span><button class="btn" style="margin-left:auto" onclick="sumRefresh(\'apps\')">รีเฟรช</button><button class="btn primary" id="sumExportBtn_apps" onclick="sumExport(\'apps\')">ออกรายงานสรุป DOCX</button></div>';
+    '<select class="input" style="width:auto;min-width:150px"'+(year?'':' disabled')+' onchange="sumPeriodChange(\''+kind+'\',this.value)">'+(year?'<option value="'+year+'"'+(selected===year?' selected':'')+'>ทุกเดือน</option>'+monthChoices.map(m=>'<option value="'+m+'"'+(selected===m?' selected':'')+'>'+monthLabel(m)+'</option>').join(''):'<option>เลือกปีก่อน</option>')+'</select>'+
+    '<span class="mini">'+count+' รายการ</span><button class="btn" style="margin-left:auto" onclick="sumRefresh(\''+kind+'\')">รีเฟรช</button><button class="btn primary" id="sumExportBtn_'+kind+'" onclick="sumExport(\''+kind+'\')">ออกรายงานสรุป DOCX</button></div>';
 }
 function insightPanel(items){
   return '<div class="panel" style="margin-bottom:16px"><div class="panel-title" style="margin-bottom:10px">สรุปประเด็นสำคัญ</div><ul style="margin:0;padding-left:20px;line-height:1.9">'+items.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>';
@@ -548,10 +541,10 @@ function buildOnsiteDocx(period){ return buildPersonDocx('onsite',period); }
 function personDocxBody(period){
   BG='#ffffff'; const m=onsiteCompute(period), s=m.s, ch=onsiteCharts(m), sec=onsiteSections(m), md=newMedia(), label=periodLabel(period), now=new Date();
   const weak=criteria.slice().sort((a,b)=>(s.criteriaAvg[a.key]||0)-(s.criteriaAvg[b.key]||0))[0];
-  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c);
+  let n=0; const H=(t,c)=>heading((++n)+'. '+t,c,{before:360,after:200});
   let b='';
   b+=banner(CUR.docxTitle,CUR.docxSub+label,'');
-  b+=kvTable(metaPairs(label,now,[['แหล่งข้อมูล',CUR.source]]));
+  b+=kvTable(metaPairs(label,now));
   b+=H('Dashboard Summary');
   b+=kpiRow([
     {label:'จำนวนประเมิน',value:String(s.total),sub:'รายการ',color:'#0b2f6b'},
@@ -572,7 +565,6 @@ function personDocxBody(period){
   b+=H('ข้อเสนอแนะเชิงบริหาร','2563EB'); b+=docxRecs(sec.recs);
   b+=H(sec.detail.title,'14B8A6'); if(ch.topBars) b+=md.add(ch.topBars,IMG_MAX); b+=docxTable(sec.detail);
   b+=H(sec.comments.title,'EF4444'); b+=docxComments(sec.comments);
-  b+=para('เกณฑ์ระดับคะแนน: ดีเยี่ยม ≥ 4.60 · ดี ≥ 3.80 · พอใช้ ≥ 3.00 · ต้องปรับปรุง ≥ 2.00 · ไม่ผ่าน < 2.00   |   แหล่งข้อมูล: '+CUR.source,{sz:16,color:'94a3b8',before:200,align:'center'});
   return {b,md};
 }
 async function buildAppsDocx(period){
