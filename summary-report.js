@@ -93,9 +93,9 @@ function chartTitle(g,t,x,y){ if(!t) return; g.canvas._title=t; if(SCREEN) retur
 
 // มาตรวัดครึ่งวงกลม: pct 0-100
 function chGauge(pct,o){
-  const k=o.k||1, w=260, h=220, {c,g}=mk(w*k,h*k); g.scale(k,k); pct=Math.max(0,Math.min(100,Number(pct)||0));
-  chartTitle(g,o.title,14,24);
-  const cx=w/2, cy=156, R=92;
+  const k=o.k||1, w=260, compact=!!o.compact, h=compact?180:220, {c,g}=mk(w*k,h*k); g.scale(k,k); pct=Math.max(0,Math.min(100,Number(pct)||0));
+  chartTitle(g,o.title,14,compact?18:24);
+  const cx=w/2, cy=compact?126:156, R=compact?68:92;
   g.lineWidth=24; g.lineCap='round';
   g.beginPath(); g.arc(cx,cy,R,Math.PI,2*Math.PI); g.strokeStyle='#e8eefb'; g.stroke();
   if(pct>0){
@@ -110,8 +110,8 @@ function chGauge(pct,o){
 }
 // โดนัท + คำอธิบายสี  items:[{label,value,color}]
 function chDonut(items,o){
-  const k=o.k||1, w=420, h=220, {c,g}=mk(w*k,h*k); g.scale(k,k); chartTitle(g,o.title,14,24);
-  const cx=100, cy=128, R=78, r=50, total=items.reduce((a,x)=>a+x.value,0);
+  const k=o.k||1, w=420, compact=!!o.compact, h=compact?180:220, {c,g}=mk(w*k,h*k); g.scale(k,k); chartTitle(g,o.title,14,compact?18:24);
+  const cx=100, cy=compact?108:128, R=compact?64:78, r=compact?42:50, total=items.reduce((a,x)=>a+x.value,0);
   if(!total){
     g.lineWidth=R-r; g.strokeStyle='#e8eefb'; g.beginPath(); g.arc(cx,cy,(R+r)/2,0,2*Math.PI); g.stroke();
     g.fillStyle='#94a3b8'; g.font='13px '+FONT; g.textAlign='center'; g.fillText('ไม่มีข้อมูล',cx,cy+4);
@@ -273,8 +273,8 @@ function onsiteBuilders(m){
   const top=m.people.filter(p=>p.count).slice(0,5);
   const shifts=Object.keys(s.evaluators||{}).map(k=>({label:k||'-',value:s.evaluators[k]})).sort((a,b)=>b.value-a.value).slice(0,8);
   return {
-    gauge:(w,scr)=>chGauge(s.avgScore/5*100,{k:KS(w,scr),title:'คะแนนเฉลี่ยรวม',main:f2(s.avgScore)+' / 5',sub:avgBand,color:toneColorAvg(s.avgScore),maxTxt:'5'}),
-    donut:(w,scr)=>chDonut(m.bandCounts,{k:KS(w,scr),title:'สัดส่วนผลประเมินตามระดับ',center:s.total,centerSub:'รายการ'}),
+    gauge:(w,scr)=>chGauge(s.avgScore/5*100,{k:KS(w,scr),compact:true,title:'คะแนนเฉลี่ยรวม',main:f2(s.avgScore)+' / 5',sub:avgBand,color:toneColorAvg(s.avgScore),maxTxt:'5'}),
+    donut:(w,scr)=>chDonut(m.bandCounts,{k:KS(w,scr),compact:true,title:'สัดส่วนผลประเมินตามระดับ',center:s.total,centerSub:'รายการ'}),
     crit:w=>chHBars(criteria.map(cr=>{const v=s.criteriaAvg[cr.key]||0; return {label:cr.no+'. '+cr.shortTitle,value:v,color:toneColorAvg(v),text:f2(v)};}),{w,title:'คะแนนเฉลี่ยรายหัวข้อ (เต็ม 5)',max:5,labW:LW(w,.3),rowH:40,stack:CUR.kind==='senior'}),
     topBars:top.length?(w=>chHBars(top.map(p=>({label:p.name,value:p.avg,color:toneColorAvg(p.avg),text:f2(p.avg)+'  ('+p.count+')'})),{w,title:'เจ้าหน้าที่คะแนนสูงสุด 5 อันดับ (คะแนน · จำนวนครั้ง)',max:5,labW:LW(w,.36),rowH:40})):null,
     shiftBars:shifts.length?(w=>chHBars(shifts.map(x=>({label:x.label,value:x.value,color:'#2563eb',text:String(x.value)})),{w,title:CUR.evTitle,max:Math.max(1,shifts[0].value),labW:LW(w,.3),rowH:36})):null,
@@ -643,5 +643,5 @@ window.render=function(){
 window.osoCharts={ cardsRow, fill, appsTrendAll, setBG:function(v){ BG=v; },
   appsModel:function(rs){ const api=window.appsSummaryApi; const s=api.summarize(rs); return {rs,s,monthly:[],agencies:Object.keys(s.agencyCounts).map(k=>({label:k,value:s.agencyCounts[k]})).sort((a,b)=>b.value-a.value)}; },
   appsBuilders:appsBuilders };
-window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,trendKeyIndices,inPeriod,yearsOf,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
+window.__sumTest={CFG,withCfg,buildPersonDocx,onsiteSections,appsSections,wrapTH,mk,chGauge,chDonut,trendKeyIndices,inPeriod,yearsOf,onsiteCompute,appsCompute,onsiteCharts,appsCharts,onsiteInsights,appsInsights,buildOnsiteDocx,buildAppsDocx,state};
 })();

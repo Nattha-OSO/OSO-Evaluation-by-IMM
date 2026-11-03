@@ -254,6 +254,8 @@ let fails = 0; const ok=(c,m)=>{ if(!c){fails++;console.log('FAIL',m);} else con
     const T=['2. ระบบมีประโยชน์สามารถช่วยสนับสนุนภารกิจของหน่วยงานได้','4. คู่มือการใช้งานช่วยเพิ่มความเข้าใจในการใช้งานระบบให้กับเจ้าหน้าที่','7. การแจ้งข้อมูลข่าวสารการ Upgrade ระบบ (วิธีการ / ความชัดเจน / เข้าใจง่าย)','ก'.repeat(300)];
     return T.map(t=>{ const L=__sumTest.wrapTH(g,t,200,2); return {n:L.length,max:Math.max(...L.map(l=>g.measureText(l).width))}; }); });
   ok(wr.every(x=>x.n<=2&&x.max<=200.5),'wrapTH never exceeds width/lines '+JSON.stringify(wr));
+  const compactCharts=await pg.evaluate(()=>({g:__sumTest.chGauge(97,{compact:true,main:'4.85 / 5',sub:'ดีเยี่ยม',color:'#2563eb'})._h,d:__sumTest.chDonut([{label:'ดีเยี่ยม',value:7,color:'#2563eb'}],{compact:true,center:7,centerSub:'รายการ'})._h}));
+  ok(compactCharts.g===180&&compactCharts.d===180,'person-report overview charts use compact 180px canvases');
   // กราฟแนวโน้มต้องติดป้ายเฉพาะค่าต่ำสุดและค่าล่าสุด เพื่อลดข้อความทับกันในรายงาน
   const trendKeys=await pg.evaluate(()=>typeof __sumTest.trendKeyIndices==='function'&&__sumTest.trendKeyIndices([{value:86.7},{value:81.0},{value:89.5},{value:100.0},{value:91.0}]).join(','));
   ok(trendKeys==='1,4','trend labels only minimum and latest points');
