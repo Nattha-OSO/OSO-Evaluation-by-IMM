@@ -18,3 +18,5 @@ secrets*
 # หมายเหตุ: config.js ใส่เฉพาะ anon key (ปลอดภัยต่อการเปิดเผย) จึง commit ได้
 # ถ้าต้องการซ่อน ให้ uncomment บรรทัดล่างแล้วตั้งค่าผ่าน build/env แทน
 # config.js
+
+.vercel
